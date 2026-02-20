@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "940984773428",
+    "project_id": "recicladora-guadalajara",
+    "storage_bucket": "recicladora-guadalajara.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:940984773428:android:661368a8b3c0927136d361",
+        "android_client_info": {
+          "package_name": "com.example.flutter_application_1"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "940984773428-55ivvst2ec661mg3nvuggssr9jvk3166.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBkjMZI9ZBcExVTdRYcbzpQlmXHdKcYZtA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "940984773428-55ivvst2ec661mg3nvuggssr9jvk3166.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
