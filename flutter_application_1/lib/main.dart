@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
-
 import 'firebase_options.dart';
+import 'screens/login_screen.dart';
 
 
 void main()  async {
@@ -17,18 +17,15 @@ void main()  async {
 
  FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
 
- 
+ final FirebaseAnalytics analytics = FirebaseAnalytics.instance;
 
-   final FirebaseAnalytics analytics = FirebaseAnalytics.instance;
-
+  
    await analytics.logEvent(
   name: "super_prueba",
   parameters: {
     "timestamp": DateTime.now().toIso8601String(),
   },
 );
-
-
 
 
   runApp(const MyApp());
@@ -40,25 +37,24 @@ void main()  async {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-
-
   @override
   Widget build(BuildContext context) {
     
-   
-
-
 
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'Flutter Demo',
+
       theme: ThemeData(
-       
-        colorScheme: .fromSeed(seedColor: const Color.fromARGB(255, 249, 8, 124)),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color.fromARGB(255, 249, 8, 124)),
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: LoginScreen(),
     );
   }
 }
+
+
+
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
