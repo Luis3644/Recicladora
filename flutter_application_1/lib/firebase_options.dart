@@ -66,4 +66,5 @@ class DefaultFirebaseOptions {
     projectId: 'recicladora-guadalajara',
     storageBucket: 'recicladora-guadalajara.firebasestorage.app',
   );
+
 }
