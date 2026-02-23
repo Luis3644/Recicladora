@@ -32,7 +32,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         "apellido": apellidoController.text.trim(),
         "edad": edadController.text.trim(),
         "email": emailController.text.trim(),
-        "rol": "operador" // 🔥 rol por defecto
+        "rol": "operador" // 
       });
 
       ScaffoldMessenger.of(context).showSnackBar(

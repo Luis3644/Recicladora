@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'register_screen.dart';
+import 'admin_screen.dart';
+import 'operador_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -30,13 +32,17 @@ class _LoginScreenState extends State<LoginScreen> {
 
       String rol = userDoc["rol"];
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Rol: $rol")),
-      );
-
-      // 🔥 Aquí después mandamos a pantalla según rol
-      // if (rol == "admin") ...
-      // if (rol == "operador") ...
+      if (rol == "admin") {
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(builder: (context) => AdminScreen()),
+  );
+} else {
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(builder: (context) => OperadorScreen()),
+  );
+}
 
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
