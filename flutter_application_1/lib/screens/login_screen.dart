@@ -6,8 +6,10 @@ import 'admin_screen.dart';
 import 'operador_screen.dart';
 
 class LoginScreen extends StatefulWidget {
+  LoginScreen({super.key});
+
   @override
-  _LoginScreenState createState() => _LoginScreenState();
+  State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
@@ -18,9 +20,23 @@ class _LoginScreenState extends State<LoginScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  final _formKey = GlobalKey<FormState>();
+
+  bool isLoading = false;
+  bool isPasswordVisible = false;
+
   Future<void> loginUsuario() async {
+
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      isLoading = true;
+    });
+
     try {
-      UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+
+      UserCredential userCredential =
+          await _auth.signInWithEmailAndPassword(
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
       );
@@ -33,52 +49,196 @@ class _LoginScreenState extends State<LoginScreen> {
       String rol = userDoc["rol"];
 
       if (rol == "admin") {
-  Navigator.pushReplacement(
-    context,
-    MaterialPageRoute(builder: (context) => AdminScreen()),
-  );
-} else {
-  Navigator.pushReplacement(
-    context,
-    MaterialPageRoute(builder: (context) => OperadorScreen()),
-  );
-}
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => AdminScreen()),
+        );
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => OperadorScreen()),
+        );
+      }
+
+    } on FirebaseAuthException catch (e) {
+
+      String mensaje = "Error al iniciar sesión";
+
+      if (e.code == 'user-not-found') {
+        mensaje = "Usuario no encontrado";
+      } else if (e.code == 'wrong-password') {
+        mensaje = "Contraseña incorrecta";
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(mensaje),
+          backgroundColor: Colors.red,
+        ),
+      );
 
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
+        const SnackBar(
+          content: Text("Ocurrió un error inesperado"),
+          backgroundColor: Colors.red,
+        ),
       );
     }
+
+    setState(() {
+      isLoading = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+
     return Scaffold(
-      appBar: AppBar(title: Text("Login")),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            TextField(controller: emailController, decoration: InputDecoration(labelText: "Email")),
-            TextField(controller: passwordController, decoration: InputDecoration(labelText: "Password"), obscureText: true),
+      body: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Color(0xFF0F2027),
+              Color(0xFF203A43),
+              Color(0xFF2C5364),
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: Center(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 25),
+              child: Card(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                elevation: 15,
+                child: Padding(
+                  padding: const EdgeInsets.all(25),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
 
-            SizedBox(height: 20),
+                        const Icon(
+                          Icons.recycling,
+                          size: 70,
+                          color: Colors.green,
+                        ),
 
-            ElevatedButton(
-              onPressed: loginUsuario,
-              child: Text("Login"),
+                        const SizedBox(height: 15),
+
+                        const Text(
+                          "Recicladora GUADALAJARA",
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+
+                        const SizedBox(height: 30),
+
+                        TextFormField(
+                          controller: emailController,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return "Ingresa tu correo";
+                            }
+                            return null;
+                          },
+                          decoration: InputDecoration(
+                            labelText: "Correo",
+                            prefixIcon: const Icon(Icons.email),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        TextFormField(
+                          controller: passwordController,
+                          obscureText: !isPasswordVisible,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return "Ingresa tu contraseña";
+                            }
+                            if (value.length < 6) {
+                              return "Mínimo 6 caracteres";
+                            }
+                            return null;
+                          },
+                          decoration: InputDecoration(
+                            labelText: "Contraseña",
+                            prefixIcon: const Icon(Icons.lock),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                isPasswordVisible
+                                    ? Icons.visibility
+                                    : Icons.visibility_off,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  isPasswordVisible = !isPasswordVisible;
+                                });
+                              },
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 25),
+
+                        SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: ElevatedButton(
+                            onPressed: isLoading ? null : loginUsuario,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(15),
+                              ),
+                            ),
+                            child: isLoading
+                                ? const CircularProgressIndicator(
+                                    color: Colors.white,
+                                  )
+                                : const Text(
+                                    "Iniciar Sesión",
+                                    style: TextStyle(fontSize: 16),
+                                  ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 15),
+
+                        TextButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => RegisterScreen()),
+                            );
+                          },
+                          child: const Text("Crear cuenta"),
+                        ),
+
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ),
-
-            TextButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => RegisterScreen()),
-                );
-              },
-              child: Text("Crear cuenta"),
-            )
-          ],
+          ),
         ),
       ),
     );
