@@ -4,9 +4,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'register_screen.dart';
 import 'admin_screen.dart';
 import 'operador_screen.dart';
+import 'Trabajador_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  LoginScreen({super.key});
+  const LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -46,17 +47,40 @@ class _LoginScreenState extends State<LoginScreen> {
       DocumentSnapshot userDoc =
           await _firestore.collection("usuarios").doc(uid).get();
 
+      if (!userDoc.exists) {
+        throw Exception("Usuario sin datos en Firestore");
+      }
+
       String rol = userDoc["rol"];
 
       if (rol == "admin") {
+
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => AdminScreen()),
+          MaterialPageRoute(builder: (_) =>  AdminScreen()),
         );
-      } else {
+
+      } else if (rol == "operador") {
+
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => OperadorScreen()),
+          MaterialPageRoute(builder: (_) =>  OperadorScreen()),
+        );
+
+      } else if (rol == "trabajador") {
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) =>  TrabajadorScreen()),
+        );
+
+      } else {
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Rol no válido"),
+            backgroundColor: Colors.red,
+          ),
         );
       }
 
@@ -68,6 +92,8 @@ class _LoginScreenState extends State<LoginScreen> {
         mensaje = "Usuario no encontrado";
       } else if (e.code == 'wrong-password') {
         mensaje = "Contraseña incorrecta";
+      } else if (e.code == 'invalid-email') {
+        mensaje = "Correo inválido";
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -78,9 +104,10 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
     } catch (e) {
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Ocurrió un error inesperado"),
+        SnackBar(
+          content: Text("Error: $e"),
           backgroundColor: Colors.red,
         ),
       );
@@ -143,6 +170,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                         const SizedBox(height: 30),
 
+                        /// EMAIL
                         TextFormField(
                           controller: emailController,
                           validator: (value) {
@@ -162,6 +190,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                         const SizedBox(height: 20),
 
+                        /// PASSWORD
                         TextFormField(
                           controller: passwordController,
                           obscureText: !isPasswordVisible,
@@ -197,6 +226,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                         const SizedBox(height: 25),
 
+                        /// BOTÓN LOGIN
                         SizedBox(
                           width: double.infinity,
                           height: 50,
@@ -221,6 +251,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                         const SizedBox(height: 15),
 
+                        /// CREAR CUENTA
                         TextButton(
                           onPressed: () {
                             Navigator.push(

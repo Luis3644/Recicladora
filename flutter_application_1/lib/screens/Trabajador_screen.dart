@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
-class OperadorScreen extends StatelessWidget {
+class TrabajadorScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Panel Operador trailer")),
+      appBar: AppBar(title: Text("Panel del trabajador")),
       body: Center(
         child: Text(
-          "Bienvenido Operador 👷",
+          "Bienvenido Trabajador 👷",
           style: TextStyle(fontSize: 22),
         ),
       ),
