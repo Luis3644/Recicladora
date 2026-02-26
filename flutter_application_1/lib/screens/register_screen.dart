@@ -34,6 +34,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  bool _obscurePassword = true;
   Future<void> registrarUsuario() async {
 
     if (!_formKey.currentState!.validate()) return;
@@ -94,10 +95,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
   InputDecoration estiloCampo(String texto, IconData icono) {
     return InputDecoration(
       labelText: texto,
-      prefixIcon: Icon(icono),
+      prefixIcon: Icon(icono, color: const Color(0xFF0D7377)),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
       ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFF0D7377), width: 2),
+      ),
+      filled: true,
+      fillColor: const Color(0xFFFAFAFA),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     );
   }
 
@@ -105,151 +114,244 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Registro")),
+      backgroundColor: const Color(0xFFFAFAFA),
+      appBar: AppBar(
+        title: const Text("Crear Cuenta", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        elevation: 0,
+        backgroundColor: const Color(0xFF0D7377),
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: Colors.white), // flecha regresar blanca
+      ),
       body: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              children: [
-
-                DropdownButtonFormField<String>(
-                  value: rolSeleccionado,
-                  decoration: estiloCampo("Tipo de usuario", Icons.person),
-                  items: const [
-                    DropdownMenuItem(
-                      value: "operador",
-                      child: Text("Operador (Tráiler)"),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Encabezado visual
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF0D7377), Color(0xFF14919B)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.app_registration, color: Colors.white, size: 40),
                     ),
-                    DropdownMenuItem(
-                      value: "trabajador",
-                      child: Text("Trabajador"),
+                    const SizedBox(height: 14),
+                    const Text(
+                      "Regístrate ahora",
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      "Completa todos los datos para crear tu cuenta",
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.white70,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
                   ],
-                  onChanged: (value) {
-                    setState(() {
-                      rolSeleccionado = value!;
-                    });
-                  },
                 ),
+              ),
 
-                const SizedBox(height: 15),
+              const SizedBox(height: 24),
 
-                TextFormField(
-                  controller: nombreController,
-                  validator: (value) =>
-                      value!.isEmpty ? "Campo obligatorio" : null,
-                  decoration: estiloCampo("Nombre", Icons.person),
-                ),
+              // Tarjeta con el formulario
+              Card(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                elevation: 4,
+                shadowColor: Colors.black.withOpacity(0.1),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      children: [
+                        DropdownButtonFormField<String>(
+                          value: rolSeleccionado,
+                          decoration: estiloCampo("Tipo de usuario", Icons.person),
+                          items: const [
+                            DropdownMenuItem(
+                              value: "operador",
+                              child: Text("Operador (Tráiler)"),
+                            ),
+                            DropdownMenuItem(
+                              value: "trabajador",
+                              child: Text("Trabajador"),
+                            ),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              rolSeleccionado = value!;
+                            });
+                          },
+                        ),
 
-                const SizedBox(height: 15),
+                        const SizedBox(height: 12),
 
-                TextFormField(
-                  controller: paternoController,
-                  validator: (value) =>
-                      value!.isEmpty ? "Campo obligatorio" : null,
-                  decoration: estiloCampo("Apellido paterno", Icons.badge),
-                ),
+                        // Nombres en una fila flexible
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: nombreController,
+                                validator: (value) => value!.isEmpty ? "Campo obligatorio" : null,
+                                decoration: estiloCampo("Nombre", Icons.person),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: TextFormField(
+                                controller: paternoController,
+                                validator: (value) => value!.isEmpty ? "Campo obligatorio" : null,
+                                decoration: estiloCampo("Apellido paterno", Icons.badge),
+                              ),
+                            ),
+                          ],
+                        ),
 
-                const SizedBox(height: 15),
+                        const SizedBox(height: 12),
 
-                TextFormField(
-                  controller: maternoController,
-                  decoration: estiloCampo("Apellido materno", Icons.badge),
-                ),
+                        TextFormField(
+                          controller: maternoController,
+                          decoration: estiloCampo("Apellido materno", Icons.badge),
+                        ),
 
-                const SizedBox(height: 15),
+                        const SizedBox(height: 12),
 
-                TextFormField(
-                  controller: telefonoController,
-                  validator: (value) =>
-                      value!.isEmpty ? "Campo obligatorio" : null,
-                  decoration: estiloCampo("Teléfono", Icons.phone),
-                ),
+                        TextFormField(
+                          controller: telefonoController,
+                          keyboardType: TextInputType.phone,
+                          validator: (value) => value!.isEmpty ? "Campo obligatorio" : null,
+                          decoration: estiloCampo("Teléfono", Icons.phone),
+                        ),
 
-                const SizedBox(height: 15),
+                        const SizedBox(height: 12),
 
-                TextFormField(
-                  controller: direccionController,
-                  decoration: estiloCampo("Dirección", Icons.home),
-                ),
+                        TextFormField(
+                          controller: direccionController,
+                          decoration: estiloCampo("Dirección", Icons.home),
+                        ),
 
-                const SizedBox(height: 15),
+                        const SizedBox(height: 12),
 
-                TextFormField(
-                  controller: curpController,
-                  decoration: estiloCampo("CURP", Icons.credit_card),
-                ),
+                        TextFormField(
+                          controller: curpController,
+                          decoration: estiloCampo("CURP", Icons.credit_card),
+                        ),
 
-                const SizedBox(height: 15),
+                        const SizedBox(height: 12),
 
-                TextFormField(
-                  controller: emailController,
-                  validator: (value) =>
-                      value!.isEmpty ? "Campo obligatorio" : null,
-                  decoration: estiloCampo("Correo", Icons.email),
-                ),
+                        TextFormField(
+                          controller: emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          validator: (value) => value!.isEmpty ? "Campo obligatorio" : null,
+                          decoration: estiloCampo("Correo", Icons.email),
+                        ),
 
-                const SizedBox(height: 15),
+                        const SizedBox(height: 12),
 
-                TextFormField(
-                  controller: passwordController,
-                  obscureText: true,
-                  validator: (value) {
-                    if (value!.isEmpty) return "Campo obligatorio";
-                    if (value.length < 6) return "Mínimo 6 caracteres";
-                    return null;
-                  },
-                  decoration: estiloCampo("Contraseña", Icons.lock),
-                ),
+                        TextFormField(
+                          controller: passwordController,
+                          obscureText: _obscurePassword,
+                          validator: (value) {
+                            if (value!.isEmpty) return "Campo obligatorio";
+                            if (value.length < 6) return "Mínimo 6 caracteres";
+                            return null;
+                          },
+                          decoration: estiloCampo("Contraseña", Icons.lock).copyWith(
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                                color: const Color(0xFF0D7377),
+                              ),
+                              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                            ),
+                          ),
+                        ),
 
-                // 🔥 CAMPOS SOLO OPERADOR
-                if (rolSeleccionado == "operador") ...[
+                        // Campos para operador
+                        if (rolSeleccionado == "operador") ...[
+                          const SizedBox(height: 18),
+                          const Divider(),
+                          const SizedBox(height: 6),
+                          const Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text("Datos del Operador", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: rfcController,
+                            decoration: estiloCampo("RFC", Icons.assignment),
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: licenciaController,
+                            decoration: estiloCampo("Tipo de Licencia", Icons.car_rental),
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: vigenciaController,
+                            decoration: estiloCampo("Vigencia de Licencia", Icons.date_range),
+                          ),
+                        ],
 
-                  const SizedBox(height: 20),
+                        const SizedBox(height: 18),
 
-                  const Divider(),
-
-                  const Text(
-                    "Datos del Operador",
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0D7377),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              elevation: 3,
+                            ),
+                            onPressed: registrarUsuario,
+                            child: const Text(
+                              "Registrar",
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.5,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-
-                  const SizedBox(height: 15),
-
-                  TextFormField(
-                    controller: rfcController,
-                    decoration: estiloCampo("RFC", Icons.assignment),
-                  ),
-
-                  const SizedBox(height: 15),
-
-                  TextFormField(
-                    controller: licenciaController,
-                    decoration: estiloCampo("Tipo de Licencia", Icons.car_rental),
-                  ),
-
-                  const SizedBox(height: 15),
-
-                  TextFormField(
-                    controller: vigenciaController,
-                    decoration: estiloCampo("Vigencia de Licencia", Icons.date_range),
-                  ),
-                ],
-
-                const SizedBox(height: 25),
-
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton(
-                    onPressed: registrarUsuario,
-                    child: const Text("Registrar"),
-                  ),
                 ),
-              ],
-            ),
+              ),
+
+              const SizedBox(height: 16),
+              Center(
+                child: Text(
+                  "Al registrarte aceptas nuestros términos y políticas.",
+                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
           ),
         ),
       ),

@@ -1,10 +1,135 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:math';
 import 'register_screen.dart';
 import 'admin_screen.dart';
 import 'operador_screen.dart';
 import 'Trabajador_screen.dart';
+
+// CustomPainter para el fondo animado tipo lava lámpara
+class LavaLampPainter extends CustomPainter {
+  final double animationValue;
+  
+  LavaLampPainter({required this.animationValue});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint();
+    
+    // Colores que cambian suavemente
+    List<Color> colors = [
+      Color.lerp(Color(0xFF0D7377), Color(0xFF14919B), animationValue % 1.0) ?? Color(0xFF0D7377),
+      Color.lerp(Color(0xFF14919B), Color(0xFF1ABC9C), (animationValue + 0.33) % 1.0) ?? Color(0xFF14919B),
+      Color.lerp(Color(0xFF1ABC9C), Color(0xFF0D7377), (animationValue + 0.66) % 1.0) ?? Color(0xFF1ABC9C),
+    ];
+
+    // Dibujar blobs animados
+    for (int i = 0; i < colors.length; i++) {
+      paint.color = colors[i].withOpacity(0.3 + 0.3 * sin(animationValue * 2 + i));
+      
+      double offsetX = size.width * (0.25 + 0.2 * sin(animationValue + i));
+      double offsetY = size.height * (0.3 + 0.25 * cos(animationValue * 0.8 + i * 2));
+      
+      double radius = size.width * (0.12 + 0.05 * sin(animationValue * 1.5 + i));
+      
+      canvas.drawCircle(
+        Offset(offsetX, offsetY),
+        radius,
+        paint,
+      );
+    }
+
+    // Dibujar blobs secundarios
+    for (int i = 0; i < 2; i++) {
+      paint.color = colors[(i + 1) % colors.length].withOpacity(0.15 + 0.15 * cos(animationValue * 1.2 + i));
+      
+      double offsetX = size.width * (0.7 + 0.15 * cos(animationValue * 0.7 + i * 1.5));
+      double offsetY = size.height * (0.6 + 0.2 * sin(animationValue * 0.9 + i));
+      
+      double radius = size.width * (0.15 + 0.08 * cos(animationValue + i * 3));
+      
+      canvas.drawCircle(
+        Offset(offsetX, offsetY),
+        radius,
+        paint,
+      );
+    }
+
+    // Efecto de degradado suave sobre los blobs
+    final gradientPaint = Paint()
+      ..shader = LinearGradient(
+        colors: [
+          Colors.transparent,
+          Color(0xFF0D7377).withOpacity(0.05),
+        ],
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+    
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), gradientPaint);
+  }
+
+  @override
+  bool shouldRepaint(LavaLampPainter oldDelegate) => true;
+}
+
+// Widget del fondo animado
+class AnimatedLavaBackground extends StatefulWidget {
+  final Widget child;
+
+  const AnimatedLavaBackground({required this.child});
+
+  @override
+  State<AnimatedLavaBackground> createState() => _AnimatedLavaBackgroundState();
+}
+
+class _AnimatedLavaBackgroundState extends State<AnimatedLavaBackground>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(seconds: 20),
+      vsync: this,
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return Container(
+          width: double.infinity,
+          height: double.infinity,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Color(0xFF051F20),
+                Color(0xFF0A3A3F),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: CustomPaint(
+            painter: LavaLampPainter(animationValue: _controller.value * 6.28),
+            child: widget.child,
+          ),
+        );
+      },
+    );
+  }
+}
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -121,54 +246,68 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
 
-    return Scaffold(
-      body: Container(
-        width: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              Color(0xFF0F2027),
-              Color(0xFF203A43),
-              Color(0xFF2C5364),
-            ],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: Center(
+    return AnimatedLavaBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Center(
           child: SingleChildScrollView(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 25),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Card(
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(24),
                 ),
-                elevation: 15,
+                elevation: 20,
+                shadowColor: Colors.black.withOpacity(0.3),
                 child: Padding(
-                  padding: const EdgeInsets.all(25),
+                  padding: const EdgeInsets.all(32),
                   child: Form(
                     key: _formKey,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
 
-                        const Icon(
-                          Icons.recycling,
-                          size: 70,
-                          color: Colors.green,
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF0D7377), Color(0xFF14919B)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: const Icon(
+                            Icons.recycling,
+                            size: 60,
+                            color: Colors.white,
+                          ),
                         ),
 
-                        const SizedBox(height: 15),
+                        const SizedBox(height: 20),
 
                         const Text(
                           "Recicladora GUADALAJARA",
                           style: TextStyle(
-                            fontSize: 22,
+                            fontSize: 26,
                             fontWeight: FontWeight.bold,
+                            color: Color(0xFF1F1F1F),
+                            letterSpacing: 0.5,
                           ),
                         ),
 
-                        const SizedBox(height: 30),
+                        const SizedBox(height: 8),
+
+                        const Text(
+                          "Inicia sesión en tu cuenta",
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF666666),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+
+                        const SizedBox(height: 32),
 
                         /// EMAIL
                         TextFormField(
@@ -180,15 +319,23 @@ class _LoginScreenState extends State<LoginScreen> {
                             return null;
                           },
                           decoration: InputDecoration(
-                            labelText: "Correo",
-                            prefixIcon: const Icon(Icons.email),
+                            labelText: "Correo electrónico",
+                            prefixIcon: const Icon(Icons.email, color: Color(0xFF0D7377)),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(15),
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
                             ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: Color(0xFF0D7377), width: 2),
+                            ),
+                            filled: true,
+                            fillColor: Color(0xFFFAFAFA),
                           ),
+                          style: const TextStyle(color: Color(0xFF1F1F1F)),
                         ),
 
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 18),
 
                         /// PASSWORD
                         TextFormField(
@@ -205,12 +352,13 @@ class _LoginScreenState extends State<LoginScreen> {
                           },
                           decoration: InputDecoration(
                             labelText: "Contraseña",
-                            prefixIcon: const Icon(Icons.lock),
+                            prefixIcon: const Icon(Icons.lock, color: Color(0xFF0D7377)),
                             suffixIcon: IconButton(
                               icon: Icon(
                                 isPasswordVisible
                                     ? Icons.visibility
                                     : Icons.visibility_off,
+                                color: Color(0xFF0D7377),
                               ),
                               onPressed: () {
                                 setState(() {
@@ -219,24 +367,33 @@ class _LoginScreenState extends State<LoginScreen> {
                               },
                             ),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(15),
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
                             ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: Color(0xFF0D7377), width: 2),
+                            ),
+                            filled: true,
+                            fillColor: Color(0xFFFAFAFA),
                           ),
+                          style: const TextStyle(color: Color(0xFF1F1F1F)),
                         ),
 
-                        const SizedBox(height: 25),
+                        const SizedBox(height: 28),
 
                         /// BOTÓN LOGIN
                         SizedBox(
                           width: double.infinity,
-                          height: 50,
+                          height: 52,
                           child: ElevatedButton(
                             onPressed: isLoading ? null : loginUsuario,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
+                              backgroundColor: const Color(0xFF0D7377),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(15),
+                                borderRadius: BorderRadius.circular(12),
                               ),
+                              elevation: 3,
                             ),
                             child: isLoading
                                 ? const CircularProgressIndicator(
@@ -244,12 +401,17 @@ class _LoginScreenState extends State<LoginScreen> {
                                   )
                                 : const Text(
                                     "Iniciar Sesión",
-                                    style: TextStyle(fontSize: 16),
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.5,
+                                      color: Colors.white,
+                                    ),
                                   ),
                           ),
                         ),
 
-                        const SizedBox(height: 15),
+                        const SizedBox(height: 16),
 
                         /// CREAR CUENTA
                         TextButton(
@@ -260,7 +422,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                   builder: (_) => RegisterScreen()),
                             );
                           },
-                          child: const Text("Crear cuenta"),
+                          child: const Text(
+                            "¿No tienes cuenta? Registrate aquí",
+                            style: TextStyle(
+                              color: Color(0xFF0D7377),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
                         ),
 
                       ],
