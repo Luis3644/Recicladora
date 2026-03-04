@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'usuarios_screen.dart';
 
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
 
   @override
-  State<AdminScreen> createState() => _AdminScreen();
+  State<AdminScreen> createState() => _AdminScreenState();
 }
 
-class _AdminScreen extends State<AdminScreen> {
+class _AdminScreenState extends State<AdminScreen> {
 
   String nombreUsuario = "";
   bool isLoading = true;
@@ -21,17 +22,19 @@ class _AdminScreen extends State<AdminScreen> {
   }
 
   Future<void> obtenerNombre() async {
-    String uid = FirebaseAuth.instance.currentUser!.uid;
+    final uid = FirebaseAuth.instance.currentUser!.uid;
 
-    DocumentSnapshot doc = await FirebaseFirestore.instance
+    final doc = await FirebaseFirestore.instance
         .collection("usuarios")
         .doc(uid)
         .get();
 
-    setState(() {
-      nombreUsuario = doc["nombre"];
-      isLoading = false;
-    });
+    if (doc.exists) {
+      setState(() {
+        nombreUsuario = doc["nombre"];
+        isLoading = false;
+      });
+    }
   }
 
   @override
@@ -40,11 +43,25 @@ class _AdminScreen extends State<AdminScreen> {
       appBar: AppBar(
         title: isLoading
             ? const Text("Cargando...")
-            : Text("Admin ($nombreUsuario)"),
-        backgroundColor: Colors.green,
+            : Text("Admin $nombreUsuario"),
+        backgroundColor: const Color.fromARGB(255, 76, 94, 175),
       ),
-      body: const Center(
-        child: Text("Pantalla Admin"),
+      body: Center(
+        child: ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+          ),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const UsuariosScreen(),
+              ),
+            );
+          },
+          icon: const Icon(Icons.people),
+          label: const Text("Ver Usuarios"),
+        ),
       ),
     );
   }
