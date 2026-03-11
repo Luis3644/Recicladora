@@ -187,10 +187,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
       } else if (rol == "operador") {
 
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) =>  OperadorScreen()),
-        );
+       final nombre = userDoc["nombre"];
+
+      Navigator.pushReplacement(
+         context,
+         MaterialPageRoute(
+          builder: (_) => OperadorScreen(nombreUsuario: nombre),
+  ),
+);
 
       } else if (rol == "trabajador") {
 
