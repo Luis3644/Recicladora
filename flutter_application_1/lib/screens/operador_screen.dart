@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'checklist_screen.dart';
 import 'jornada_screen.dart';
+import 'confirmar_camion_screen.dart';
 
 class OperadorScreen extends StatefulWidget {
   final String nombreUsuario;
@@ -175,14 +176,22 @@ class _OperadorScreenState extends State<OperadorScreen> {
                           style: const TextStyle(fontSize: 18),
                         ),
 
-                        onTap: () async {
+                        onTap: () {
 
-                          await seleccionarCamion(
-                            camiones[index].id,
-                            data["tipo"] ?? "Camión",
-                          );
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => ConfirmarCamionScreen(
+        operador: widget.nombreUsuario,
+        camionId: camiones[index].id,
+        tipo: data["tipo"],
+        placas: data["placas"],
+        foto: data["foto"],
+      ),
+    ),
+  );
 
-                        },
+}
 
                       ),
                     );

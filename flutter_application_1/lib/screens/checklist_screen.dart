@@ -30,50 +30,117 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
 
     DateTime ahora = DateTime.now();
 
-    /// Validar que al menos revisó equipo
+    /// validar equipo
     if (!casco && !botas && !pantalon && !chaleco) {
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("Debes revisar tu equipo antes de iniciar"),
         ),
       );
+
       return;
     }
 
-    await FirebaseFirestore.instance.collection("checklist").add({
-      "operador": widget.nombreUsuario,
-      "camion": widget.camion,
-      "casco": casco,
-      "botas": botas,
-      "pantalon": pantalon,
-      "chaleco": chaleco,
-      "reporte": reporteController.text,
-      "fecha": ahora,
-      "hora": "${ahora.hour}:${ahora.minute}"
-    });
+    try {
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Checklist guardado"))
-    );
+      /// buscar el camión
+      var snapshot = await FirebaseFirestore.instance
+          .collection("camiones")
+          .where("tipo", isEqualTo: widget.camion)
+          .get();
 
-    /// Ir a jornada
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => JornadaScreen(
-          operador: widget.nombreUsuario,
-          camion: widget.camion,
+      if (snapshot.docs.isEmpty) {
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Camión no encontrado")),
+        );
+
+        return;
+      }
+
+      var camionDoc = snapshot.docs.first;
+
+      bool ocupado = camionDoc["ocupado"] ?? false;
+
+      /// si ya está ocupado
+      if (ocupado) {
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Este camión ya fue tomado por otro operador"),
+          ),
+        );
+
+       Navigator.popUntil(context, (route) => route.isFirst);
+        return;
+      }
+
+      /// guardar checklist
+      await FirebaseFirestore.instance.collection("checklist").add({
+
+        "operador": widget.nombreUsuario,
+        "camion": widget.camion,
+        "casco": casco,
+        "botas": botas,
+        "pantalon": pantalon,
+        "chaleco": chaleco,
+        "reporte": reporteController.text,
+        "fecha": ahora,
+        "hora": "${ahora.hour}:${ahora.minute}"
+
+      });
+
+      /// marcar camión ocupado
+      await camionDoc.reference.update({
+        "ocupado": true,
+        "operador": widget.nombreUsuario
+      });
+
+      /// guardar jornada activa
+      await FirebaseFirestore.instance
+          .collection("usuarios")
+          .doc(widget.nombreUsuario)
+          .set({
+
+        "jornada_activa": true,
+        "camion_actual": widget.camion
+
+      }, SetOptions(merge: true));
+
+      /// mensaje
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Checklist guardado")),
+      );
+
+      /// ir a jornada
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => JornadaScreen(
+            operador: widget.nombreUsuario,
+            camion: widget.camion,
+          ),
         ),
-      ),
-    );
+      );
+
+    } catch (e) {
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $e")),
+      );
+
+    }
+
   }
 
   @override
   Widget build(BuildContext context) {
 
     return Scaffold(
+
       appBar: AppBar(
-        title: const Text("Checklist de seguridad"),
+        title: const Text("Equipo de seguridad personal"),
         backgroundColor: Colors.green,
       ),
 
@@ -94,7 +161,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
             const SizedBox(height: 10),
 
             Text(
-              "Camión: ${widget.camion}",
+              "Tu camion hoy es: ${widget.camion}",
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold
@@ -104,7 +171,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
             const SizedBox(height: 20),
 
             const Text(
-              "Antes de iniciar revisa tu equipo",
+              "Antes de iniciar revisa tu equipo de seguridad personal",
               style: TextStyle(fontSize: 16),
             ),
 
