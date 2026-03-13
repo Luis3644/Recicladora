@@ -95,14 +95,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
   InputDecoration estiloCampo(String texto, IconData icono) {
     return InputDecoration(
       labelText: texto,
-      prefixIcon: Icon(icono, color: const Color(0xFF0D7377)),
+      prefixIcon: Icon(icono, color: const Color(0xFF1E3A8A)),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFF0D7377), width: 2),
+        borderSide: const BorderSide(color: Color(0xFF1E3A8A), width: 2),
       ),
       filled: true,
       fillColor: const Color(0xFFFAFAFA),
@@ -118,7 +118,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       appBar: AppBar(
         title: const Text("Crear Cuenta", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         elevation: 0,
-        backgroundColor: const Color(0xFF0D7377),
+        backgroundColor: const Color(0xFF1E3A8A),
         centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.white), // flecha regresar blanca
       ),
@@ -133,7 +133,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF0D7377), Color(0xFF14919B)],
+                    colors: [Color(0xFF1E3A8A), Color(0xFF2563EB)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -281,7 +281,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             suffixIcon: IconButton(
                               icon: Icon(
                                 _obscurePassword ? Icons.visibility : Icons.visibility_off,
-                                color: const Color(0xFF0D7377),
+                                color: const Color(0xFF1E3A8A),
                               ),
                               onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                             ),
@@ -321,7 +321,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           height: 52,
                           child: ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF0D7377),
+                              backgroundColor: const Color(0xFF1E3A8A),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               elevation: 3,
                             ),

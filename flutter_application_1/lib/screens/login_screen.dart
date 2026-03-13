@@ -18,10 +18,17 @@ class LavaLampPainter extends CustomPainter {
     final paint = Paint();
     
     // Colores que cambian suavemente
+    // Paleta azul (consistente con el UI)
     List<Color> colors = [
-      Color.lerp(Color(0xFF0D7377), Color(0xFF14919B), animationValue % 1.0) ?? Color(0xFF0D7377),
-      Color.lerp(Color(0xFF14919B), Color(0xFF1ABC9C), (animationValue + 0.33) % 1.0) ?? Color(0xFF14919B),
-      Color.lerp(Color(0xFF1ABC9C), Color(0xFF0D7377), (animationValue + 0.66) % 1.0) ?? Color(0xFF1ABC9C),
+      Color.lerp(const Color(0xFF1E3A8A), const Color(0xFF2563EB),
+              animationValue % 1.0) ??
+          const Color(0xFF1E3A8A),
+      Color.lerp(const Color(0xFF2563EB), const Color(0xFF38BDF8),
+              (animationValue + 0.33) % 1.0) ??
+          const Color(0xFF2563EB),
+      Color.lerp(const Color(0xFF38BDF8), const Color(0xFF1E3A8A),
+              (animationValue + 0.66) % 1.0) ??
+          const Color(0xFF38BDF8),
     ];
 
     // Dibujar blobs animados
@@ -61,7 +68,7 @@ class LavaLampPainter extends CustomPainter {
       ..shader = LinearGradient(
         colors: [
           Colors.transparent,
-          Color(0xFF0D7377).withOpacity(0.05),
+          const Color(0xFF1E3A8A).withOpacity(0.06),
         ],
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
@@ -114,8 +121,8 @@ class _AnimatedLavaBackgroundState extends State<AnimatedLavaBackground>
           decoration: const BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                Color(0xFF051F20),
-                Color(0xFF0A3A3F),
+                Color(0xFF050B1E),
+                Color(0xFF0B1B3A),
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -274,24 +281,25 @@ class _LoginScreenState extends State<LoginScreen> {
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF0D7377), Color(0xFF14919B)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(16),
+                            color: Colors.white.withOpacity(0.75),
+                            borderRadius: BorderRadius.circular(18),
                           ),
-                          child: const Icon(
-                            Icons.recycling,
-                            size: 60,
-                            color: Colors.white,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(14),
+                            child: Image.asset(
+                              'lib/assets/logo recicladora.png',
+                              width: 320,
+                              height: 140,
+                              fit: BoxFit.cover,
+                              alignment: Alignment.center,
+                            ),
                           ),
                         ),
 
                         const SizedBox(height: 20),
 
                         const Text(
-                          "Recicladora GUADALAJARA",
+                          "RECICLADORA GUADALAJARA",
                           style: TextStyle(
                             fontSize: 26,
                             fontWeight: FontWeight.bold,
@@ -324,14 +332,14 @@ class _LoginScreenState extends State<LoginScreen> {
                           },
                           decoration: InputDecoration(
                             labelText: "Correo electrónico",
-                            prefixIcon: const Icon(Icons.email, color: Color(0xFF0D7377)),
+                            prefixIcon: const Icon(Icons.email, color: Color(0xFF1E3A8A)),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: Color(0xFF0D7377), width: 2),
+                              borderSide: const BorderSide(color: Color(0xFF1E3A8A), width: 2),
                             ),
                             filled: true,
                             fillColor: Color(0xFFFAFAFA),
@@ -356,13 +364,13 @@ class _LoginScreenState extends State<LoginScreen> {
                           },
                           decoration: InputDecoration(
                             labelText: "Contraseña",
-                            prefixIcon: const Icon(Icons.lock, color: Color(0xFF0D7377)),
+                            prefixIcon: const Icon(Icons.lock, color: Color(0xFF1E3A8A)),
                             suffixIcon: IconButton(
                               icon: Icon(
                                 isPasswordVisible
                                     ? Icons.visibility
                                     : Icons.visibility_off,
-                                color: Color(0xFF0D7377),
+                                color: Color(0xFF1E3A8A),
                               ),
                               onPressed: () {
                                 setState(() {
@@ -376,7 +384,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: Color(0xFF0D7377), width: 2),
+                              borderSide: const BorderSide(color: Color(0xFF1E3A8A), width: 2),
                             ),
                             filled: true,
                             fillColor: Color(0xFFFAFAFA),
@@ -393,7 +401,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: ElevatedButton(
                             onPressed: isLoading ? null : loginUsuario,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF0D7377),
+                              backgroundColor: const Color(0xFF1E3A8A),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
@@ -429,7 +437,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: const Text(
                             "¿No tienes cuenta? Registrate aquí",
                             style: TextStyle(
-                              color: Color(0xFF0D7377),
+                              color: Color(0xFF1E3A8A),
                               fontWeight: FontWeight.w600,
                               fontSize: 14,
                             ),
