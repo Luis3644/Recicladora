@@ -58,6 +58,7 @@ class _OperadorScreenState extends State<OperadorScreen> {
     if (jornadaActiva) {
 
       String camion = doc.data()?["camion_actual"] ?? "";
+      String placas = doc.data()?["placas_actuales"] ?? "S/P";
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.pushReplacement(
@@ -66,6 +67,7 @@ class _OperadorScreenState extends State<OperadorScreen> {
             builder: (_) => JornadaScreen(
               operador: widget.nombreUsuario,
               camion: camion,
+              placas: placas,
             ),
           ),
         );
@@ -74,7 +76,7 @@ class _OperadorScreenState extends State<OperadorScreen> {
     }
   }
 
-  Future<void> seleccionarCamion(String camionId, String tipoCamion) async {
+  Future<void> seleccionarCamion(String camionId, String tipoCamion,String placasRecibidas) async {
 
     try {
 
@@ -93,7 +95,8 @@ class _OperadorScreenState extends State<OperadorScreen> {
           .doc(widget.nombreUsuario)
           .set({
         "jornada_activa": true,
-        "camion_actual": tipoCamion
+        "camion_actual": tipoCamion,
+        "placas_actuales": placasRecibidas,
       }, SetOptions(merge: true));
 
       /// ir al checklist
@@ -105,6 +108,8 @@ class _OperadorScreenState extends State<OperadorScreen> {
           builder: (_) => ChecklistScreen(
             nombreUsuario: widget.nombreUsuario,
             camion: tipoCamion,
+            placas: placasRecibidas,
+            
           ),
         ),
       );
@@ -319,6 +324,7 @@ class _OperadorScreenState extends State<OperadorScreen> {
                                 tipo: data["tipo"],
                                 
                                 foto: data["foto"],
+                                placas: data["placas"] ?? "S/P",
                               ),
                             ),
                           );

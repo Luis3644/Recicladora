@@ -7,11 +7,13 @@ class ChecklistScreen extends StatefulWidget {
 
   final String nombreUsuario;
   final String camion;
+  final String placas;
 
   const ChecklistScreen({
     super.key,
     required this.nombreUsuario,
-    required this.camion
+    required this.camion,
+    required this.placas,
   });
 
   @override
@@ -82,6 +84,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
 
         "operador": widget.nombreUsuario,
         "camion": widget.camion,
+        "placas": widget.placas,
         "casco": casco,
         "botas": botas,
         "pantalon": pantalon,
@@ -105,7 +108,8 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
           .set({
 
         "jornada_activa": true,
-        "camion_actual": widget.camion
+        "camion_actual": widget.camion,
+        "placas_actuales": widget.placas,
 
       }, SetOptions(merge: true));
 
@@ -121,6 +125,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
           builder: (_) => JornadaScreen(
             operador: widget.nombreUsuario,
             camion: widget.camion,
+            placas: widget.placas,
           ),
         ),
       );
@@ -144,8 +149,8 @@ return ConnectionWrapper(
         title: const Text("Equipo de seguridad personal"),
         backgroundColor: Colors.green,
       ),
-
-      body: Padding(
+body: SingleChildScrollView(
+      
         padding: const EdgeInsets.all(20),
 
         child: Column(
@@ -168,6 +173,11 @@ return ConnectionWrapper(
                 fontWeight: FontWeight.bold
               ),
             ),
+
+            Text(
+                "Placas: ${widget.placas}",
+                style: const TextStyle(fontSize: 16, color: Colors.blueGrey, fontWeight: FontWeight.w600),
+              ),
 
             const SizedBox(height: 20),
 

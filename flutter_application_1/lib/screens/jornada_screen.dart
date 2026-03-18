@@ -2,16 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'operador_screen.dart';
 import 'widgets_conexion/connection_wrapper.dart';
+import 'widgets/menu_lateral.dart';
 
 class JornadaScreen extends StatefulWidget {
+  
 
   final String operador;
   final String camion;
+  final String placas;
+  
 
   const JornadaScreen({
     super.key,
     required this.operador,
     required this.camion,
+    required this.placas,
+ 
   });
 
   @override
@@ -22,6 +28,10 @@ class _JornadaScreenState extends State<JornadaScreen> {
 
   final TextEditingController toneladasController = TextEditingController();
   final TextEditingController gasolinaController = TextEditingController();
+
+ 
+
+
 
   Future<void> guardarRegistro() async {
 
@@ -35,6 +45,7 @@ class _JornadaScreenState extends State<JornadaScreen> {
     await FirebaseFirestore.instance.collection("jornadas").add({
       "operador": widget.operador,
       "camion": widget.camion,
+      "placas": widget.placas,
       "toneladas": toneladasController.text,
       "gasolina": gasolinaController.text,
       "fecha": DateTime.now()
@@ -69,7 +80,8 @@ class _JornadaScreenState extends State<JornadaScreen> {
         .doc(widget.operador)
         .update({
       "jornada_activa": false,
-      "camion_actual": ""
+      "camion_actual": "",
+      "placas_actuales": "",
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -95,10 +107,14 @@ return ConnectionWrapper(
         title: const Text("Jornada activa"),
         backgroundColor: Colors.green,
       ),
+      drawer: MenuLateral(
+        nombreUsuario: widget.operador,
+        camion: widget.camion,
+        placas: widget.placas,
+        ),
 
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-
+      body: SingleChildScrollView(
+       padding: const EdgeInsets.all(20),
         child: Column(
           children: [
 
@@ -113,6 +129,11 @@ return ConnectionWrapper(
               "Camión: ${widget.camion}",
               style: const TextStyle(fontSize: 22),
             ),
+
+            Text(
+                "Placas: ${widget.placas}",
+                style: const TextStyle(fontSize: 18, color: Colors.blueGrey),
+              ),
 
             const SizedBox(height: 30),
 
