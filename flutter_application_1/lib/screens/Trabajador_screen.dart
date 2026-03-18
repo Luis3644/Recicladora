@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'widgets_conexion/connection_wrapper.dart';
 
 class TrabajadorScreen extends StatefulWidget {
   const TrabajadorScreen({super.key});
@@ -36,15 +37,18 @@ class _TrabajadorScreen extends State<TrabajadorScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: isLoading
-            ? const Text("Cargando...")
-            : Text("Hola, $nombreUsuario"),
-        backgroundColor: Colors.green,
-      ),
-      body: const Center(
-        child: Text("Pantalla Trabajador"),
+    // Ponemos el ConnectionWrapper al principio de todo
+    return ConnectionWrapper(
+      child: Scaffold(
+        appBar: AppBar(
+          title: isLoading
+              ? const Text("Cargando...")
+              : Text("Hola, $nombreUsuario"),
+          backgroundColor: Colors.green,
+        ),
+        body: const Center(
+          child: Text("Pantalla Trabajador"),
+        ),
       ),
     );
   }

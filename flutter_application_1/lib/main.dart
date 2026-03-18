@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'firebase_options.dart';
 import 'screens/login_screen.dart';
+
 
 
 void main()  async {
@@ -14,18 +16,21 @@ void main()  async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
+   FirebaseFirestore.instance.settings = const Settings(
+    persistenceEnabled: true,
+    cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+  );
+
  FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
 
  final FirebaseAnalytics analytics = FirebaseAnalytics.instance;
 
-  
    await analytics.logEvent(
   name: "super_prueba",
   parameters: {
     "timestamp": DateTime.now().toIso8601String(),
   },
 );
-
 
   runApp(const MyApp());
 }

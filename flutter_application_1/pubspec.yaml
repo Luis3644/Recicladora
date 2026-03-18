@@ -39,6 +39,7 @@ dependencies:
   firebase_analytics: ^12.1.2
   firebase_crashlytics: ^5.0.7
   firebase_auth: ^6.1.4
+  connectivity_plus: ^7.0.0
 
 dev_dependencies:
   flutter_test:

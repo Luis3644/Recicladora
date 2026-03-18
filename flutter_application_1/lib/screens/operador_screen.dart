@@ -5,6 +5,7 @@ import 'checklist_screen.dart';
 import 'jornada_screen.dart';
 import 'confirmar_camion_screen.dart';
 import 'login_screen.dart';
+import 'widgets_conexion/connection_wrapper.dart';
 
 class OperadorScreen extends StatefulWidget {
   final String nombreUsuario;
@@ -121,8 +122,8 @@ class _OperadorScreenState extends State<OperadorScreen> {
   @override
   Widget build(BuildContext context) {
     final nombre = widget.nombreUsuario;
-
-    return Scaffold(
+ return ConnectionWrapper(
+    child: Scaffold(
       backgroundColor: _bg,
       drawer: Drawer(
         child: Column(
@@ -316,7 +317,7 @@ class _OperadorScreenState extends State<OperadorScreen> {
                                 operador: widget.nombreUsuario,
                                 camionId: camiones[index].id,
                                 tipo: data["tipo"],
-                                placas: data["placas"],
+                                
                                 foto: data["foto"],
                               ),
                             ),
@@ -426,6 +427,7 @@ class _OperadorScreenState extends State<OperadorScreen> {
           ],
         ),
       ),
-    );
+    ),
+ );
   }
 }

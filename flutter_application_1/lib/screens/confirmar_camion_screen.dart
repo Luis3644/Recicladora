@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'checklist_screen.dart';
+import 'widgets_conexion/connection_wrapper.dart';
 
 class ConfirmarCamionScreen extends StatelessWidget {
 
   final String operador;
   final String camionId;
   final String tipo;
-  final String placas;
+  
   final String foto;
 
   const ConfirmarCamionScreen({
@@ -14,14 +15,14 @@ class ConfirmarCamionScreen extends StatelessWidget {
     required this.operador,
     required this.camionId,
     required this.tipo,
-    required this.placas,
+   
     required this.foto,
   });
 
   @override
   Widget build(BuildContext context) {
-
-    return Scaffold(
+return ConnectionWrapper(
+    child: Scaffold(
 
       appBar: AppBar(
         title: const Text("Confirmar camión"),
@@ -59,12 +60,7 @@ class ConfirmarCamionScreen extends StatelessWidget {
 
             const SizedBox(height: 10),
 
-            Text(
-              "Placas: $placas",
-              style: const TextStyle(fontSize: 20),
-            ),
-
-            const SizedBox(height: 40),
+            
 
             const Text(
               "¿Este es el camión que operarás hoy?",
@@ -90,6 +86,7 @@ class ConfirmarCamionScreen extends StatelessWidget {
                     builder: (_) => ChecklistScreen(
                       nombreUsuario: operador,
                       camion: tipo,
+                      
                     ),
                   ),
                 );
@@ -121,6 +118,7 @@ class ConfirmarCamionScreen extends StatelessWidget {
           ],
         ),
       ),
+    ),
     );
   }
 }

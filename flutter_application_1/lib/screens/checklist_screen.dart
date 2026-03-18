@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'jornada_screen.dart';
+import 'widgets_conexion/connection_wrapper.dart';
 
 class ChecklistScreen extends StatefulWidget {
 
@@ -136,8 +137,8 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
 
   @override
   Widget build(BuildContext context) {
-
-    return Scaffold(
+return ConnectionWrapper(
+    child:  Scaffold(
 
       appBar: AppBar(
         title: const Text("Equipo de seguridad personal"),
@@ -237,6 +238,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
           ],
         ),
       ),
+    ),
     );
   }
 }

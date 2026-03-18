@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'operador_screen.dart';
+import 'widgets_conexion/connection_wrapper.dart';
 
 class JornadaScreen extends StatefulWidget {
 
@@ -88,8 +89,8 @@ class _JornadaScreenState extends State<JornadaScreen> {
 
   @override
   Widget build(BuildContext context) {
-
-    return Scaffold(
+return ConnectionWrapper(
+    child: Scaffold(
       appBar: AppBar(
         title: const Text("Jornada activa"),
         backgroundColor: Colors.green,
@@ -155,6 +156,7 @@ class _JornadaScreenState extends State<JornadaScreen> {
           ],
         ),
       ),
+    ),
     );
   }
 }
