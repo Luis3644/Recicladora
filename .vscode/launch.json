@@ -1,0 +1,12 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Recicladora App",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "cwd": "C:\\FlutterProjects\\Recicladora\\flutter_application_1"
+    }
+  ]
+}

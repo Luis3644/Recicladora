@@ -325,6 +325,7 @@ class _OperadorScreenState extends State<OperadorScreen> {
                                 
                                 foto: data["foto"],
                                 placas: data["placas"] ?? "S/P",
+                                modelo: data['modelo'] ?? "N/A",
                               ),
                             ),
                           );
