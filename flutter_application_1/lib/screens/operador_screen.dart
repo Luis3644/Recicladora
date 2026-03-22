@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'checklist_screen.dart';
 import 'jornada_screen.dart';
 import 'confirmar_camion_screen.dart';
@@ -20,6 +21,9 @@ class _OperadorScreenState extends State<OperadorScreen> {
   static const _primary = Color(0xFF1E3A8A); // azul oscuro
   static const _primary2 = Color(0xFF2563EB); // azul
   static const _bg = Color(0xFFF5F7FF); // fondo azul muy claro
+  final FlutterLocalNotificationsPlugin _notificaciones =
+      FlutterLocalNotificationsPlugin();
+  bool _avisoMostrado = false;
 
   Future<void> _cerrarSesion() async {
     try {
@@ -41,17 +45,33 @@ class _OperadorScreenState extends State<OperadorScreen> {
   @override
   void initState() {
     super.initState();
-    verificarJornada();
+    _inicializarFlujoIngreso();
   }
 
-  Future<void> verificarJornada() async {
+  Future<void> _inicializarFlujoIngreso() async {
+    final redirigido = await verificarJornada();
+
+    if (!mounted || redirigido || _avisoMostrado) return;
+
+    _avisoMostrado = true;
+    await _mostrarNotificacionEpp();
+
+    if (!mounted) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _mostrarDialogoRecomendaciones();
+    });
+  }
+
+  Future<bool> verificarJornada() async {
 
     var doc = await FirebaseFirestore.instance
         .collection("usuarios")
         .doc(widget.nombreUsuario)
         .get();
 
-    if (!doc.exists) return;
+    if (!doc.exists) return false;
 
     bool jornadaActiva = doc.data()?["jornada_activa"] ?? false;
 
@@ -61,6 +81,7 @@ class _OperadorScreenState extends State<OperadorScreen> {
       String placas = doc.data()?["placas_actuales"] ?? "S/P";
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -73,7 +94,115 @@ class _OperadorScreenState extends State<OperadorScreen> {
         );
       });
 
+      return true;
     }
+
+    return false;
+  }
+
+  Future<void> _mostrarNotificacionEpp() async {
+    try {
+      const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+      const iosInit = DarwinInitializationSettings(
+        requestAlertPermission: false,
+        requestBadgePermission: false,
+        requestSoundPermission: false,
+      );
+
+      const settings = InitializationSettings(
+        android: androidInit,
+        iOS: iosInit,
+      );
+
+      await _notificaciones.initialize(settings);
+
+      final androidImpl = _notificaciones.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      await androidImpl?.requestNotificationsPermission();
+
+      final iosImpl = _notificaciones.resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin>();
+      await iosImpl?.requestPermissions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+
+      const androidDetails = AndroidNotificationDetails(
+        'epp_recomendaciones',
+        'Recomendaciones de seguridad',
+        channelDescription: 'Avisos de uso de equipo de protección personal',
+        importance: Importance.high,
+        priority: Priority.high,
+      );
+      const iosDetails = DarwinNotificationDetails();
+
+      const details = NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+      );
+
+      await _notificaciones.show(
+        1001,
+        'Seguridad en planta',
+        'Usa guantes, lentes y botas antes de iniciar.',
+        details,
+      );
+    } catch (e) {
+      debugPrint('No se pudo mostrar la notificación: $e');
+    }
+  }
+
+  Future<void> _mostrarDialogoRecomendaciones() async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.health_and_safety_rounded, color: _primary),
+            SizedBox(width: 8),
+            Expanded(child: Text('Recomendaciones de seguridad')),
+          ],
+        ),
+        content: const SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _RecomendacionItem(
+                icon: Icons.back_hand_outlined,
+                texto: 'Usa guantes resistentes para manipular vidrio.',
+              ),
+              SizedBox(height: 8),
+              _RecomendacionItem(
+                icon: Icons.visibility_outlined,
+                texto: 'Porta lentes de seguridad para evitar lesiones.',
+              ),
+              SizedBox(height: 8),
+              _RecomendacionItem(
+                icon: Icons.hiking_outlined,
+                texto: 'Trabaja con botas de seguridad antideslizantes.',
+              ),
+              SizedBox(height: 8),
+              _RecomendacionItem(
+                icon: Icons.construction_outlined,
+                texto: 'Si aplica, usa casco y chaleco reflectante.',
+              ),
+              SizedBox(height: 8),
+              _RecomendacionItem(
+                icon: Icons.clean_hands_outlined,
+                texto: 'Revisa tu equipo antes de iniciar y reporta daños.',
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Entendido'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> seleccionarCamion(String camionId, String tipoCamion,String placasRecibidas) async {
@@ -199,9 +328,21 @@ class _OperadorScreenState extends State<OperadorScreen> {
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.white,
         centerTitle: false,
-        title: Text(
-          "Operador",
-          style: const TextStyle(fontWeight: FontWeight.w700),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              "Operador",
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(width: 10),
+            Image.asset(
+              'assets/logo 2 recicladora.png',
+              height: 42,
+              width: 42,
+              fit: BoxFit.contain,
+            ),
+          ],
         ),
         flexibleSpace: Container(
           decoration: const BoxDecoration(
@@ -236,6 +377,8 @@ class _OperadorScreenState extends State<OperadorScreen> {
                   children: [
                     Text(
                       "Hola, $nombre",
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 22,
@@ -436,5 +579,29 @@ class _OperadorScreenState extends State<OperadorScreen> {
       ),
     ),
  );
+  }
+}
+
+class _RecomendacionItem extends StatelessWidget {
+  final IconData icon;
+  final String texto;
+
+  const _RecomendacionItem({required this.icon, required this.texto});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 20, color: _OperadorScreenState._primary),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            texto,
+            style: const TextStyle(height: 1.25),
+          ),
+        ),
+      ],
+    );
   }
 }

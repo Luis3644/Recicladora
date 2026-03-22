@@ -19,6 +19,15 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
+subprojects {
+    if (name == "flutter_local_notifications") {
+        tasks.matching { it.name.startsWith("bundleLibRuntimeToDir") }
+            .configureEach {
+                outputs.upToDateWhen { false }
+            }
+    }
+}
+
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
