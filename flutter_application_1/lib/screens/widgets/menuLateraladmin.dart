@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../usuarios_screen.dart';
-import '../login_screen.dart'; // Asegúrate de que la ruta sea correcta
+import '../login_screen.dart';
+import 'reportes_equipo_screen.dart';
+import 'lista_incidentes_admin.dart'; // Asegúrate de que la ruta sea correcta
 
 class MenuLateralAdmin extends StatelessWidget {
   final String nombreAdmin;
@@ -53,6 +55,37 @@ class MenuLateralAdmin extends StatelessWidget {
               );
             },
           ),
+
+// Busca tu widget de Drawer y agrega este ListTile:
+
+ListTile(
+  leading: const Icon(Icons.assignment_late_rounded, color: Color.fromARGB(255, 76, 94, 175)),
+  title: const Text("Reportes de Equipo", style: TextStyle(fontWeight: FontWeight.bold)),
+  subtitle: const Text("Ver faltantes de operadores"),
+  onTap: () {
+    Navigator.pop(context); // Cierra el menú lateral
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ReportesEquipoScreen()), // Vamos a la pantalla nueva
+    );
+  },
+),
+
+// En el método _buildAdminDrawer de tu AdminScreen:
+
+ListTile(
+  leading: const Icon(Icons.emergency_share, color: Color.fromARGB(255, 76, 94, 175)),
+  title: const Text("Incidentes en Ruta", style: TextStyle(fontWeight: FontWeight.bold)),
+  subtitle: const Text("Tráfico, averías o retrasos"),
+  onTap: () {
+    Navigator.pop(context);
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ListaIncidentesAdmin()),
+    );
+  },
+),
+
 
           // OPCIÓN: INICIO (Opcional)
           ListTile(

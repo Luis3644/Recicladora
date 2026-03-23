@@ -42,7 +42,7 @@ class MenuLateral extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      "Menú Logística",
+                      "Menú",
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 18,
@@ -64,7 +64,7 @@ class MenuLateral extends StatelessWidget {
 
 ListTile(
   leading: const Icon(Icons.report_problem_rounded, color: Colors.orange),
-  title: const Text("Reportar Incidente"),
+  title: const Text("Reportar Problema"),
   onTap: () {
     Navigator.of(context).pop(); // Cierra el menú
     Navigator.of(context).push(
