@@ -90,7 +90,7 @@ ListTile(
           // OPCIÓN: INICIO (Opcional)
           ListTile(
             leading: const Icon(Icons.dashboard_rounded, color: _adminColor),
-            title: const Text("Dashboard Principal"),
+            title: const Text(""),
             onTap: () => Navigator.pop(context),
           ),
 
@@ -114,7 +114,7 @@ ListTile(
           const Spacer(),
           const Padding(
             padding: EdgeInsets.all(16.0),
-            child: Text("Administración v1.0", style: TextStyle(color: Colors.grey, fontSize: 12)),
+            child: Text("Recicladora v1.0", style: TextStyle(color: Colors.grey, fontSize: 12)),
           ),
         ],
       ),

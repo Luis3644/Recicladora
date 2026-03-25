@@ -54,7 +54,7 @@ class _AdminScreenState extends State<AdminScreen> {
       appBar: AppBar(
         title: isLoading
             ? const Text("Cargando...")
-            : Text("Panel Admin: $nombreUsuario"),
+            : Text("Admin: $nombreUsuario"),
         backgroundColor: adminColor,
         foregroundColor: Colors.white,
         elevation: 0,
@@ -80,7 +80,7 @@ class _AdminScreenState extends State<AdminScreen> {
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 40),
               child: Text(
-                "Usa el menú lateral para gestionar los usuarios y revisar los reportes de la recicladora.",
+                "",
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey, fontSize: 16),
               ),
@@ -155,14 +155,7 @@ ListTile(
 ),
 
           // Opción: Reportes (Ejemplo para futuro)
-          ListTile(
-            leading: Icon(Icons.assignment_rounded, color: adminColor),
-            title: const Text("Reportes de Incidentes"),
-            onTap: () {
-              Navigator.pop(context);
-              // Aquí podrías navegar a una pantalla de reportes generales
-            },
-          ),
+          
 
           const Divider(),
 
@@ -185,7 +178,7 @@ ListTile(
           const Padding(
             padding: EdgeInsets.all(16.0),
             child: Text(
-              "Recicladora App Admin v1.0",
+              "Recicladora v1.0",
               style: TextStyle(color: Colors.grey, fontSize: 12),
             ),
           ),

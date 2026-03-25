@@ -20,23 +20,14 @@ class ChecklistScreen extends StatefulWidget {
 }
 
 class _ChecklistScreenState extends State<ChecklistScreen> {
-  // --- VARIABLES DE EQUIPO ---
-  // null = no seleccionado, true = tiene, false = no tiene
-  bool? casco;
-  bool? botas;
-  bool? pantalon;
-  bool? camisa;
-  bool? gafas;
-  bool? guantes;
-
+  bool? casco, botas, pantalon, camisa, gafas, guantes;
   final TextEditingController reporteController = TextEditingController();
 
   Future<void> guardarChecklist() async {
-    // Validar que TODO haya sido seleccionado (ya sea Sí o No)
     if (casco == null || botas == null || pantalon == null || 
         camisa == null || gafas == null || guantes == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Por favor, marca todos los accesorios."), backgroundColor: Colors.red),
+        const SnackBar(content: Text("¡Faltan accesorios por marcar!"), backgroundColor: Colors.red),
       );
       return;
     }
@@ -45,23 +36,15 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     bool faltaAlgo = casco == false || botas == false || pantalon == false || 
                      camisa == false || gafas == false || guantes == false;
 
-    // Validación de reporte obligatorio si marcó alguna "X"
     if (faltaAlgo && reporteController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Debes reportar por qué te falta equipo."), 
-          backgroundColor: Colors.orange,
-        ),
+        const SnackBar(content: Text("Explica por qué te falta equipo."), backgroundColor: Colors.orange),
       );
       return;
     }
 
     try {
-      var snapshot = await FirebaseFirestore.instance
-          .collection("camiones")
-          .where("tipo", isEqualTo: widget.camion)
-          .get();
-          
+      var snapshot = await FirebaseFirestore.instance.collection("camiones").where("tipo", isEqualTo: widget.camion).get();
       if (snapshot.docs.isEmpty) return;
       var camionDoc = snapshot.docs.first;
 
@@ -69,12 +52,8 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
         "operador": widget.nombreUsuario,
         "camion": widget.camion,
         "placas": widget.placas,
-        "casco": casco,
-        "botas": botas,
-        "pantalon": pantalon,
-        "camisa": camisa,
-        "gafas": gafas,
-        "guantes": guantes,
+        "casco": casco, "botas": botas, "pantalon": pantalon,
+        "camisa": camisa, "gafas": gafas, "guantes": guantes,
         "reporte": reporteController.text,
         "fecha": ahora,
         "equipo_completo": !faltaAlgo,
@@ -88,10 +67,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
       }, SetOptions(merge: true));
 
       if (!mounted) return;
-      Navigator.pushReplacement(
-        context, 
-        MaterialPageRoute(builder: (_) => JornadaScreen(operador: widget.nombreUsuario, camion: widget.camion, placas: widget.placas))
-      );
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => JornadaScreen(operador: widget.nombreUsuario, camion: widget.camion, placas: widget.placas)));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
@@ -100,121 +76,153 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Variable lógica para mostrar u ocultar el campo de reporte
     bool faltaAlgo = casco == false || botas == false || pantalon == false || 
                      camisa == false || gafas == false || guantes == false;
 
     return ConnectionWrapper(
       child: Scaffold(
+        backgroundColor: const Color(0xFFF3F4F6),
         appBar: AppBar(
-          title: const Text("Revisión de Uniforme"),
+          title: const Text("Revisión de Uniforme", style: TextStyle(fontWeight: FontWeight.bold)),
           backgroundColor: const Color(0xFF1E3A8A),
           foregroundColor: Colors.white,
+          centerTitle: true,
+          elevation: 0,
         ),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.all(15),
-          child: Column(
-            children: [
-              // --- ÁREA VISUAL ---
-              Card(
-                elevation: 4,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                child: Padding(
-                  padding: const EdgeInsets.all(15),
-                  child: Column(
-                    children: [
-                      const Text("Referencia de Equipo", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+        body: Column(
+          children: [
+            // Panel Superior: Información del Camión
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(15),
+              decoration: const BoxDecoration(
+                color: Color(0xFF1E3A8A),
+                borderRadius: BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
+              ),
+              child: Column(
+                children: [
+                  Text(widget.camion.toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text("Placas: ${widget.placas}", style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                ],
+              ),
+            ),
+
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(15),
+                child: Column(
+                  children: [
+                    const Text("Selecciona tu equipo actual:", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
+                    const SizedBox(height: 15),
+
+                    // Grid de Accesorios (Ocupa el centro sin scroll)
+                    Expanded(
+                      child: GridView.count(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        childAspectRatio: 1.4,
+                        children: [
+                          _buildGridItem("Casco", Icons.engineering, casco, (val) => setState(() => casco = val)),
+                          _buildGridItem("Gafas", Icons.visibility, gafas, (val) => setState(() => gafas = val)),
+                          _buildGridItem("Camisa", Icons.checkroom, camisa, (val) => setState(() => camisa = val)),
+                          _buildGridItem("Guantes", Icons.pan_tool, guantes, (val) => setState(() => guantes = val)),
+                          _buildGridItem("Pantalón", Icons.airline_stops, pantalon, (val) => setState(() => pantalon = val)),
+                          _buildGridItem("Botas", Icons.ice_skating, botas, (val) => setState(() => botas = val)),
+                        ],
+                      ),
+                    ),
+
+                    // Área de Reporte (Solo si falta algo)
+                    if (faltaAlgo) ...[
                       const SizedBox(height: 10),
-                      SizedBox(
-                        height: 200,
-                        child: Image.asset('assets/imagenes/equipo/base.png', fit: BoxFit.contain),
+                      TextField(
+                        controller: reporteController,
+                        decoration: InputDecoration(
+                          hintText: "Razón del equipo faltante...",
+                          prefixIcon: const Icon(Icons.edit, color: Colors.red),
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
+                          contentPadding: const EdgeInsets.all(15),
+                        ),
                       ),
                     ],
-                  ),
+                    
+                    const SizedBox(height: 20),
+
+                    // Botón de Acción Grande
+                    SizedBox(
+                      width: double.infinity,
+                      height: 65,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: faltaAlgo ? Colors.orange[800] : const Color(0xFF10B981),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                          elevation: 5,
+                        ),
+                        onPressed: guardarChecklist,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(faltaAlgo ? Icons.warning : Icons.play_arrow, color: Colors.white),
+                            const SizedBox(width: 10),
+                            Text(
+                              faltaAlgo ? "CONFIRMAR FALTANTES" : "INICIAR JORNADA",
+                              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 20),
-
-              // --- LISTA DE ACCESORIOS CON BOTONES ---
-              const Text("¿Cuentas con el siguiente equipo?", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 10),
-              
-              _buildSelectorItem("Casco de seguridad", casco, (val) => setState(() => casco = val)),
-              _buildSelectorItem("Gafas de protección", gafas, (val) => setState(() => gafas = val)),
-              _buildSelectorItem("Camisa de uniforme", camisa, (val) => setState(() => camisa = val)),
-              _buildSelectorItem("Guantes de trabajo", guantes, (val) => setState(() => guantes = val)),
-              _buildSelectorItem("Pantalón de seguridad", pantalon, (val) => setState(() => pantalon = val)),
-              _buildSelectorItem("Botas con casquillo", botas, (val) => setState(() => botas = val)),
-
-              const SizedBox(height: 20),
-
-              // --- CUADRO DE REPORTE (SOLO SE MUESTRA SI FALTA ALGO) ---
-              if (faltaAlgo) ...[
-                const Text("Reportar Problema", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: reporteController,
-                  maxLines: 3,
-                  decoration: InputDecoration(
-                    hintText: "Explica por qué no cuentas con el equipo...",
-                    fillColor: Colors.white,
-                    filled: true,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                    focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: Colors.red, width: 2)),
-                  ),
-                ),
-                const SizedBox(height: 20),
-              ],
-
-              // --- BOTÓN FINAL ---
-              SizedBox(
-                width: double.infinity,
-                height: 55,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: faltaAlgo ? Colors.orange[800] : Colors.green[700],
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
-                  ),
-                  onPressed: guardarChecklist,
-                  child: Text(
-                    faltaAlgo ? "CONFIRMAR CON FALTANTES" : "INICIAR JORNADA", 
-                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  // Widget personalizado para los botones de Sí/No
-  Widget _buildSelectorItem(String title, bool? state, Function(bool) onSelect) {
+  // Item del Grid más visual y céntrico
+  Widget _buildGridItem(String title, IconData icon, bool? state, Function(bool) onSelect) {
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 5),
-      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
       ),
-      child: Row(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Expanded(child: Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500))),
-          
-          // Botón de X (No tiene)
-          IconButton(
-            onPressed: () => onSelect(false),
-            icon: Icon(Icons.cancel, color: state == false ? Colors.red : Colors.grey[300], size: 30),
-          ),
-          
-          // Botón de Palomita (Sí tiene)
-          IconButton(
-            onPressed: () => onSelect(true),
-            icon: Icon(Icons.check_circle, color: state == true ? Colors.green : Colors.grey[300], size: 30),
-          ),
+          Icon(icon, size: 28, color: state == null ? Colors.grey : (state ? Colors.green : Colors.red)),
+          const SizedBox(height: 5),
+          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _choiceBtn(Icons.close, false, state == false, onSelect),
+              const SizedBox(width: 15),
+              _choiceBtn(Icons.done, true, state == true, onSelect),
+            ],
+          )
         ],
+      ),
+    );
+  }
+
+  Widget _choiceBtn(IconData icon, bool value, bool isSelected, Function(bool) onSelect) {
+    return GestureDetector(
+      onTap: () => onSelect(value),
+      child: Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: isSelected ? (value ? Colors.green : Colors.red) : Colors.grey[100],
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, size: 20, color: isSelected ? Colors.white : Colors.grey[400]),
       ),
     );
   }
