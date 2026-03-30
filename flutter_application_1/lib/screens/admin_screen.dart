@@ -418,150 +418,151 @@ class _AdminScreenState extends State<AdminScreen> {
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 child: Padding(
-                padding: EdgeInsets.all(isMobile ? 12 : 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Sección de Bienvenida
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            adminColor.withValues(alpha: 0.14),
-                            adminColorSoft.withValues(alpha: 0.06),
+                  padding: EdgeInsets.all(isMobile ? 12 : 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Sección de Bienvenida
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              adminColor.withValues(alpha: 0.14),
+                              adminColorSoft.withValues(alpha: 0.06),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: adminColor.withValues(alpha: 0.18),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: adminColor.withValues(alpha: 0.07),
+                              blurRadius: 22,
+                              offset: const Offset(0, 10),
+                            ),
                           ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
                         ),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: adminColor.withValues(alpha: 0.18),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: adminColor.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(
+                                Icons.workspace_premium_rounded,
+                                color: adminColorDark,
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Listo para trabajar',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: adminColorDark,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Accede a todas las herramientas de gestión',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.blueGrey[700],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: adminColor.withValues(alpha: 0.07),
-                            blurRadius: 22,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
                       ),
-                      child: Row(
+                      const SizedBox(height: 28),
+
+                      // Sección de Opciones
+                      Text(
+                        'Gestiones Principales',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: adminColorDark,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      GridView.count(
+                        crossAxisCount: gridColumns,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        mainAxisSpacing: isMobile ? 10 : 12,
+                        crossAxisSpacing: isMobile ? 10 : 12,
+                        childAspectRatio: optionCardAspectRatio,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: adminColor.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Icon(
-                              Icons.workspace_premium_rounded,
-                              color: adminColorDark,
-                              size: 20,
-                            ),
+                          _AnimatedOptionCard(
+                            icon: Icons.people_alt_rounded,
+                            title: 'Gestión de Usuarios',
+                            description:
+                                'Ver, editar y eliminar usuarios del sistema',
+                            onTap: _abrirUsuarios,
+                            color: const Color(0xFF2563EB),
+                            compact: isMobile,
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Listo para trabajar',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: adminColorDark,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Accede a todas las herramientas de gestión',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.blueGrey[700],
-                                  ),
-                                ),
-                              ],
-                            ),
+                          _AnimatedOptionCard(
+                            icon: Icons.bar_chart_rounded,
+                            title: 'Reportes de Equipo',
+                            description: 'Faltantes y asignaciones de equipos',
+                            onTap: _abrirReportes,
+                            color: const Color(0xFF3B82F6),
+                            compact: isMobile,
+                          ),
+                          _AnimatedOptionCard(
+                            icon: Icons.emergency_share,
+                            title: 'Incidentes en Ruta',
+                            description: 'Tráfico, averías y retrasos en ruta',
+                            onTap: _abrirIncidentes,
+                            color: const Color(0xFF60A5FA),
+                            compact: isMobile,
+                          ),
+                          _AnimatedOptionCard(
+                            icon: Icons.location_on_rounded,
+                            title: 'Monitoreo de Ubicación',
+                            description:
+                                'Seguimiento en tiempo real de operadores',
+                            onTap: _abrirMonitoreoUbicacion,
+                            color: const Color(0xFF10B981),
+                            compact: isMobile,
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: 28),
+                      const SizedBox(height: 32),
 
-                    // Sección de Opciones
-                    Text(
-                      'Gestiones Principales',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: adminColorDark,
+                      // Sección de Estadísticas
+                      Text(
+                        'Estado del Sistema',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: adminColorDark,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    GridView.count(
-                      crossAxisCount: gridColumns,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      mainAxisSpacing: isMobile ? 10 : 12,
-                      crossAxisSpacing: isMobile ? 10 : 12,
-                      childAspectRatio: optionCardAspectRatio,
-                      children: [
-                        _AnimatedOptionCard(
-                          icon: Icons.people_alt_rounded,
-                          title: 'Gestión de Usuarios',
-                          description:
-                              'Ver, editar y eliminar usuarios del sistema',
-                          onTap: _abrirUsuarios,
-                          color: const Color(0xFF2563EB),
-                          compact: isMobile,
-                        ),
-                        _AnimatedOptionCard(
-                          icon: Icons.bar_chart_rounded,
-                          title: 'Reportes de Equipo',
-                          description: 'Faltantes y asignaciones de equipos',
-                          onTap: _abrirReportes,
-                          color: const Color(0xFF3B82F6),
-                          compact: isMobile,
-                        ),
-                        _AnimatedOptionCard(
-                          icon: Icons.emergency_share,
-                          title: 'Incidentes en Ruta',
-                          description: 'Tráfico, averías y retrasos en ruta',
-                          onTap: _abrirIncidentes,
-                          color: const Color(0xFF60A5FA),
-                          compact: isMobile,
-                        ),
-                        _AnimatedOptionCard(
-                          icon: Icons.location_on_rounded,
-                          title: 'Monitoreo de Ubicación',
-                          description:
-                              'Seguimiento en tiempo real de operadores',
-                          onTap: _abrirMonitoreoUbicacion,
-                          color: const Color(0xFF10B981),
-                          compact: isMobile,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 32),
+                      const SizedBox(height: 16),
+                      _buildSystemStatsSection(),
+                      const SizedBox(height: 32),
 
-                    // Sección de Estadísticas
-                    Text(
-                      'Estado del Sistema',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: adminColorDark,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildSystemStatsSection(),
-                    const SizedBox(height: 32),
-
-                    // Sección de Información Detallada
-                    _buildDetailedInfoSection(),
-                    const SizedBox(height: 20),
-                  ],
+                      // Sección de Información Detallada
+                      _buildDetailedInfoSection(),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
                 ),
               ),
             ),
