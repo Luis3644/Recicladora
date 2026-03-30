@@ -10,7 +10,6 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-
   final _formKey = GlobalKey<FormState>();
 
   // 🔹 Controllers generales
@@ -36,21 +35,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   bool _obscurePassword = true;
   Future<void> registrarUsuario() async {
-
     if (!_formKey.currentState!.validate()) return;
 
     try {
-
-      UserCredential userCredential =
-          await _auth.createUserWithEmailAndPassword(
-        email: emailController.text.trim(),
-        password: passwordController.text.trim(),
-      );
+      UserCredential userCredential = await _auth
+          .createUserWithEmailAndPassword(
+            email: emailController.text.trim(),
+            password: passwordController.text.trim(),
+          );
 
       String uid = userCredential.user!.uid;
 
       await _firestore.collection("usuarios").doc(uid).set({
-
         "nombre": nombreController.text.trim(),
         "apellido_paterno": paternoController.text.trim(),
         "apellido_materno": maternoController.text.trim(),
@@ -62,9 +58,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         "rol": rolSeleccionado,
 
         // 🔥 Operador
-        "rfc": rolSeleccionado == "operador"
-            ? rfcController.text.trim()
-            : null,
+        "rfc": rolSeleccionado == "operador" ? rfcController.text.trim() : null,
 
         "tipo_licencia": rolSeleccionado == "operador"
             ? licenciaController.text.trim()
@@ -84,11 +78,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
 
       Navigator.pop(context);
-
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error: $e")));
     }
   }
 
@@ -112,15 +105,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
       appBar: AppBar(
-        title: const Text("Crear Cuenta", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        title: const Text(
+          "Crear Cuenta",
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+        ),
         elevation: 0,
         backgroundColor: const Color(0xFF1E3A8A),
         centerTitle: true,
-        iconTheme: const IconThemeData(color: Colors.white), // flecha regresar blanca
+        iconTheme: const IconThemeData(
+          color: Colors.white,
+        ), // flecha regresar blanca
       ),
       body: SingleChildScrollView(
         child: Padding(
@@ -147,7 +144,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         color: Colors.white.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.app_registration, color: Colors.white, size: 40),
+                      child: const Icon(
+                        Icons.app_registration,
+                        color: Colors.white,
+                        size: 40,
+                      ),
                     ),
                     const SizedBox(height: 14),
                     const Text(
@@ -162,10 +163,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     const SizedBox(height: 6),
                     const Text(
                       "Completa todos los datos para crear tu cuenta",
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.white70,
-                      ),
+                      style: TextStyle(fontSize: 13, color: Colors.white70),
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -176,7 +174,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
               // Tarjeta con el formulario
               Card(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
                 elevation: 4,
                 shadowColor: Colors.black.withOpacity(0.1),
                 child: Padding(
@@ -187,7 +187,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       children: [
                         DropdownButtonFormField<String>(
                           value: rolSeleccionado,
-                          decoration: estiloCampo("Tipo de usuario", Icons.person),
+                          decoration: estiloCampo(
+                            "Tipo de usuario",
+                            Icons.person,
+                          ),
                           items: const [
                             DropdownMenuItem(
                               value: "operador",
@@ -213,7 +216,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             Expanded(
                               child: TextFormField(
                                 controller: nombreController,
-                                validator: (value) => value!.isEmpty ? "Campo obligatorio" : null,
+                                validator: (value) =>
+                                    value!.isEmpty ? "Campo obligatorio" : null,
                                 decoration: estiloCampo("Nombre", Icons.person),
                               ),
                             ),
@@ -221,8 +225,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             Expanded(
                               child: TextFormField(
                                 controller: paternoController,
-                                validator: (value) => value!.isEmpty ? "Campo obligatorio" : null,
-                                decoration: estiloCampo("Apellido paterno", Icons.badge),
+                                validator: (value) =>
+                                    value!.isEmpty ? "Campo obligatorio" : null,
+                                decoration: estiloCampo(
+                                  "Apellido paterno",
+                                  Icons.badge,
+                                ),
                               ),
                             ),
                           ],
@@ -232,7 +240,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                         TextFormField(
                           controller: maternoController,
-                          decoration: estiloCampo("Apellido materno", Icons.badge),
+                          decoration: estiloCampo(
+                            "Apellido materno",
+                            Icons.badge,
+                          ),
                         ),
 
                         const SizedBox(height: 12),
@@ -240,7 +251,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         TextFormField(
                           controller: telefonoController,
                           keyboardType: TextInputType.phone,
-                          validator: (value) => value!.isEmpty ? "Campo obligatorio" : null,
+                          validator: (value) =>
+                              value!.isEmpty ? "Campo obligatorio" : null,
                           decoration: estiloCampo("Teléfono", Icons.phone),
                         ),
 
@@ -263,7 +275,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         TextFormField(
                           controller: emailController,
                           keyboardType: TextInputType.emailAddress,
-                          validator: (value) => value!.isEmpty ? "Campo obligatorio" : null,
+                          validator: (value) =>
+                              value!.isEmpty ? "Campo obligatorio" : null,
                           decoration: estiloCampo("Correo", Icons.email),
                         ),
 
@@ -274,18 +287,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           obscureText: _obscurePassword,
                           validator: (value) {
                             if (value!.isEmpty) return "Campo obligatorio";
-                            if (value.length < 6) return "Mínimo 6 caracteres";
                             return null;
                           },
-                          decoration: estiloCampo("Contraseña", Icons.lock).copyWith(
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                _obscurePassword ? Icons.visibility : Icons.visibility_off,
-                                color: const Color(0xFF1E3A8A),
+                          decoration: estiloCampo("Contraseña", Icons.lock)
+                              .copyWith(
+                                suffixIcon: IconButton(
+                                  icon: Icon(
+                                    _obscurePassword
+                                        ? Icons.visibility
+                                        : Icons.visibility_off,
+                                    color: const Color(0xFF1E3A8A),
+                                  ),
+                                  onPressed: () => setState(
+                                    () => _obscurePassword = !_obscurePassword,
+                                  ),
+                                ),
                               ),
-                              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                            ),
-                          ),
                         ),
 
                         // Campos para operador
@@ -295,7 +312,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           const SizedBox(height: 6),
                           const Align(
                             alignment: Alignment.centerLeft,
-                            child: Text("Datos del Operador", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                            child: Text(
+                              "Datos del Operador",
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
                           const SizedBox(height: 12),
                           TextFormField(
@@ -305,12 +328,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           const SizedBox(height: 12),
                           TextFormField(
                             controller: licenciaController,
-                            decoration: estiloCampo("Tipo de Licencia", Icons.car_rental),
+                            decoration: estiloCampo(
+                              "Tipo de Licencia",
+                              Icons.car_rental,
+                            ),
                           ),
                           const SizedBox(height: 12),
                           TextFormField(
                             controller: vigenciaController,
-                            decoration: estiloCampo("Vigencia de Licencia", Icons.date_range),
+                            decoration: estiloCampo(
+                              "Vigencia de Licencia",
+                              Icons.date_range,
+                            ),
                           ),
                         ],
 
@@ -322,7 +351,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           child: ElevatedButton(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF1E3A8A),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                               elevation: 3,
                             ),
                             onPressed: registrarUsuario,

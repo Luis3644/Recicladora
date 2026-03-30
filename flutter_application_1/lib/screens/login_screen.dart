@@ -156,34 +156,96 @@ class _LoginScreenState extends State<LoginScreen> {
 
   final _formKey = GlobalKey<FormState>();
 
-   bool isLoading = false;
-   bool isPasswordVisible = false;
+  bool isLoading = false;
+  bool isPasswordVisible = false;
 
-   @override
-   void initState() {
-     super.initState();
+  @override
+  void initState() {
+    super.initState();
     _googleSignIn = GoogleSignIn(scopes: const ['email', 'profile']);
-   }
+  }
 
-   Future<DocumentSnapshot<Map<String, dynamic>>?> _obtenerPerfilUsuario({
-     String? uid,
+  Future<DocumentSnapshot<Map<String, dynamic>>?> _obtenerPerfilUsuario({
+    String? uid,
     String? email,
   }) async {
+    final emailNormalizado = email?.trim().toLowerCase();
+
     if (uid != null && uid.isNotEmpty) {
       final doc = await _firestore.collection('usuarios').doc(uid).get();
-      if (doc.exists) return doc;
+      if (doc.exists) {
+        final data = doc.data();
+        final emailDoc = data?['email']?.toString().trim().toLowerCase();
+
+        // Usa coincidencia por uid solo si el correo también coincide.
+        if (emailNormalizado == null ||
+            emailNormalizado.isEmpty ||
+            emailDoc == emailNormalizado) {
+          return doc;
+        }
+      }
     }
 
     if (email != null && email.isNotEmpty) {
       final query = await _firestore
           .collection('usuarios')
-          .where('email', isEqualTo: email)
-          .limit(1)
+          .where('email', isEqualTo: email.trim())
           .get();
-      if (query.docs.isNotEmpty) return query.docs.first;
+
+      if (query.docs.isEmpty) return null;
+      if (query.docs.length == 1) return query.docs.first;
+
+      final matchByUid = query.docs.where((doc) {
+        final value = doc.data()['uid']?.toString();
+        return uid != null && uid.isNotEmpty && value == uid;
+      }).toList();
+
+      if (matchByUid.length == 1) return matchByUid.first;
+
+      if (!mounted) return null;
+      return _seleccionarPerfilDuplicado(query.docs);
     }
 
     return null;
+  }
+
+  Future<DocumentSnapshot<Map<String, dynamic>>?> _seleccionarPerfilDuplicado(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> perfiles,
+  ) async {
+    return showDialog<DocumentSnapshot<Map<String, dynamic>>>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Selecciona tu perfil'),
+        content: SizedBox(
+          width: 420,
+          child: ListView.separated(
+            shrinkWrap: true,
+            itemCount: perfiles.length,
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (_, index) {
+              final doc = perfiles[index];
+              final data = doc.data();
+              final nombre = data['nombre']?.toString() ?? 'Sin nombre';
+              final apellido = data['apellido_paterno']?.toString() ?? '';
+              final rol = data['rol']?.toString() ?? 'sin rol';
+
+              return ListTile(
+                leading: const Icon(Icons.person_outline),
+                title: Text('$nombre $apellido'.trim()),
+                subtitle: Text('Rol: $rol'),
+                onTap: () => Navigator.of(dialogContext).pop(doc),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancelar'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _mostrarErrorNoRegistrado() async {
@@ -247,6 +309,32 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  Future<DocumentSnapshot<Map<String, dynamic>>?>
+  _autenticarContrasenaFirestore() async {
+    final email = emailController.text.trim();
+    final password = passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) return null;
+
+    final query = await _firestore
+        .collection('usuarios')
+        .where('email', isEqualTo: email)
+        .limit(1)
+        .get();
+
+    if (query.docs.isEmpty) return null;
+
+    final doc = query.docs.first;
+    final data = doc.data();
+    final contrasenaGuardada = data['contrasena']?.toString() ?? '';
+
+    if (contrasenaGuardada.isEmpty || contrasenaGuardada != password) {
+      return null;
+    }
+
+    return doc;
+  }
+
   Future<void> loginUsuario() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -273,6 +361,18 @@ class _LoginScreenState extends State<LoginScreen> {
 
       await _redirigirSegunRol(userDoc);
     } on FirebaseAuthException catch (e) {
+      // Respaldo para usuarios registrados directamente en Firestore.
+      if (e.code == 'user-not-found' ||
+          e.code == 'wrong-password' ||
+          e.code == 'invalid-credential' ||
+          e.code == 'invalid-login-credentials') {
+        final userDoc = await _autenticarContrasenaFirestore();
+        if (userDoc != null) {
+          await _redirigirSegunRol(userDoc);
+          return;
+        }
+      }
+
       var mensaje = 'Error al iniciar sesión';
 
       if (e.code == 'user-not-found') {
@@ -312,8 +412,16 @@ class _LoginScreenState extends State<LoginScreen> {
         final provider = GoogleAuthProvider();
         provider.addScope('email');
         provider.addScope('profile');
+        provider.setCustomParameters({'prompt': 'select_account'});
         userCredential = await _auth.signInWithPopup(provider);
       } else {
+        // Fuerza el selector de cuentas para evitar reingreso automático.
+        try {
+          await _googleSignIn.disconnect();
+        } catch (_) {
+          await _googleSignIn.signOut();
+        }
+
         final googleUser = await _googleSignIn.signIn();
         if (googleUser == null) return;
 
@@ -326,6 +434,9 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       final firebaseUser = userCredential.user;
+      if (firebaseUser?.email != null) {
+        emailController.text = firebaseUser!.email!;
+      }
       final userDoc = await _obtenerPerfilUsuario(
         uid: firebaseUser?.uid,
         email: firebaseUser?.email,
@@ -467,9 +578,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           validator: (value) {
                             if (value == null || value.isEmpty) {
                               return 'Ingresa tu contraseña';
-                            }
-                            if (value.length < 6) {
-                              return 'Mínimo 6 caracteres';
                             }
                             return null;
                           },
