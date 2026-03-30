@@ -1,91 +1,95 @@
-import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:math';
-import 'register_screen.dart';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+
+import 'Trabajador_screen.dart';
 import 'admin_screen.dart';
 import 'operador_screen.dart';
-import 'Trabajador_screen.dart';
 
-// CustomPainter para el fondo animado tipo lava lámpara
 class LavaLampPainter extends CustomPainter {
   final double animationValue;
-  
+
   LavaLampPainter({required this.animationValue});
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint();
-    
-    // Colores que cambian suavemente
-    // Paleta azul (consistente con el UI)
-    List<Color> colors = [
-      Color.lerp(const Color(0xFF1E3A8A), const Color(0xFF2563EB),
-              animationValue % 1.0) ??
+
+    final colors = [
+      Color.lerp(
+            const Color(0xFF1E3A8A),
+            const Color(0xFF2563EB),
+            animationValue % 1.0,
+          ) ??
           const Color(0xFF1E3A8A),
-      Color.lerp(const Color(0xFF2563EB), const Color(0xFF38BDF8),
-              (animationValue + 0.33) % 1.0) ??
+      Color.lerp(
+            const Color(0xFF2563EB),
+            const Color(0xFF38BDF8),
+            (animationValue + 0.33) % 1.0,
+          ) ??
           const Color(0xFF2563EB),
-      Color.lerp(const Color(0xFF38BDF8), const Color(0xFF1E3A8A),
-              (animationValue + 0.66) % 1.0) ??
+      Color.lerp(
+            const Color(0xFF38BDF8),
+            const Color(0xFF1E3A8A),
+            (animationValue + 0.66) % 1.0,
+          ) ??
           const Color(0xFF38BDF8),
     ];
 
-    // Dibujar blobs animados
     for (int i = 0; i < colors.length; i++) {
-      paint.color = colors[i].withOpacity(0.3 + 0.3 * sin(animationValue * 2 + i));
-      
-      double offsetX = size.width * (0.25 + 0.2 * sin(animationValue + i));
-      double offsetY = size.height * (0.3 + 0.25 * cos(animationValue * 0.8 + i * 2));
-      
-      double radius = size.width * (0.12 + 0.05 * sin(animationValue * 1.5 + i));
-      
-      canvas.drawCircle(
-        Offset(offsetX, offsetY),
-        radius,
-        paint,
+      paint.color = colors[i].withValues(
+        alpha: 0.3 + 0.3 * sin(animationValue * 2 + i),
       );
+
+      final offsetX = size.width * (0.25 + 0.2 * sin(animationValue + i));
+      final offsetY =
+          size.height * (0.3 + 0.25 * cos(animationValue * 0.8 + i * 2));
+      final radius = size.width * (0.12 + 0.05 * sin(animationValue * 1.5 + i));
+
+      canvas.drawCircle(Offset(offsetX, offsetY), radius, paint);
     }
 
-    // Dibujar blobs secundarios
     for (int i = 0; i < 2; i++) {
-      paint.color = colors[(i + 1) % colors.length].withOpacity(0.15 + 0.15 * cos(animationValue * 1.2 + i));
-      
-      double offsetX = size.width * (0.7 + 0.15 * cos(animationValue * 0.7 + i * 1.5));
-      double offsetY = size.height * (0.6 + 0.2 * sin(animationValue * 0.9 + i));
-      
-      double radius = size.width * (0.15 + 0.08 * cos(animationValue + i * 3));
-      
-      canvas.drawCircle(
-        Offset(offsetX, offsetY),
-        radius,
-        paint,
+      paint.color = colors[(i + 1) % colors.length].withValues(
+        alpha: 0.15 + 0.15 * cos(animationValue * 1.2 + i),
       );
+
+      final offsetX =
+          size.width * (0.7 + 0.15 * cos(animationValue * 0.7 + i * 1.5));
+      final offsetY = size.height * (0.6 + 0.2 * sin(animationValue * 0.9 + i));
+      final radius = size.width * (0.15 + 0.08 * cos(animationValue + i * 3));
+
+      canvas.drawCircle(Offset(offsetX, offsetY), radius, paint);
     }
 
-    // Efecto de degradado suave sobre los blobs
     final gradientPaint = Paint()
       ..shader = LinearGradient(
         colors: [
           Colors.transparent,
-          const Color(0xFF1E3A8A).withOpacity(0.06),
+          const Color(0xFF1E3A8A).withValues(alpha: 0.06),
         ],
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
-    
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), gradientPaint);
+
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      gradientPaint,
+    );
   }
 
   @override
   bool shouldRepaint(LavaLampPainter oldDelegate) => true;
 }
 
-// Widget del fondo animado
 class AnimatedLavaBackground extends StatefulWidget {
   final Widget child;
 
-  const AnimatedLavaBackground({required this.child});
+  const AnimatedLavaBackground({super.key, required this.child});
 
   @override
   State<AnimatedLavaBackground> createState() => _AnimatedLavaBackgroundState();
@@ -93,7 +97,7 @@ class AnimatedLavaBackground extends StatefulWidget {
 
 class _AnimatedLavaBackgroundState extends State<AnimatedLavaBackground>
     with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
+  late final AnimationController _controller;
 
   @override
   void initState() {
@@ -120,10 +124,7 @@ class _AnimatedLavaBackgroundState extends State<AnimatedLavaBackground>
           height: double.infinity,
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [
-                Color(0xFF050B1E),
-                Color(0xFF0B1B3A),
-              ],
+              colors: [Color(0xFF050B1E), Color(0xFF0B1B3A)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -146,20 +147,107 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  late final GoogleSignIn _googleSignIn;
 
   final _formKey = GlobalKey<FormState>();
 
-  bool isLoading = false;
-  bool isPasswordVisible = false;
+   bool isLoading = false;
+   bool isPasswordVisible = false;
+
+   @override
+   void initState() {
+     super.initState();
+    _googleSignIn = GoogleSignIn(scopes: const ['email', 'profile']);
+   }
+
+   Future<DocumentSnapshot<Map<String, dynamic>>?> _obtenerPerfilUsuario({
+     String? uid,
+    String? email,
+  }) async {
+    if (uid != null && uid.isNotEmpty) {
+      final doc = await _firestore.collection('usuarios').doc(uid).get();
+      if (doc.exists) return doc;
+    }
+
+    if (email != null && email.isNotEmpty) {
+      final query = await _firestore
+          .collection('usuarios')
+          .where('email', isEqualTo: email)
+          .limit(1)
+          .get();
+      if (query.docs.isNotEmpty) return query.docs.first;
+    }
+
+    return null;
+  }
+
+  Future<void> _mostrarErrorNoRegistrado() async {
+    await _auth.signOut();
+    await _googleSignIn.signOut();
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Tu cuenta no está registrada. Contacta a tu administrador.',
+        ),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+
+  Future<void> _redirigirSegunRol(
+    DocumentSnapshot<Map<String, dynamic>> userDoc,
+  ) async {
+    final data = userDoc.data();
+    if (data == null) {
+      throw Exception('Usuario sin datos en Firestore');
+    }
+
+    final rol = data['rol']?.toString();
+
+    if (rol == 'admin') {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const AdminScreen()),
+      );
+      return;
+    }
+
+    if (rol == 'operador') {
+      final nombre = data['nombre']?.toString() ?? '';
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => OperadorScreen(nombreUsuario: nombre),
+        ),
+      );
+      return;
+    }
+
+    if (rol == 'trabajador') {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const TrabajadorScreen()),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Rol no válido'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
 
   Future<void> loginUsuario() async {
-
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -167,96 +255,122 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-
-      UserCredential userCredential =
-          await _auth.signInWithEmailAndPassword(
+      final userCredential = await _auth.signInWithEmailAndPassword(
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
       );
 
-      String uid = userCredential.user!.uid;
+      final firebaseUser = userCredential.user;
+      final userDoc = await _obtenerPerfilUsuario(
+        uid: firebaseUser?.uid,
+        email: firebaseUser?.email ?? emailController.text.trim(),
+      );
 
-      DocumentSnapshot userDoc =
-          await _firestore.collection("usuarios").doc(uid).get();
-
-      if (!userDoc.exists) {
-        throw Exception("Usuario sin datos en Firestore");
+      if (userDoc == null) {
+        await _mostrarErrorNoRegistrado();
+        return;
       }
 
-      String rol = userDoc["rol"];
-
-      if (rol == "admin") {
-
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) =>  AdminScreen()),
-        );
-
-      } else if (rol == "operador") {
-
-       final nombre = userDoc["nombre"];
-
-      Navigator.pushReplacement(
-         context,
-         MaterialPageRoute(
-          builder: (_) => OperadorScreen(nombreUsuario: nombre),
-  ),
-);
-
-      } else if (rol == "trabajador") {
-
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) =>  TrabajadorScreen()),
-        );
-
-      } else {
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Rol no válido"),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-
+      await _redirigirSegunRol(userDoc);
     } on FirebaseAuthException catch (e) {
-
-      String mensaje = "Error al iniciar sesión";
+      var mensaje = 'Error al iniciar sesión';
 
       if (e.code == 'user-not-found') {
-        mensaje = "Usuario no encontrado";
+        mensaje = 'Usuario no encontrado';
       } else if (e.code == 'wrong-password') {
-        mensaje = "Contraseña incorrecta";
+        mensaje = 'Contraseña incorrecta';
       } else if (e.code == 'invalid-email') {
-        mensaje = "Correo inválido";
+        mensaje = 'Correo inválido';
       }
 
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(mensaje),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text(mensaje), backgroundColor: Colors.red),
       );
-
     } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    }
+  }
 
+  Future<void> loginConGoogle() async {
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      UserCredential userCredential;
+      if (kIsWeb) {
+        final provider = GoogleAuthProvider();
+        provider.addScope('email');
+        provider.addScope('profile');
+        userCredential = await _auth.signInWithPopup(provider);
+      } else {
+        final googleUser = await _googleSignIn.signIn();
+        if (googleUser == null) return;
+
+        final googleAuth = await googleUser.authentication;
+        final credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+        userCredential = await _auth.signInWithCredential(credential);
+      }
+
+      final firebaseUser = userCredential.user;
+      final userDoc = await _obtenerPerfilUsuario(
+        uid: firebaseUser?.uid,
+        email: firebaseUser?.email,
+      );
+
+      if (userDoc == null) {
+        await _mostrarErrorNoRegistrado();
+        return;
+      }
+
+      await _redirigirSegunRol(userDoc);
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("Error: $e"),
+          content: Text('Error con Google: ${e.message ?? e.code}'),
           backgroundColor: Colors.red,
         ),
       );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al iniciar con Google: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
+  }
 
-    setState(() {
-      isLoading = false;
-    });
+  @override
+  void dispose() {
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-
     return AnimatedLavaBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
@@ -269,7 +383,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   borderRadius: BorderRadius.circular(24),
                 ),
                 elevation: 20,
-                shadowColor: Colors.black.withOpacity(0.3),
+                shadowColor: Colors.black.withValues(alpha: 0.3),
                 child: Padding(
                   padding: const EdgeInsets.all(32),
                   child: Form(
@@ -277,11 +391,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.75),
+                            color: Colors.white.withValues(alpha: 0.75),
                             borderRadius: BorderRadius.circular(18),
                           ),
                           child: ClipRRect(
@@ -295,11 +408,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                         ),
-
                         const SizedBox(height: 20),
-
                         const Text(
-                          "RECICLADORA GUADALAJARA",
+                          'RECICLADORA GUADALAJARA',
                           style: TextStyle(
                             fontSize: 26,
                             fontWeight: FontWeight.bold,
@@ -307,70 +418,73 @@ class _LoginScreenState extends State<LoginScreen> {
                             letterSpacing: 0.5,
                           ),
                         ),
-
                         const SizedBox(height: 8),
-
                         const Text(
-                          "Inicia sesión en tu cuenta",
+                          'Inicia sesión en tu cuenta',
                           style: TextStyle(
                             fontSize: 14,
                             color: Color(0xFF666666),
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-
                         const SizedBox(height: 32),
-
-                        /// EMAIL
                         TextFormField(
                           controller: emailController,
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return "Ingresa tu correo";
+                              return 'Ingresa tu correo';
                             }
                             return null;
                           },
                           decoration: InputDecoration(
-                            labelText: "Correo electrónico",
-                            prefixIcon: const Icon(Icons.email, color: Color(0xFF1E3A8A)),
+                            labelText: 'Correo electrónico',
+                            prefixIcon: const Icon(
+                              Icons.email,
+                              color: Color(0xFF1E3A8A),
+                            ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFE0E0E0),
+                              ),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: Color(0xFF1E3A8A), width: 2),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF1E3A8A),
+                                width: 2,
+                              ),
                             ),
                             filled: true,
-                            fillColor: Color(0xFFFAFAFA),
+                            fillColor: const Color(0xFFFAFAFA),
                           ),
                           style: const TextStyle(color: Color(0xFF1F1F1F)),
                         ),
-
                         const SizedBox(height: 18),
-
-                        /// PASSWORD
                         TextFormField(
                           controller: passwordController,
                           obscureText: !isPasswordVisible,
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return "Ingresa tu contraseña";
+                              return 'Ingresa tu contraseña';
                             }
                             if (value.length < 6) {
-                              return "Mínimo 6 caracteres";
+                              return 'Mínimo 6 caracteres';
                             }
                             return null;
                           },
                           decoration: InputDecoration(
-                            labelText: "Contraseña",
-                            prefixIcon: const Icon(Icons.lock, color: Color(0xFF1E3A8A)),
+                            labelText: 'Contraseña',
+                            prefixIcon: const Icon(
+                              Icons.lock,
+                              color: Color(0xFF1E3A8A),
+                            ),
                             suffixIcon: IconButton(
                               icon: Icon(
                                 isPasswordVisible
                                     ? Icons.visibility
                                     : Icons.visibility_off,
-                                color: Color(0xFF1E3A8A),
+                                color: const Color(0xFF1E3A8A),
                               ),
                               onPressed: () {
                                 setState(() {
@@ -380,21 +494,23 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFE0E0E0),
+                              ),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: Color(0xFF1E3A8A), width: 2),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF1E3A8A),
+                                width: 2,
+                              ),
                             ),
                             filled: true,
-                            fillColor: Color(0xFFFAFAFA),
+                            fillColor: const Color(0xFFFAFAFA),
                           ),
                           style: const TextStyle(color: Color(0xFF1F1F1F)),
                         ),
-
                         const SizedBox(height: 28),
-
-                        /// BOTÓN LOGIN
                         SizedBox(
                           width: double.infinity,
                           height: 52,
@@ -412,7 +528,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     color: Colors.white,
                                   )
                                 : const Text(
-                                    "Iniciar Sesión",
+                                    'Iniciar Sesión',
                                     style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
@@ -422,28 +538,44 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                           ),
                         ),
-
-                        const SizedBox(height: 16),
-
-                        /// CREAR CUENTA
-                        TextButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) => RegisterScreen()),
-                            );
-                          },
-                          child: const Text(
-                            "¿No tienes cuenta? Registrate aquí",
-                            style: TextStyle(
-                              color: Color(0xFF1E3A8A),
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
+                        const SizedBox(height: 14),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: OutlinedButton(
+                            onPressed: isLoading ? null : loginConGoogle,
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              side: const BorderSide(color: Color(0xFFDADCE0)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
+                            child: isLoading
+                                ? const SizedBox(
+                                    width: 22,
+                                    height: 22,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      _GoogleLogo(),
+                                      SizedBox(width: 12),
+                                      Text(
+                                        'Continuar con Google',
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF1F1F1F),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                           ),
                         ),
-
                       ],
                     ),
                   ),
@@ -455,4 +587,64 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
+}
+
+class _GoogleLogo extends StatelessWidget {
+  const _GoogleLogo();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 18,
+      height: 18,
+      child: CustomPaint(painter: _GoogleLogoPainter()),
+    );
+  }
+}
+
+class _GoogleLogoPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    const strokeWidth = 2.6;
+    final rect = Offset.zero & size;
+    final center = rect.center;
+    final radius = (size.width / 2) - (strokeWidth / 2);
+
+    void drawArc(Color color, double startAngle, double sweepAngle) {
+      final paint = Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round;
+
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle,
+        sweepAngle,
+        false,
+        paint,
+      );
+    }
+
+    drawArc(const Color(0xFF4285F4), -0.15, 1.25);
+    drawArc(const Color(0xFF34A853), 1.1, 1.15);
+    drawArc(const Color(0xFFFBBC05), 2.3, 0.9);
+    drawArc(const Color(0xFFEA4335), 3.15, 1.15);
+
+    final blueBar = Paint()
+      ..color = const Color(0xFF4285F4)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    final midY = size.height / 2;
+    canvas.drawLine(
+      Offset(size.width * 0.52, midY),
+      Offset(size.width * 0.94, midY),
+      blueBar,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

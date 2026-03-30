@@ -54,6 +54,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
     final telefono = TextEditingController(text: esEdicion ? data!["telefono"] : "");
     final curp = TextEditingController(text: esEdicion ? data!["curp"] : "");
     final direccion = TextEditingController(text: esEdicion ? data!["direccion"] : "");
+    final contrasena = TextEditingController();
     final rfc = TextEditingController(text: esEdicion ? data!["rfc"] : "");
     final tipoLicencia = TextEditingController(text: esEdicion ? data!["tipo_licencia"] : "");
 
@@ -92,6 +93,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
               _buildTextField(email, "Correo Electrónico", Icons.email, keyboard: TextInputType.emailAddress),
               _buildTextField(telefono, "Teléfono", Icons.phone, keyboard: TextInputType.phone),
               _buildTextField(curp, "CURP", Icons.badge),
+              _buildPasswordField(contrasena, esEdicion),
               _buildTextField(direccion, "Dirección", Icons.home),
               
               if (filtroRol == "operador") ...[
@@ -133,10 +135,12 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                             curp.text.trim().isEmpty || 
                             direccion.text.trim().isEmpty;
 
+                        bool contrasenaVacia = !esEdicion && contrasena.text.trim().isEmpty;
+
                         bool camposOperadorVacios = filtroRol == "operador" && 
                             (rfc.text.trim().isEmpty || tipoLicencia.text.trim().isEmpty);
 
-                        if (camposBasicosVacios || camposOperadorVacios) {
+                        if (camposBasicosVacios || camposOperadorVacios || contrasenaVacia) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text("Por favor, llena todos los campos obligatorios"),
@@ -158,6 +162,11 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                           "rol": filtroRol,
                           "activo": esEdicion ? (data!["activo"] ?? true) : true,
                         };
+
+                        // Agregar contraseña solo si se proporciona
+                        if (contrasena.text.trim().isNotEmpty) {
+                          datos["contrasena"] = contrasena.text.trim();
+                        }
 
                         if (filtroRol == "operador") {
                           datos.addAll({"rfc": rfc.text.trim(), "tipo_licencia": tipoLicencia.text.trim()});
@@ -198,6 +207,49 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
           contentPadding: const EdgeInsets.symmetric(horizontal: 15),
         ),
       ),
+    );
+  }
+
+  Widget _buildPasswordField(TextEditingController controller, bool esEdicion) {
+    return StatefulBuilder(
+      builder: (context, setState) {
+        bool mostrarContrasena = false;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: StatefulBuilder(
+            builder: (BuildContext context, StateSetter setPasswordState) {
+              return TextField(
+                controller: controller,
+                obscureText: !mostrarContrasena,
+                decoration: InputDecoration(
+                  labelText: esEdicion ? "Contraseña (dejar en blanco para no cambiar)" : "Contraseña",
+                  prefixIcon: const Icon(
+                    Icons.lock_outline,
+                    size: 20,
+                    color: Color.fromARGB(255, 76, 94, 175),
+                  ),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      mostrarContrasena ? Icons.visibility_rounded : Icons.visibility_off_rounded,
+                      size: 20,
+                      color: const Color.fromARGB(255, 76, 94, 175),
+                    ),
+                    onPressed: () {
+                      setPasswordState(() {
+                        mostrarContrasena = !mostrarContrasena;
+                      });
+                    },
+                  ),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  filled: true,
+                  fillColor: Colors.grey[50],
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 15),
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
@@ -265,11 +317,11 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
 
                     return Card(
                       elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: Colors.grey.withOpacity(0.2))),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: Colors.grey.withValues(alpha: 0.2))),
                       margin: const EdgeInsets.only(bottom: 10),
                       child: ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: const Color.fromARGB(255, 76, 94, 175).withOpacity(0.1),
+                          backgroundColor: const Color.fromARGB(255, 76, 94, 175).withValues(alpha: 0.1),
                           child: Text(inicial, style: const TextStyle(color: Color.fromARGB(255, 76, 94, 175))),
                         ),
                         title: Text("${data["nombre"] ?? ""} ${data["apellido_paterno"] ?? ""}", style: const TextStyle(fontWeight: FontWeight.bold)),
