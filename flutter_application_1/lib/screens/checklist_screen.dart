@@ -61,6 +61,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
 
       await camionDoc.reference.update({"ocupado": true, "operador": widget.nombreUsuario});
       await FirebaseFirestore.instance.collection("usuarios").doc(widget.nombreUsuario).set({
+        "nombre": widget.nombreUsuario,
         "jornada_activa": true,
         "camion_actual": widget.camion,
         "placas_actuales": widget.placas,

@@ -3,7 +3,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
+import '../config/session_manager.dart';
 import 'login_screen.dart';
+import 'mapa_general_operadores_screen.dart';
+import 'panel_general_usuarios_screen.dart';
 import 'usuarios_screen.dart';
 import 'widgets/lista_incidentes_admin.dart';
 import 'widgets/reportes_equipo_screen.dart';
@@ -67,10 +70,10 @@ class _AnimatedOptionCardState extends State<_AnimatedOptionCard>
 
   @override
   Widget build(BuildContext context) {
-    final iconBaseSize = widget.compact ? 26.0 : 36.0;
-    final iconHoverSize = widget.compact ? 28.0 : 40.0;
-    final titleFontSize = widget.compact ? 12.5 : 14.0;
-    final descriptionFontSize = widget.compact ? 10.5 : 12.0;
+    final iconBaseSize = widget.compact ? 28.0 : 42.0;
+    final iconHoverSize = widget.compact ? 32.0 : 50.0;
+    final titleFontSize = widget.compact ? 13.0 : 15.0;
+    final descriptionFontSize = widget.compact ? 11.5 : 13.0;
 
     return MouseRegion(
       onEnter: (_) => _onHover(true),
@@ -80,31 +83,37 @@ class _AnimatedOptionCardState extends State<_AnimatedOptionCard>
         child: ScaleTransition(
           scale: _scaleAnimation,
           child: Card(
-            elevation: _isHovered ? 10 : 2,
+            elevation: 0,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(20),
             ),
             child: Container(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(20),
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: _isHovered
                       ? [
-                          widget.color.withValues(alpha: 0.2),
-                          widget.color.withValues(alpha: 0.07),
+                          widget.color.withValues(alpha: 0.16),
+                          widget.color.withValues(alpha: 0.06),
                         ]
-                      : [Colors.white, const Color(0xFFF6F9FF)],
+                      : [Colors.white, const Color(0xFFF9FAFB)],
                 ),
-                border: Border.all(color: widget.color.withValues(alpha: 0.14)),
+                border: Border.all(
+                  color: _isHovered 
+                      ? widget.color.withValues(alpha: 0.25)
+                      : widget.color.withValues(alpha: 0.12),
+                  width: 1.5,
+                ),
                 boxShadow: [
                   BoxShadow(
                     color: widget.color.withValues(
-                      alpha: _isHovered ? 0.18 : 0.08,
+                      alpha: _isHovered ? 0.16 : 0.06,
                     ),
-                    blurRadius: _isHovered ? 22 : 14,
-                    offset: const Offset(0, 6),
+                    blurRadius: _isHovered ? 28 : 16,
+                    offset: Offset(0, _isHovered ? 16 : 8),
+                    spreadRadius: _isHovered ? 2 : 0,
                   ),
                 ],
               ),
@@ -179,9 +188,12 @@ class _AdminScreenState extends State<AdminScreen> {
   final FlutterLocalNotificationsPlugin _notificaciones =
       FlutterLocalNotificationsPlugin();
 
-  final Color adminColor = const Color(0xFF1D4ED8);
-  final Color adminColorDark = const Color(0xFF102A75);
-  final Color adminColorSoft = const Color(0xFF60A5FA);
+  // Paleta de colores profesional y moderna
+  final Color primaryColor = const Color(0xFF0f172a);    // Azul oscuro profesional
+  final Color accentColor = const Color(0xFF06b6d4);     // Cyan/turquesa
+  final Color successColor = const Color(0xFF10b981);    // Verde esmeralda
+  final Color warningColor = const Color(0xFFf59e0b);    // Ámbar dorado
+  final Color bgColor = const Color(0xFFF0F9FF);         // Fondo azul muy claro
 
   @override
   void initState() {
@@ -361,7 +373,7 @@ class _AdminScreenState extends State<AdminScreen> {
     final optionCardAspectRatio = isMobile ? 1.22 : (isTablet ? 1.12 : 1.05);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFEFF4FF),
+      backgroundColor: bgColor,
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.transparent,
@@ -375,11 +387,14 @@ class _AdminScreenState extends State<AdminScreen> {
               style: TextStyle(fontWeight: FontWeight.w700),
             ),
             const SizedBox(width: 10),
-            Image.asset(
-              'assets/logo circular.jpeg',
-              height: 38,
-              width: 38,
-              fit: BoxFit.contain,
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Image.asset(
+                'assets/logo circular.jpeg',
+                height: 38,
+                width: 38,
+                fit: BoxFit.cover,
+              ),
             ),
           ],
         ),
@@ -387,12 +402,19 @@ class _AdminScreenState extends State<AdminScreen> {
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                adminColor,
-                Color.lerp(adminColor, adminColorDark, 0.5)!,
+                primaryColor,
+                const Color(0xFF1e293b),
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: primaryColor.withValues(alpha: 0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
         ),
       ),
@@ -403,7 +425,8 @@ class _AdminScreenState extends State<AdminScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(adminColor),
+                    valueColor: AlwaysStoppedAnimation<Color>(accentColor),
+                    strokeWidth: 3,
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -423,79 +446,186 @@ class _AdminScreenState extends State<AdminScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Sección de Bienvenida
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              adminColor.withValues(alpha: 0.14),
-                              adminColorSoft.withValues(alpha: 0.06),
+                      TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0, end: 1),
+                        duration: const Duration(milliseconds: 800),
+                        builder: (context, value, child) {
+                          return Transform.translate(
+                            offset: Offset(0, 30 * (1 - value)),
+                            child: Opacity(opacity: value, child: child),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                accentColor.withValues(alpha: 0.1),
+                                successColor.withValues(alpha: 0.05),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(
+                              color: accentColor.withValues(alpha: 0.2),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: primaryColor.withValues(alpha: 0.08),
+                                blurRadius: 24,
+                                offset: const Offset(0, 12),
+                              ),
                             ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
                           ),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: adminColor.withValues(alpha: 0.18),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      accentColor.withValues(alpha: 0.2),
+                                      accentColor.withValues(alpha: 0.1),
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(
+                                  Icons.workspace_premium_rounded,
+                                  color: accentColor,
+                                  size: 24,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Listo para trabajar',
+                                      style: TextStyle(
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.w700,
+                                        color: primaryColor,
+                                        letterSpacing: 0.3,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      'Accede a todas las herramientas de gestión',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.grey[600],
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: adminColor.withValues(alpha: 0.07),
-                              blurRadius: 22,
-                              offset: const Offset(0, 10),
-                            ),
-                          ],
                         ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: adminColor.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Icon(
-                                Icons.workspace_premium_rounded,
-                                color: adminColorDark,
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Listo para trabajar',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: adminColorDark,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Accede a todas las herramientas de gestión',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.blueGrey[700],
-                                    ),
-                                  ),
-                                ],
+                      ),
+                      const SizedBox(height: 12),
+                      TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0, end: 1),
+                        duration: const Duration(milliseconds: 900),
+                        curve: Curves.easeOutCubic,
+                        builder: (context, value, child) {
+                          return Transform.translate(
+                            offset: Offset(0, 12 * (1 - value)),
+                            child: Opacity(opacity: value, child: child),
+                          );
+                        },
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: primaryColor,
+                              foregroundColor: Colors.white,
+                              elevation: 3,
+                              minimumSize: const Size(double.infinity, 50),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
                               ),
                             ),
-                          ],
+                            onPressed: _abrirPanelGeneralUsuarios,
+                            icon: const Icon(Icons.groups_2_rounded),
+                            label: const Text(
+                              'Panel General de Usuarios',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0, end: 1),
+                        duration: const Duration(milliseconds: 980),
+                        curve: Curves.easeOutCubic,
+                        builder: (context, value, child) {
+                          return Transform.translate(
+                            offset: Offset(0, 12 * (1 - value)),
+                            child: Opacity(opacity: value, child: child),
+                          );
+                        },
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: accentColor,
+                              foregroundColor: Colors.white,
+                              elevation: 3,
+                              minimumSize: const Size(double.infinity, 50),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            onPressed: _abrirMapaGeneralOperadores,
+                            icon: const Icon(Icons.map_rounded),
+                            label: const Text(
+                              'Mapa General de Operadores',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 28),
 
                       // Sección de Opciones
-                      Text(
-                        'Gestiones Principales',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: adminColorDark,
+                      Padding(
+                        padding: const EdgeInsets.only(left: 4),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Gestiones Principales',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w700,
+                                color: primaryColor,
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Container(
+                              width: 60,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [accentColor, successColor],
+                                ),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -546,12 +676,32 @@ class _AdminScreenState extends State<AdminScreen> {
                       const SizedBox(height: 32),
 
                       // Sección de Estadísticas
-                      Text(
-                        'Estado del Sistema',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: adminColorDark,
+                      Padding(
+                        padding: const EdgeInsets.only(left: 4),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Estado del Sistema',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w700,
+                                color: primaryColor,
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Container(
+                              width: 60,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [accentColor, successColor],
+                                ),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -597,9 +747,24 @@ class _AdminScreenState extends State<AdminScreen> {
     );
   }
 
+  void _abrirPanelGeneralUsuarios() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const PanelGeneralUsuariosScreen()),
+    );
+  }
+
+  void _abrirMapaGeneralOperadores() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const MapaGeneralOperadoresScreen()),
+    );
+  }
+
   Future<void> _cerrarSesion() async {
     try {
       await FirebaseAuth.instance.signOut();
+      await SessionManager.limpiarSesion();
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -611,6 +776,31 @@ class _AdminScreenState extends State<AdminScreen> {
         context,
       ).showSnackBar(SnackBar(content: Text('Error al cerrar sesión: $e')));
     }
+  }
+
+  Future<void> _confirmarYCerrarSesion() async {
+    final confirmar =
+        await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Cerrar sesión'),
+            content: const Text('¿Estás seguro de salir de la sesión?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancelar'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Sí, salir'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (!confirmar) return;
+    await _cerrarSesion();
   }
 
   Stream<QuerySnapshot<Map<String, dynamic>>> _streamUsuariosActivos() {
@@ -653,10 +843,10 @@ class _AdminScreenState extends State<AdminScreen> {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: adminColor.withValues(alpha: 0.12),
+                        color: accentColor.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Icon(Icons.people_alt_rounded, color: adminColor),
+                      child: Icon(Icons.people_alt_rounded, color: accentColor),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -719,35 +909,46 @@ class _AdminScreenState extends State<AdminScreen> {
                           final rol = data['rol']?.toString() ?? 'usuario';
                           final camion =
                               data['camion_actual']?.toString() ?? '';
-                          final inicial = nombre.substring(0, 1).toUpperCase();
+                          final inicial = nombre.isNotEmpty 
+                              ? nombre.substring(0, 1).toUpperCase()
+                              : '?';
 
                           return Container(
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
                                 colors: [
-                                  adminColor.withValues(alpha: 0.09),
-                                  adminColor.withValues(alpha: 0.03),
+                                  accentColor.withValues(alpha: 0.12),
+                                  accentColor.withValues(alpha: 0.03),
                                 ],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ),
                               borderRadius: BorderRadius.circular(14),
                               border: Border.all(
-                                color: adminColor.withValues(alpha: 0.14),
+                                color: accentColor.withValues(alpha: 0.2),
                               ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: accentColor.withValues(alpha: 0.08),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
                             ),
                             child: Row(
                               children: [
                                 CircleAvatar(
-                                  backgroundColor: adminColor.withValues(
+                                  radius: 24,
+                                  backgroundColor: accentColor.withValues(
                                     alpha: 0.18,
                                   ),
                                   child: Text(
                                     inicial,
                                     style: TextStyle(
-                                      color: adminColor,
-                                      fontWeight: FontWeight.bold,
+                                      color: accentColor,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 15,
                                     ),
                                   ),
                                 ),
@@ -782,15 +983,15 @@ class _AdminScreenState extends State<AdminScreen> {
                                               Icon(
                                                 Icons.local_shipping_rounded,
                                                 size: 14,
-                                                color: adminColor,
+                                                color: successColor,
                                               ),
                                               const SizedBox(width: 6),
                                               Text(
                                                 camion,
                                                 style: TextStyle(
                                                   fontSize: 11,
-                                                  color: adminColor,
-                                                  fontWeight: FontWeight.w500,
+                                                  color: successColor,
+                                                  fontWeight: FontWeight.w600,
                                                 ),
                                               ),
                                             ],
@@ -801,22 +1002,36 @@ class _AdminScreenState extends State<AdminScreen> {
                                 ),
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
+                                    horizontal: 12,
                                     vertical: 6,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: const Color(
-                                      0xFF4CAF50,
-                                    ).withValues(alpha: 0.14),
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: const Text(
-                                    'En jornada',
-                                    style: TextStyle(
-                                      color: Color(0xFF2E7D32),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        successColor.withValues(alpha: 0.18),
+                                        successColor.withValues(alpha: 0.08),
+                                      ],
                                     ),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: successColor.withValues(alpha: 0.3),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.check_circle_rounded, 
+                                        color: successColor, size: 14),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'En jornada',
+                                        style: TextStyle(
+                                          color: successColor,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
@@ -859,10 +1074,10 @@ class _AdminScreenState extends State<AdminScreen> {
                   value: snapshot.connectionState == ConnectionState.waiting
                       ? '...'
                       : cantidadActivos.toString(),
-                  color: const Color(0xFF5B7DFF),
+                  color: accentColor,
                   backgroundGradient: [
-                    const Color(0xFF5B7DFF).withValues(alpha: 0.1),
-                    const Color(0xFF5B7DFF).withValues(alpha: 0.02),
+                    accentColor.withValues(alpha: 0.12),
+                    accentColor.withValues(alpha: 0.04),
                   ],
                   onTap: () => _mostrarDetalleUsuariosActivos(usuariosActivos),
                   compact: isMobileStats,
@@ -871,10 +1086,10 @@ class _AdminScreenState extends State<AdminScreen> {
                   icon: Icons.assignment_rounded,
                   label: 'Reportes',
                   value: '8',
-                  color: const Color(0xFF6AA3FF),
+                  color: successColor,
                   backgroundGradient: [
-                    const Color(0xFF6AA3FF).withValues(alpha: 0.1),
-                    const Color(0xFF6AA3FF).withValues(alpha: 0.02),
+                    successColor.withValues(alpha: 0.12),
+                    successColor.withValues(alpha: 0.04),
                   ],
                   compact: isMobileStats,
                 ),
@@ -882,10 +1097,10 @@ class _AdminScreenState extends State<AdminScreen> {
                   icon: Icons.warning_rounded,
                   label: 'Incidentes',
                   value: '3',
-                  color: const Color(0xFF1E40AF),
+                  color: warningColor,
                   backgroundGradient: [
-                    const Color(0xFF1E40AF).withValues(alpha: 0.1),
-                    const Color(0xFF1E40AF).withValues(alpha: 0.02),
+                    warningColor.withValues(alpha: 0.12),
+                    warningColor.withValues(alpha: 0.04),
                   ],
                   compact: isMobileStats,
                 ),
@@ -978,19 +1193,19 @@ class _AdminScreenState extends State<AdminScreen> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            adminColor.withValues(alpha: 0.08),
-            adminColor.withValues(alpha: 0.02),
+            primaryColor.withValues(alpha: 0.05),
+            accentColor.withValues(alpha: 0.02),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: adminColor.withValues(alpha: 0.15)),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: accentColor.withValues(alpha: 0.15)),
         boxShadow: [
           BoxShadow(
-            color: adminColor.withValues(alpha: 0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: primaryColor.withValues(alpha: 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -1000,18 +1215,27 @@ class _AdminScreenState extends State<AdminScreen> {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: adminColor.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(10),
+                  gradient: LinearGradient(
+                    colors: [
+                      accentColor.withValues(alpha: 0.15),
+                      accentColor.withValues(alpha: 0.05),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(Icons.info_rounded, color: adminColor, size: 20),
+                child: Icon(Icons.info_rounded, color: accentColor, size: 22),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 16),
               const Expanded(
                 child: Text(
                   'Información del Sistema',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700, 
+                    fontSize: 17,
+                    letterSpacing: -0.3,
+                  ),
                 ),
               ),
             ],
@@ -1060,12 +1284,19 @@ class _AdminScreenState extends State<AdminScreen> {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    adminColor,
-                    Color.lerp(adminColor, const Color(0xFF2D3E7F), 0.5)!,
+                    primaryColor,
+                    const Color(0xFF1e293b),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: primaryColor.withValues(alpha: 0.4),
+                    blurRadius: 16,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
               ),
               padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
               child: Align(
@@ -1078,16 +1309,21 @@ class _AdminScreenState extends State<AdminScreen> {
                       'Menú',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 18,
+                        fontSize: 20,
                         fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
                     Text(
                       isLoading ? 'Administrador' : nombreUsuario,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: Colors.white70),
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ],
                 ),
@@ -1095,7 +1331,7 @@ class _AdminScreenState extends State<AdminScreen> {
             ),
           ),
           ListTile(
-            leading: Icon(Icons.logout_rounded, color: adminColor),
+            leading: Icon(Icons.logout_rounded, color: accentColor),
             title: const Text(
               'Cerrar sesión',
               style: TextStyle(fontWeight: FontWeight.w700),
@@ -1103,7 +1339,7 @@ class _AdminScreenState extends State<AdminScreen> {
             subtitle: const Text('Volver a la pantalla de inicio'),
             onTap: () async {
               Navigator.of(context).pop();
-              await _cerrarSesion();
+              await _confirmarYCerrarSesion();
             },
           ),
           const Spacer(),
@@ -1188,10 +1424,17 @@ class _MonitoreoUbicacionScreenState extends State<MonitoreoUbicacionScreen> {
               final doc = operadores[index];
               final data = doc.data() as Map<String, dynamic>;
 
-              String nombre = data["nombre"] ?? "";
+              String nombre = (data["nombre"]?.toString().trim().isNotEmpty ?? false)
+                  ? data["nombre"]!.toString().trim()
+                  : "Sin nombre";
+              String apellido = (data["apellido_paterno"]?.toString().trim().isNotEmpty ?? false)
+                  ? data["apellido_paterno"]!.toString().trim()
+                  : "";
               String inicial = nombre.isNotEmpty
                   ? nombre[0].toUpperCase()
-                  : "O";
+                  : "?";
+              String telefono = data["telefono"]?.toString().trim() ?? "S/T";
+              String direccion = data["direccion"]?.toString().trim() ?? "Ubicación no disponible";
 
               return Card(
                 elevation: 0,
@@ -1232,7 +1475,9 @@ class _MonitoreoUbicacionScreenState extends State<MonitoreoUbicacionScreen> {
                       ),
                     ),
                     title: Text(
-                      "${data["nombre"] ?? ""} ${data["apellido_paterno"] ?? ""}",
+                      apellido.isNotEmpty 
+                          ? "$nombre $apellido"
+                          : nombre,
                       style: const TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 15,
@@ -1252,7 +1497,7 @@ class _MonitoreoUbicacionScreenState extends State<MonitoreoUbicacionScreen> {
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              "${data["telefono"] ?? 'S/T'}",
+                              telefono,
                               style: TextStyle(
                                 color: Colors.grey[600],
                                 fontSize: 13,
@@ -1269,14 +1514,16 @@ class _MonitoreoUbicacionScreenState extends State<MonitoreoUbicacionScreen> {
                               color: Color(0xFF10B981),
                             ),
                             const SizedBox(width: 6),
-                            Text(
-                              "${data["direccion"] ?? 'Ubicación no disponible'}",
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 12,
+                            Expanded(
+                              child: Text(
+                                direccion,
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 12,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ),

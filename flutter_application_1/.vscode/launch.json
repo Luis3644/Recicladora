@@ -2,6 +2,15 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Flutter Android (Tu Celular)",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "9DUS497POV4T5P6D",
+      "program": "lib/main.dart",
+      "cwd": "C:\\Users\\ADR10\\Recicladora\\flutter_application_1",
+      "flutterMode": "debug"
+    },
+    {
       "name": "Flutter Web (Chrome puerto 5000)",
       "request": "launch",
       "type": "dart",

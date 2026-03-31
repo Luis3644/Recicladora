@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import '../config/session_manager.dart';
 import 'checklist_screen.dart';
 import 'jornada_screen.dart';
 import 'confirmar_camion_screen.dart';
@@ -28,6 +29,7 @@ class _OperadorScreenState extends State<OperadorScreen> {
   Future<void> _cerrarSesion() async {
     try {
       await FirebaseAuth.instance.signOut();
+      await SessionManager.limpiarSesion();
 
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
@@ -40,6 +42,31 @@ class _OperadorScreenState extends State<OperadorScreen> {
         context,
       ).showSnackBar(SnackBar(content: Text("Error al cerrar sesión: $e")));
     }
+  }
+
+  Future<void> _confirmarYCerrarSesion() async {
+    final confirmar =
+        await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Cerrar sesión'),
+            content: const Text('¿Estás seguro de salir de la sesión?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancelar'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Sí, salir'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (!confirmar) return;
+    await _cerrarSesion();
   }
 
   @override
@@ -226,6 +253,7 @@ class _OperadorScreenState extends State<OperadorScreen> {
           .collection("usuarios")
           .doc(widget.nombreUsuario)
           .set({
+            "nombre": widget.nombreUsuario,
             "jornada_activa": true,
             "camion_actual": tipoCamion,
             "placas_actuales": placasRecibidas,
@@ -307,7 +335,7 @@ class _OperadorScreenState extends State<OperadorScreen> {
                 subtitle: const Text("Volver a la pantalla de inicio"),
                 onTap: () async {
                   Navigator.of(context).pop(); // cerrar drawer
-                  await _cerrarSesion();
+                  await _confirmarYCerrarSesion();
                 },
               ),
               const Spacer(),
@@ -334,11 +362,14 @@ class _OperadorScreenState extends State<OperadorScreen> {
                 style: TextStyle(fontWeight: FontWeight.w700),
               ),
               const SizedBox(width: 10),
-              Image.asset(
-                'assets/logo circular.jpeg',
-                height: 42,
-                width: 42,
-                fit: BoxFit.contain,
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.asset(
+                  'assets/logo circular.jpeg',
+                  height: 42,
+                  width: 42,
+                  fit: BoxFit.cover,
+                ),
               ),
             ],
           ),

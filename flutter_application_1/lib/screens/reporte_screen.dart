@@ -23,14 +23,44 @@ class ReporteScreen extends StatefulWidget {
   State<ReporteScreen> createState() => _ReporteScreenState();
 }
 
-class _ReporteScreenState extends State<ReporteScreen> {
+class _ReporteScreenState extends State<ReporteScreen>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _descripcionController = TextEditingController();
   
   XFile? _imagenXFile; // Cambio: Usamos XFile en lugar de File
   Uint8List? _webImage; // Para mostrar la imagen en el navegador
   bool _subiendo = false;
+  bool _contentVisible = false;
+  late AnimationController _controller;
 
   final ImagePicker _picker = ImagePicker();
+
+  static const Color _primary = Color(0xFF0F172A);
+  static const Color _accent = Color(0xFF06B6D4);
+  static const Color _success = Color(0xFF10B981);
+  static const Color _danger = Color(0xFFDC2626);
+  static const Color _bgColor = Color(0xFFF0F9FF);
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 700),
+      vsync: this,
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() => _contentVisible = true);
+      _controller.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _descripcionController.dispose();
+    super.dispose();
+  }
 
   // Función para elegir imagen (Cámara o Galería)
   Future<void> _seleccionarImagen(ImageSource source) async {
@@ -103,85 +133,365 @@ class _ReporteScreenState extends State<ReporteScreen> {
   Widget build(BuildContext context) {
     return ConnectionWrapper(
       child: Scaffold(
+        backgroundColor: _bgColor,
         appBar: AppBar(
-          title: const Text("Reportar Incidente"),
-          backgroundColor: const Color(0xFF1E3A8A),
+          title: const Text(
+            "Reportar Incidente",
+            style: TextStyle(fontWeight: FontWeight.w700, letterSpacing: 0.3),
+          ),
+          automaticallyImplyLeading: true,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          foregroundColor: Colors.white,
+          flexibleSpace: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [_primary, Color(0xFF1E293B)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Color(0xFF0F172A),
+                  blurRadius: 20,
+                  offset: Offset(0, 8),
+                ),
+              ],
+            ),
+          ),
         ),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text("Camión: ${widget.camion} (${widget.placas})", 
-                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-              const SizedBox(height: 20),
-              const Text("¿Cuál es el problema?", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _descripcionController,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  hintText: "Escribe aquí tu reporte...",
-                  border: OutlineInputBorder(),
+        body: Stack(
+          children: [
+            // Decorative circles
+            Positioned(
+              top: -100,
+              right: -60,
+              child: Container(
+                width: 260,
+                height: 260,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _accent.withOpacity(0.1),
                 ),
               ),
-              const SizedBox(height: 20),
-              
-              // --- VISTA PREVIA ADAPTADA ---
-              Center(
-                child: Container(
-                  height: 180,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade300),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: _imagenXFile != null
-                      ? (kIsWeb 
-                          ? Image.memory(_webImage!, fit: BoxFit.contain) 
-                          : Image.file(File(_imagenXFile!.path), fit: BoxFit.contain))
-                      : const Icon(Icons.camera_alt_outlined, size: 80, color: Colors.grey),
+            ),
+            Positioned(
+              bottom: -80,
+              left: -80,
+              child: Container(
+                width: 240,
+                height: 240,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _success.withOpacity(0.08),
                 ),
               ),
-              const SizedBox(height: 15),
-
-              // --- BOTONES PARA EL OPERADOR ---
-              Row(
+            ),
+            SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey),
-                      onPressed: () => _seleccionarImagen(ImageSource.camera),
-                      icon: const Icon(Icons.photo_camera, color: Colors.white),
-                      label: const Text("Tomar Foto", style: TextStyle(color: Colors.white)),
+                  AnimatedOpacity(
+                    duration: const Duration(milliseconds: 600),
+                    opacity: _contentVisible ? 1 : 0,
+                    child: AnimatedSlide(
+                      duration: const Duration(milliseconds: 600),
+                      offset: _contentVisible ? Offset.zero : const Offset(0, 0.05),
+                      curve: Curves.easeOutCubic,
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.8),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: _accent.withOpacity(0.2),
+                            width: 1.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _primary.withOpacity(0.08),
+                              blurRadius: 16,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: _accent.withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(Icons.local_shipping_rounded,
+                                      color: _accent, size: 24),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        widget.camion,
+                                        style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700,
+                                            color: _primary),
+                                      ),
+                                      Text(
+                                        widget.placas,
+                                        style: TextStyle(
+                                            fontSize: 13,
+                                            color: _primary.withOpacity(0.7)),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey),
-                      onPressed: () => _seleccionarImagen(ImageSource.gallery),
-                      icon: const Icon(Icons.image, color: Colors.white),
-                      label: const Text("Galería", style: TextStyle(color: Colors.white)),
+                  const SizedBox(height: 20),
+                  AnimatedOpacity(
+                    opacity: _contentVisible ? 1 : 0,
+                    duration: const Duration(milliseconds: 700),
+                    child: Text(
+                      "¿Cuál es el problema?",
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: _primary,
+                        letterSpacing: 0.2,
+                      ),
                     ),
+                  ),
+                  const SizedBox(height: 12),
+                  AnimatedOpacity(
+                    opacity: _contentVisible ? 1 : 0,
+                    duration: const Duration(milliseconds: 800),
+                    child: TextField(
+                      controller: _descripcionController,
+                      maxLines: 4,
+                      style: const TextStyle(color: _primary),
+                      decoration: InputDecoration(
+                        hintText: "Describe el problema detalladamente...",
+                        hintStyle: TextStyle(
+                            color: _primary.withOpacity(0.5),
+                            fontSize: 14),
+                        prefixIcon: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Icon(Icons.description_rounded,
+                              color: _accent, size: 22),
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide(
+                              color: _accent.withOpacity(0.2), width: 1.5),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide(
+                              color: _accent.withOpacity(0.2), width: 1.5),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide:
+                              const BorderSide(color: _accent, width: 2),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  AnimatedOpacity(
+                    opacity: _contentVisible ? 1 : 0,
+                    duration: const Duration(milliseconds: 850),
+                    child: Text(
+                      "Adjuntar foto (opcional)",
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: _primary,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ScaleTransition(
+                    scale: Tween<double>(begin: 0.8, end: 1.0).animate(
+                      CurvedAnimation(
+                          parent: _controller, curve: Curves.easeOutBack),
+                    ),
+                    child: Container(
+                      height: 200,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                            color: _accent.withOpacity(0.3), width: 2),
+                        borderRadius: BorderRadius.circular(16),
+                        color: Colors.white,
+                        boxShadow: [
+                          BoxShadow(
+                            color: _accent.withOpacity(0.1),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: _imagenXFile != null
+                          ? (kIsWeb
+                              ? Image.memory(_webImage!, fit: BoxFit.cover)
+                              : Image.file(File(_imagenXFile!.path),
+                                  fit: BoxFit.cover))
+                          : Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.camera_alt_rounded,
+                                    size: 64,
+                                    color: _accent.withOpacity(0.4)),
+                                const SizedBox(height: 8),
+                                Text("Toca para agregar foto",
+                                    style: TextStyle(
+                                      color:
+                                          _primary.withOpacity(0.6),
+                                      fontSize: 14,
+                                    )),
+                              ],
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ScaleTransition(
+                    scale: Tween<double>(begin: 0.85, end: 1.0).animate(
+                      CurvedAnimation(
+                          parent: _controller,
+                          curve: const Interval(0.3, 1.0,
+                              curve: Curves.easeOutBack)),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _accent,
+                              foregroundColor: Colors.white,
+                              minimumSize: const Size(double.infinity, 48),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 3,
+                            ),
+                            onPressed: () =>
+                                _seleccionarImagen(ImageSource.camera),
+                            icon: const Icon(Icons.photo_camera_rounded),
+                            label: const Text(
+                              "Cámara",
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor:
+                                  _accent.withOpacity(0.8),
+                              foregroundColor: Colors.white,
+                              minimumSize: const Size(double.infinity, 48),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 3,
+                            ),
+                            onPressed: () =>
+                                _seleccionarImagen(ImageSource.gallery),
+                            icon: const Icon(Icons.image_rounded),
+                            label: const Text(
+                              "Galería",
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  ScaleTransition(
+                    scale: Tween<double>(begin: 0.7, end: 1.0).animate(
+                      CurvedAnimation(
+                          parent: _controller,
+                          curve: const Interval(0.4, 1.0,
+                              curve: Curves.easeOutBack)),
+                    ),
+                    child: _subiendo
+                        ? Container(
+                            width: double.infinity,
+                            height: 56,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [_danger, Color(0xFFEF4444)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(14),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: _danger.withOpacity(0.3),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: const Center(
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 3,
+                              ),
+                            ),
+                          )
+                        : ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _danger,
+                              foregroundColor: Colors.white,
+                              minimumSize:
+                                  const Size(double.infinity, 56),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              elevation: 4,
+                            ),
+                            onPressed: _enviarReporte,
+                            icon: const Icon(Icons.send_rounded,
+                                size: 22),
+                            label: const Text(
+                              "ENVIAR REPORTE",
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
                   ),
                 ],
               ),
-
-              const SizedBox(height: 30),
-              _subiendo
-                  ? const Center(child: CircularProgressIndicator())
-                  : SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-                        onPressed: _enviarReporte,
-                        child: const Text("ENVIAR AHORA", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      ),
-                    ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

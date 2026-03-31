@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import '../config/session_manager.dart';
 
 import 'login_screen.dart';
 import 'widgets_conexion/connection_wrapper.dart';
@@ -187,6 +188,7 @@ class _TrabajadorScreen extends State<TrabajadorScreen> {
   Future<void> _cerrarSesion() async {
     try {
       await FirebaseAuth.instance.signOut();
+      await SessionManager.limpiarSesion();
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -198,6 +200,31 @@ class _TrabajadorScreen extends State<TrabajadorScreen> {
         context,
       ).showSnackBar(SnackBar(content: Text('Error al cerrar sesión: $e')));
     }
+  }
+
+  Future<void> _confirmarYCerrarSesion() async {
+    final confirmar =
+        await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Cerrar sesión'),
+            content: const Text('¿Estás seguro de salir de la sesión?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancelar'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Sí, salir'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (!confirmar) return;
+    await _cerrarSesion();
   }
 
   Widget _buildTrabajadorDrawer(BuildContext context) {
@@ -226,7 +253,7 @@ class _TrabajadorScreen extends State<TrabajadorScreen> {
             title: const Text('Cerrar sesión'),
             onTap: () async {
               Navigator.of(context).pop();
-              await _cerrarSesion();
+              await _confirmarYCerrarSesion();
             },
           ),
           const SizedBox(height: 8),
@@ -249,11 +276,14 @@ class _TrabajadorScreen extends State<TrabajadorScreen> {
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
               const SizedBox(width: 10),
-              Image.asset(
-                'assets/logo circular.jpeg',
-                height: 38,
-                width: 38,
-                fit: BoxFit.contain,
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.asset(
+                  'assets/logo circular.jpeg',
+                  height: 38,
+                  width: 38,
+                  fit: BoxFit.cover,
+                ),
               ),
             ],
           ),

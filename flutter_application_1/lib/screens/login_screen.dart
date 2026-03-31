@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import '../config/session_manager.dart';
 import 'Trabajador_screen.dart';
 import 'admin_screen.dart';
 import 'operador_screen.dart';
@@ -251,6 +252,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _mostrarErrorNoRegistrado() async {
     await _auth.signOut();
     await _googleSignIn.signOut();
+    await SessionManager.limpiarSesion();
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -271,9 +273,11 @@ class _LoginScreenState extends State<LoginScreen> {
       throw Exception('Usuario sin datos en Firestore');
     }
 
-    final rol = data['rol']?.toString();
+    final rol = data['rol']?.toString() ?? '';
+    final nombre = data['nombre']?.toString() ?? '';
 
     if (rol == 'admin') {
+      await SessionManager.guardarSesion(rol: rol, nombre: nombre);
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const AdminScreen()),
@@ -282,7 +286,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     if (rol == 'operador') {
-      final nombre = data['nombre']?.toString() ?? '';
+      await SessionManager.guardarSesion(rol: rol, nombre: nombre);
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -293,6 +297,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     if (rol == 'trabajador') {
+      await SessionManager.guardarSesion(rol: rol, nombre: nombre);
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const TrabajadorScreen()),

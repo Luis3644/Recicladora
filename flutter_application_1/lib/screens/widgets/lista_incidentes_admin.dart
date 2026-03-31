@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 class ListaIncidentesAdmin extends StatefulWidget {
@@ -9,228 +9,445 @@ class ListaIncidentesAdmin extends StatefulWidget {
   State<ListaIncidentesAdmin> createState() => _ListaIncidentesAdminState();
 }
 
-class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin> {
-  DateTime _fechaSeleccionada = DateTime.now();
+class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
+    with SingleTickerProviderStateMixin {
+  static const Color _primary = Color(0xFF0F172A);
+  static const Color _accent = Color(0xFF06B6D4);
+  static const Color _danger = Color(0xFFDC2626);
+  static const Color _warning = Color(0xFFF59E0B);
+  static const Color _bg = Color(0xFFF0F9FF);
 
-  // Función para abrir el calendario (Date Picker)
+  DateTime _fechaSeleccionada = DateTime.now();
+  bool _contentVisible = false;
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 700),
+      vsync: this,
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() => _contentVisible = true);
+      _controller.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   Future<void> _seleccionarFecha(BuildContext context) async {
-    final DateTime? seleccionado = await showDatePicker(
+    final seleccionado = await showDatePicker(
       context: context,
       initialDate: _fechaSeleccionada,
       firstDate: DateTime(2024),
       lastDate: DateTime.now(),
-      // Configuración de idioma
-      locale: const Locale("es", "ES"),
+      locale: const Locale('es', 'ES'),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(
-              primary: Color.fromARGB(255, 76, 94, 175), // Azul Admin
+              primary: _primary,
               onPrimary: Colors.white,
-              onSurface: Colors.black,
-            ),
-            textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(foregroundColor: const Color.fromARGB(255, 76, 94, 175)),
+              onSurface: _primary,
             ),
           ),
           child: child!,
         );
       },
     );
+
     if (seleccionado != null && seleccionado != _fechaSeleccionada) {
-      setState(() {
-        _fechaSeleccionada = seleccionado;
-      });
+      setState(() => _fechaSeleccionada = seleccionado);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Definimos el rango de 24 horas para la consulta en Firebase
-    DateTime inicioDia = DateTime(_fechaSeleccionada.year, _fechaSeleccionada.month, _fechaSeleccionada.day);
-    DateTime finDia = inicioDia.add(const Duration(days: 1));
+    final inicioDia = DateTime(
+      _fechaSeleccionada.year,
+      _fechaSeleccionada.month,
+      _fechaSeleccionada.day,
+    );
+    final finDia = inicioDia.add(const Duration(days: 1));
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FB), // Fondo gris azulado muy claro
+      backgroundColor: _bg,
       appBar: AppBar(
-        title: const Text("Incidentes en Ruta", style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color.fromARGB(255, 76, 94, 175),
-        foregroundColor: Colors.white,
+        title: const Text(
+          'Incidentes en Ruta',
+          style: TextStyle(fontWeight: FontWeight.w700, letterSpacing: 0.2),
+        ),
+        backgroundColor: Colors.transparent,
         elevation: 0,
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.calendar_month_rounded),
             onPressed: () => _seleccionarFecha(context),
-            tooltip: "Filtrar por fecha",
+            tooltip: 'Filtrar por fecha',
           ),
         ],
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [_primary, Color(0xFF1E293B)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: _primary.withOpacity(0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+        ),
       ),
-      body: Column(
+      body: Stack(
         children: [
-          // Encabezado dinámico de fecha
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
-            color: Colors.white,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.event_note, size: 18, color: Colors.grey),
-                    const SizedBox(width: 8),
-                    Text(
-                      DateFormat('EEEE, d MMMM', 'es_ES').format(_fechaSeleccionada).toUpperCase(),
-                      style: TextStyle(color: Colors.grey[800], fontWeight: FontWeight.bold, fontSize: 13),
-                    ),
-                  ],
-                ),
-                // Botón para resetear a hoy si estamos en otra fecha
-                if (DateFormat('yyyyMMdd').format(_fechaSeleccionada) != DateFormat('yyyyMMdd').format(DateTime.now()))
-                  GestureDetector(
-                    onTap: () => setState(() => _fechaSeleccionada = DateTime.now()),
-                    child: const Text(
-                      "VOLVER A HOY",
-                      style: TextStyle(color: Color.fromARGB(255, 76, 94, 175), fontWeight: FontWeight.bold, fontSize: 12),
-                    ),
-                  )
-              ],
+          Positioned(
+            top: -100,
+            right: -60,
+            child: Container(
+              width: 260,
+              height: 260,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _accent.withOpacity(0.1),
+              ),
             ),
           ),
-          
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection("reportes")
-                  .where("fecha", isGreaterThanOrEqualTo: Timestamp.fromDate(inicioDia))
-                  .where("fecha", isLessThan: Timestamp.fromDate(finDia))
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) return const Center(child: Text("Error al conectar con la base de datos"));
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                final docs = snapshot.data!.docs;
-                if (docs.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.assignment_turned_in_outlined, size: 70, color: Colors.grey[300]),
-                        const SizedBox(height: 10),
-                        const Text("No hay incidentes registrados para este día", style: TextStyle(color: Colors.grey)),
+          Positioned(
+            bottom: -85,
+            left: -80,
+            child: Container(
+              width: 240,
+              height: 240,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _warning.withOpacity(0.08),
+              ),
+            ),
+          ),
+          Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: AnimatedOpacity(
+                  opacity: _contentVisible ? 1 : 0,
+                  duration: const Duration(milliseconds: 550),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: _accent.withOpacity(0.2)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _primary.withOpacity(0.05),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
                       ],
                     ),
-                  );
-                }
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(9),
+                          decoration: BoxDecoration(
+                            color: _accent.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.event_note_rounded,
+                            color: _accent,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            DateFormat('EEEE, d MMMM', 'es_ES')
+                                .format(_fechaSeleccionada)
+                                .toUpperCase(),
+                            style: const TextStyle(
+                              color: _primary,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12.5,
+                            ),
+                          ),
+                        ),
+                        if (DateFormat('yyyyMMdd').format(_fechaSeleccionada) !=
+                            DateFormat('yyyyMMdd').format(DateTime.now()))
+                          GestureDetector(
+                            onTap: () =>
+                                setState(() => _fechaSeleccionada = DateTime.now()),
+                            child: const Text(
+                              'VOLVER A HOY',
+                              style: TextStyle(
+                                color: _primary,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 11.5,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('reportes')
+                      .where(
+                        'fecha',
+                        isGreaterThanOrEqualTo: Timestamp.fromDate(inicioDia),
+                      )
+                      .where('fecha', isLessThan: Timestamp.fromDate(finDia))
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      return const Center(
+                        child: Text('Error al conectar con la base de datos'),
+                      );
+                    }
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(
+                        child: CircularProgressIndicator(color: _accent),
+                      );
+                    }
 
-                return ListView.builder(
-                  padding: const EdgeInsets.all(12),
-                  itemCount: docs.length,
-                  itemBuilder: (context, index) {
-                    var r = docs[index].data() as Map<String, dynamic>;
-                    return _buildIncidentCard(context, r);
+                    final docs = snapshot.data!.docs;
+                    if (docs.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.assignment_turned_in_outlined,
+                              size: 72,
+                              color: _primary.withOpacity(0.2),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              'No hay incidentes registrados para este día',
+                              style: TextStyle(
+                                color: _primary.withOpacity(0.6),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    return ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 20),
+                      itemCount: docs.length,
+                      itemBuilder: (context, index) {
+                        final r = docs[index].data() as Map<String, dynamic>;
+                        return _buildIncidentCard(context, r, index);
+                      },
+                    );
                   },
-                );
-              },
-            ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildIncidentCard(BuildContext context, Map<String, dynamic> r) {
-    String hora = "00:00";
+  Widget _buildIncidentCard(BuildContext context, Map<String, dynamic> r, int index) {
+    var hora = '00:00';
     if (r['fecha'] != null) {
       hora = DateFormat('HH:mm').format((r['fecha'] as Timestamp).toDate());
     }
 
-    return Card(
-      elevation: 0,
-      margin: const EdgeInsets.only(bottom: 15),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(15),
-        side: BorderSide(color: Colors.grey.withOpacity(0.1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Cabecera de la tarjeta: Operador y Hora
-          Padding(
-            padding: const EdgeInsets.all(15),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.red[50],
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(hora, style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 12)),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(r['operador'] ?? "Operador Desconocido", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      Text("Placas: ${r['placas'] ?? 'N/A'}", style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(color: Colors.blueGrey[50], borderRadius: BorderRadius.circular(8)),
-                  child: Text("🚛 ${r['camion']}", style: TextStyle(color: Colors.blueGrey[700], fontWeight: FontWeight.bold, fontSize: 12)),
-                ),
-              ],
-            ),
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: 320 + (index * 60)),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Transform.translate(
+          offset: Offset(0, 22 * (1 - value)),
+          child: Opacity(opacity: value, child: child),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 13),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: LinearGradient(
+            colors: [Colors.white, _danger.withOpacity(0.04)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-          
-          // Mensaje del incidente
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
-            child: Text(
-              r['mensaje'] ?? "Sin descripción del problema",
-              style: const TextStyle(fontSize: 14, color: Colors.black87, height: 1.4),
+          border: Border.all(color: _danger.withOpacity(0.2)),
+          boxShadow: [
+            BoxShadow(
+              color: _primary.withOpacity(0.06),
+              blurRadius: 14,
+              offset: const Offset(0, 5),
             ),
-          ),
-
-          // Foto del incidente si existe
-          if (r['fotoUrl'] != null && r['fotoUrl'] != "") ...[
-            const SizedBox(height: 15),
-            GestureDetector(
-              onTap: () => _verFoto(context, r['fotoUrl']),
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(15)),
-                child: Image.network(
-                  r['fotoUrl'],
-                  height: 220,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    height: 100,
-                    color: Colors.grey[200],
-                    child: const Icon(Icons.broken_image, color: Colors.grey),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _danger.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        hora,
+                        style: const TextStyle(
+                          color: _danger,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            r['operador'] ?? 'Operador Desconocido',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14.5,
+                              color: _primary,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Placas: ${r['placas'] ?? 'N/A'}',
+                            style: TextStyle(
+                              color: _primary.withOpacity(0.6),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _accent.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(9),
+                      ),
+                      child: Text(
+                        'Camión: ${r['camion'] ?? 'N/A'}',
+                        style: const TextStyle(
+                          color: _primary,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+                child: Text(
+                  r['mensaje'] ?? 'Sin descripción del problema',
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    color: _primary,
+                    height: 1.4,
                   ),
                 ),
               ),
-            ),
-          ] else
-            const SizedBox(height: 15),
-        ],
+              if (r['fotoUrl'] != null && r['fotoUrl'].toString().isNotEmpty)
+                GestureDetector(
+                  onTap: () => _verFoto(context, r['fotoUrl'].toString()),
+                  child: Stack(
+                    children: [
+                      Image.network(
+                        r['fotoUrl'].toString(),
+                        height: 220,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          height: 110,
+                          color: Colors.grey[200],
+                          child: const Icon(Icons.broken_image, color: Colors.grey),
+                        ),
+                      ),
+                      Positioned(
+                        right: 10,
+                        bottom: 10,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.45),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.zoom_in_rounded,
+                                  color: Colors.white, size: 14),
+                              SizedBox(width: 5),
+                              Text(
+                                'Ver foto',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                const SizedBox(height: 12),
+            ],
+          ),
+        ),
       ),
     );
   }
 
-  // Pantalla completa para la foto con zoom
   void _verFoto(BuildContext context, String url) {
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
-      barrierLabel: "Cerrar",
+      barrierLabel: 'Cerrar',
       pageBuilder: (context, anim1, anim2) {
         return Scaffold(
           backgroundColor: Colors.black,
@@ -243,7 +460,7 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin> {
                   child: Image.network(url, fit: BoxFit.contain),
                 ),
               ),
-              Positioned( // CORREGIDO AQUÍ (Antes era Position8)
+              Positioned(
                 top: 40,
                 right: 20,
                 child: CircleAvatar(
@@ -257,6 +474,9 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin> {
             ],
           ),
         );
+      },
+      transitionBuilder: (context, animation, _, child) {
+        return FadeTransition(opacity: animation, child: child);
       },
     );
   }
