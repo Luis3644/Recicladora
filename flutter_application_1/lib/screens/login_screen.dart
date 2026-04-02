@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/session_manager.dart';
 import 'Trabajador_screen.dart';
@@ -159,6 +160,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool isLoading = false;
   bool isPasswordVisible = false;
+  String _dispositivoIdActual = '';
+
+  static const String _keyDispositivoUnico = 'dispositivo_unico_id';
 
   @override
   void initState() {
@@ -275,9 +279,19 @@ class _LoginScreenState extends State<LoginScreen> {
 
     final rol = data['rol']?.toString() ?? '';
     final nombre = data['nombre']?.toString() ?? '';
+    final usuarioDocId = userDoc.id;
+
+    if (_dispositivoIdActual.isEmpty) {
+      _dispositivoIdActual = await _obtenerDispositivoId();
+    }
 
     if (rol == 'admin') {
-      await SessionManager.guardarSesion(rol: rol, nombre: nombre);
+      await SessionManager.guardarSesion(
+        rol: rol,
+        nombre: nombre,
+        usuarioDocId: usuarioDocId,
+        dispositivoId: _dispositivoIdActual,
+      );
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const AdminScreen()),
@@ -286,7 +300,12 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     if (rol == 'operador') {
-      await SessionManager.guardarSesion(rol: rol, nombre: nombre);
+      await SessionManager.guardarSesion(
+        rol: rol,
+        nombre: nombre,
+        usuarioDocId: usuarioDocId,
+        dispositivoId: _dispositivoIdActual,
+      );
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -297,7 +316,12 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     if (rol == 'trabajador') {
-      await SessionManager.guardarSesion(rol: rol, nombre: nombre);
+      await SessionManager.guardarSesion(
+        rol: rol,
+        nombre: nombre,
+        usuarioDocId: usuarioDocId,
+        dispositivoId: _dispositivoIdActual,
+      );
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const TrabajadorScreen()),
@@ -312,6 +336,117 @@ class _LoginScreenState extends State<LoginScreen> {
         backgroundColor: Colors.red,
       ),
     );
+  }
+
+  Future<String> _obtenerDispositivoId() async {
+    final prefs = await SharedPreferences.getInstance();
+    final existente = prefs.getString(_keyDispositivoUnico) ?? '';
+    if (existente.isNotEmpty) return existente;
+
+    final nuevo =
+        '${DateTime.now().microsecondsSinceEpoch}-${Random().nextInt(999999)}';
+    await prefs.setString(_keyDispositivoUnico, nuevo);
+    return nuevo;
+  }
+
+  String _nombreDispositivoActual() {
+    if (kIsWeb) return 'Web';
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        return 'Android';
+      case TargetPlatform.iOS:
+        return 'iOS';
+      case TargetPlatform.windows:
+        return 'Windows';
+      case TargetPlatform.macOS:
+        return 'macOS';
+      case TargetPlatform.linux:
+        return 'Linux';
+      case TargetPlatform.fuchsia:
+        return 'Fuchsia';
+    }
+  }
+
+  Future<void> _mostrarDialogoSesionActivaBloqueada({
+    required String nombre,
+    required String rol,
+  }) async {
+    if (!mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.security_rounded, color: Color(0xFFDC2626)),
+            SizedBox(width: 8),
+            Expanded(child: Text('Sesión ya iniciada')),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'No se permite iniciar la misma cuenta en dos dispositivos al mismo tiempo.',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 10),
+            Text('Cuenta: $nombre'),
+            Text('Rol: $rol'),
+            const SizedBox(height: 8),
+            const Text(
+              'Cierra la sesión en el otro dispositivo para continuar.',
+              style: TextStyle(color: Color(0xFF475569)),
+            ),
+          ],
+        ),
+        actions: [
+          FilledButton.icon(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            icon: const Icon(Icons.check_circle_outline),
+            label: const Text('Entendido'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<bool> _validarYRegistrarSesionUnica(
+    DocumentSnapshot<Map<String, dynamic>> userDoc,
+  ) async {
+    final data = userDoc.data() ?? {};
+    final dispositivoId = await _obtenerDispositivoId();
+    final dispositivoActualNombre = _nombreDispositivoActual();
+    _dispositivoIdActual = dispositivoId;
+
+    final sesionActiva = data['sesion_activa'] == true;
+    final dispositivoRemoto = data['sesion_dispositivo_id']?.toString() ?? '';
+
+    if (sesionActiva &&
+        dispositivoRemoto.isNotEmpty &&
+        dispositivoRemoto != dispositivoId) {
+      await _auth.signOut();
+      await _googleSignIn.signOut();
+      await SessionManager.limpiarSesion();
+
+      await _mostrarDialogoSesionActivaBloqueada(
+        nombre: data['nombre']?.toString() ?? 'Sin nombre',
+        rol: data['rol']?.toString() ?? 'sin rol',
+      );
+      return false;
+    }
+
+    await _firestore.collection('usuarios').doc(userDoc.id).set({
+      'sesion_activa': true,
+      'sesion_dispositivo_id': dispositivoId,
+      'sesion_dispositivo_nombre': dispositivoActualNombre,
+      'sesion_ultimo_inicio': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    return true;
   }
 
   Future<DocumentSnapshot<Map<String, dynamic>>?>
@@ -364,6 +499,9 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
+      final permitido = await _validarYRegistrarSesionUnica(userDoc);
+      if (!permitido) return;
+
       await _redirigirSegunRol(userDoc);
     } on FirebaseAuthException catch (e) {
       // Respaldo para usuarios registrados directamente en Firestore.
@@ -373,6 +511,8 @@ class _LoginScreenState extends State<LoginScreen> {
           e.code == 'invalid-login-credentials') {
         final userDoc = await _autenticarContrasenaFirestore();
         if (userDoc != null) {
+          final permitido = await _validarYRegistrarSesionUnica(userDoc);
+          if (!permitido) return;
           await _redirigirSegunRol(userDoc);
           return;
         }
@@ -451,6 +591,9 @@ class _LoginScreenState extends State<LoginScreen> {
         await _mostrarErrorNoRegistrado();
         return;
       }
+
+      final permitido = await _validarYRegistrarSesionUnica(userDoc);
+      if (!permitido) return;
 
       await _redirigirSegunRol(userDoc);
     } on FirebaseAuthException catch (e) {

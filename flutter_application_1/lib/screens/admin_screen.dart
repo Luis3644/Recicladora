@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../config/session_manager.dart';
+import 'admin_notificaciones_screen.dart';
 import 'login_screen.dart';
 import 'mapa_general_operadores_screen.dart';
 import 'panel_general_usuarios_screen.dart';
 import 'usuarios_screen.dart';
 import 'widgets/lista_incidentes_admin.dart';
+import 'widgets/notificaciones_drawer.dart';
 import 'widgets/reportes_equipo_screen.dart';
 
 class _AnimatedOptionCard extends StatefulWidget {
@@ -101,7 +103,7 @@ class _AnimatedOptionCardState extends State<_AnimatedOptionCard>
                       : [Colors.white, const Color(0xFFF9FAFB)],
                 ),
                 border: Border.all(
-                  color: _isHovered 
+                  color: _isHovered
                       ? widget.color.withValues(alpha: 0.25)
                       : widget.color.withValues(alpha: 0.12),
                   width: 1.5,
@@ -189,11 +191,11 @@ class _AdminScreenState extends State<AdminScreen> {
       FlutterLocalNotificationsPlugin();
 
   // Paleta de colores profesional y moderna
-  final Color primaryColor = const Color(0xFF0f172a);    // Azul oscuro profesional
-  final Color accentColor = const Color(0xFF06b6d4);     // Cyan/turquesa
-  final Color successColor = const Color(0xFF10b981);    // Verde esmeralda
-  final Color warningColor = const Color(0xFFf59e0b);    // Ámbar dorado
-  final Color bgColor = const Color(0xFFF0F9FF);         // Fondo azul muy claro
+  final Color primaryColor = const Color(0xFF0f172a); // Azul oscuro profesional
+  final Color accentColor = const Color(0xFF06b6d4); // Cyan/turquesa
+  final Color successColor = const Color(0xFF10b981); // Verde esmeralda
+  final Color warningColor = const Color(0xFFf59e0b); // Ámbar dorado
+  final Color bgColor = const Color(0xFFF0F9FF); // Fondo azul muy claro
 
   @override
   void initState() {
@@ -401,10 +403,7 @@ class _AdminScreenState extends State<AdminScreen> {
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [
-                primaryColor,
-                const Color(0xFF1e293b),
-              ],
+              colors: [primaryColor, const Color(0xFF1e293b)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -417,8 +416,21 @@ class _AdminScreenState extends State<AdminScreen> {
             ],
           ),
         ),
+        actions: [
+          Builder(
+            builder: (context) => NotificacionesBellButton(
+              rolUsuario: 'admin',
+              nombreUsuario: nombreUsuario,
+              onPressed: () => Scaffold.of(context).openEndDrawer(),
+            ),
+          ),
+        ],
       ),
       drawer: isLoading ? null : _buildAdminDrawer(context),
+      endDrawer: NotificacionesDrawer(
+        rolUsuario: 'admin',
+        nombreUsuario: nombreUsuario,
+      ),
       body: isLoading
           ? Center(
               child: Column(
@@ -577,7 +589,7 @@ class _AdminScreenState extends State<AdminScreen> {
                           width: double.infinity,
                           child: ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: accentColor,
+                              backgroundColor: successColor,
                               foregroundColor: Colors.white,
                               elevation: 3,
                               minimumSize: const Size(double.infinity, 50),
@@ -589,6 +601,43 @@ class _AdminScreenState extends State<AdminScreen> {
                             icon: const Icon(Icons.map_rounded),
                             label: const Text(
                               'Mapa General de Operadores',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0, end: 1),
+                        duration: const Duration(milliseconds: 1020),
+                        curve: Curves.easeOutCubic,
+                        builder: (context, value, child) {
+                          return Transform.translate(
+                            offset: Offset(0, 12 * (1 - value)),
+                            child: Opacity(opacity: value, child: child),
+                          );
+                        },
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: warningColor,
+                              foregroundColor: Colors.white,
+                              elevation: 3,
+                              minimumSize: const Size(double.infinity, 50),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            onPressed: _abrirNotificacionesAdmin,
+                            icon: const Icon(
+                              Icons.notifications_active_rounded,
+                            ),
+                            label: const Text(
+                              'Enviar Notificaciones',
                               style: TextStyle(
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: 0.2,
@@ -761,8 +810,18 @@ class _AdminScreenState extends State<AdminScreen> {
     );
   }
 
+  void _abrirNotificacionesAdmin() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AdminNotificacionesScreen(adminNombre: nombreUsuario),
+      ),
+    );
+  }
+
   Future<void> _cerrarSesion() async {
     try {
+      await SessionManager.limpiarSesionRemota();
       await FirebaseAuth.instance.signOut();
       await SessionManager.limpiarSesion();
       if (!mounted) return;
@@ -909,7 +968,7 @@ class _AdminScreenState extends State<AdminScreen> {
                           final rol = data['rol']?.toString() ?? 'usuario';
                           final camion =
                               data['camion_actual']?.toString() ?? '';
-                          final inicial = nombre.isNotEmpty 
+                          final inicial = nombre.isNotEmpty
                               ? nombre.substring(0, 1).toUpperCase()
                               : '?';
 
@@ -1014,14 +1073,19 @@ class _AdminScreenState extends State<AdminScreen> {
                                     ),
                                     borderRadius: BorderRadius.circular(20),
                                     border: Border.all(
-                                      color: successColor.withValues(alpha: 0.3),
+                                      color: successColor.withValues(
+                                        alpha: 0.3,
+                                      ),
                                     ),
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(Icons.check_circle_rounded, 
-                                        color: successColor, size: 14),
+                                      Icon(
+                                        Icons.check_circle_rounded,
+                                        color: successColor,
+                                        size: 14,
+                                      ),
                                       const SizedBox(width: 4),
                                       Text(
                                         'En jornada',
@@ -1232,7 +1296,7 @@ class _AdminScreenState extends State<AdminScreen> {
                 child: Text(
                   'Información del Sistema',
                   style: TextStyle(
-                    fontWeight: FontWeight.w700, 
+                    fontWeight: FontWeight.w700,
                     fontSize: 17,
                     letterSpacing: -0.3,
                   ),
@@ -1283,10 +1347,7 @@ class _AdminScreenState extends State<AdminScreen> {
             child: Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [
-                    primaryColor,
-                    const Color(0xFF1e293b),
-                  ],
+                  colors: [primaryColor, const Color(0xFF1e293b)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -1424,17 +1485,22 @@ class _MonitoreoUbicacionScreenState extends State<MonitoreoUbicacionScreen> {
               final doc = operadores[index];
               final data = doc.data() as Map<String, dynamic>;
 
-              String nombre = (data["nombre"]?.toString().trim().isNotEmpty ?? false)
+              String nombre =
+                  (data["nombre"]?.toString().trim().isNotEmpty ?? false)
                   ? data["nombre"]!.toString().trim()
                   : "Sin nombre";
-              String apellido = (data["apellido_paterno"]?.toString().trim().isNotEmpty ?? false)
+              String apellido =
+                  (data["apellido_paterno"]?.toString().trim().isNotEmpty ??
+                      false)
                   ? data["apellido_paterno"]!.toString().trim()
                   : "";
               String inicial = nombre.isNotEmpty
                   ? nombre[0].toUpperCase()
                   : "?";
               String telefono = data["telefono"]?.toString().trim() ?? "S/T";
-              String direccion = data["direccion"]?.toString().trim() ?? "Ubicación no disponible";
+              String direccion =
+                  data["direccion"]?.toString().trim() ??
+                  "Ubicación no disponible";
 
               return Card(
                 elevation: 0,
@@ -1475,9 +1541,7 @@ class _MonitoreoUbicacionScreenState extends State<MonitoreoUbicacionScreen> {
                       ),
                     ),
                     title: Text(
-                      apellido.isNotEmpty 
-                          ? "$nombre $apellido"
-                          : nombre,
+                      apellido.isNotEmpty ? "$nombre $apellido" : nombre,
                       style: const TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 15,

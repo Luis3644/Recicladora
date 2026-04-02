@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 // 1. IMPORTANTE: Agregamos esta línea para las localizaciones
-import 'package:flutter_localizations/flutter_localizations.dart'; 
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -19,9 +19,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // 2. Inicializar Firebase
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   // 3. Configuración de Firestore (Persistencia)
   FirebaseFirestore.instance.settings = const Settings(
@@ -36,14 +34,12 @@ void main() async {
   final FirebaseAnalytics analytics = FirebaseAnalytics.instance;
   await analytics.logEvent(
     name: "super_prueba",
-    parameters: {
-      "timestamp": DateTime.now().toIso8601String(),
-    },
+    parameters: {"timestamp": DateTime.now().toIso8601String()},
   );
 
   // 6. Inicializar fechas en español y lanzar la App
   await initializeDateFormatting('es_ES', null);
-  
+
   runApp(const MyApp());
 }
 
@@ -55,7 +51,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Recicladora App',
-      
+
       // --- CONFIGURACIÓN DE IDIOMA PARA CALENDARIOS Y WIDGETS ---
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
@@ -67,10 +63,12 @@ class MyApp extends StatelessWidget {
         Locale('en', 'US'), // Inglés por si acaso
       ],
       locale: const Locale('es', 'ES'), // Forzamos la app a español
-      // ---------------------------------------------------------
 
+      // ---------------------------------------------------------
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color.fromARGB(255, 249, 8, 124)),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color.fromARGB(255, 249, 8, 124),
+        ),
         useMaterial3: true,
       ),
       home: const SessionBootstrapScreen(),
@@ -87,7 +85,7 @@ class SessionBootstrapScreen extends StatelessWidget {
       if (!_rolValido(sesionGuardada.rol)) {
         await SessionManager.limpiarSesion();
       } else {
-      return _pantallaPorRol(sesionGuardada.rol, sesionGuardada.nombre);
+        return _pantallaPorRol(sesionGuardada.rol, sesionGuardada.nombre);
       }
     }
 
@@ -106,7 +104,18 @@ class SessionBootstrapScreen extends StatelessWidget {
       return const LoginScreen();
     }
 
-    await SessionManager.guardarSesion(rol: rol, nombre: nombre);
+    final usuarioDocId = userDoc!.id;
+    final dispositivoId =
+        data?['sesion_dispositivo_id']?.toString().trim().isNotEmpty == true
+        ? data!['sesion_dispositivo_id'].toString().trim()
+        : 'bootstrap-device';
+
+    await SessionManager.guardarSesion(
+      rol: rol,
+      nombre: nombre,
+      usuarioDocId: usuarioDocId,
+      dispositivoId: dispositivoId,
+    );
     return _pantallaPorRol(rol, nombre);
   }
 

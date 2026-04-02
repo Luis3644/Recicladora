@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../login_screen.dart'; 
+import '../../config/session_manager.dart';
+import '../login_screen.dart';
 import '../reporte_screen.dart';
 
 class MenuLateral extends StatelessWidget {
@@ -8,10 +9,11 @@ class MenuLateral extends StatelessWidget {
   final String camion; // <--- Agregamos esto
   final String placas;
 
-  const MenuLateral({super.key, 
-  required this.nombreUsuario,
-  this.camion = "Sin asignar", // Valor por defecto
-    this.placas = "---"
+  const MenuLateral({
+    super.key,
+    required this.nombreUsuario,
+    this.camion = "Sin asignar", // Valor por defecto
+    this.placas = "---",
   });
 
   // Colores que ya estás usando
@@ -62,33 +64,44 @@ class MenuLateral extends StatelessWidget {
             ),
           ),
 
-ListTile(
-  leading: const Icon(Icons.report_problem_rounded, color: Colors.orange),
-  title: const Text("Reportar Problema"),
-  onTap: () {
-    Navigator.of(context).pop(); // Cierra el menú
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ReporteScreen(
-          nombreUsuario: nombreUsuario,
-          camion: camion,
-          placas: placas,
+          ListTile(
+            leading: const Icon(
+              Icons.report_problem_rounded,
+              color: Colors.orange,
+            ),
+            title: const Text("Reportar Problema"),
+            onTap: () {
+              Navigator.of(context).pop(); // Cierra el menú
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ReporteScreen(
+                    nombreUsuario: nombreUsuario,
+                    camion: camion,
+                    placas: placas,
+                  ),
+                ),
+              );
+            },
           ),
-      ),
-    );
-  },
-),
 
           ListTile(
             leading: const Icon(Icons.home_rounded, color: _primary),
-            title: const Text("Inicio", style: TextStyle(fontWeight: FontWeight.w700)),
+            title: const Text(
+              "Inicio",
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
             onTap: () => Navigator.of(context).pop(), // Solo cierra el menú
           ),
           ListTile(
             leading: const Icon(Icons.logout_rounded, color: Colors.redAccent),
-            title: const Text("Cerrar sesión", style: TextStyle(fontWeight: FontWeight.w700)),
+            title: const Text(
+              "Cerrar sesión",
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
             onTap: () async {
+              await SessionManager.limpiarSesionRemota();
               await FirebaseAuth.instance.signOut();
+              await SessionManager.limpiarSesion();
               if (context.mounted) {
                 Navigator.of(context).pushAndRemoveUntil(
                   MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -100,7 +113,10 @@ ListTile(
           const Spacer(),
           const Padding(
             padding: EdgeInsets.all(16),
-            child: Text("Recicladora v1.0", style: TextStyle(color: Color(0xFF94A3B8))),
+            child: Text(
+              "Recicladora v1.0",
+              style: TextStyle(color: Color(0xFF94A3B8)),
+            ),
           ),
         ],
       ),

@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-enum _MapVisualStyle { streets, light, satellite }
-
 class MapaGeneralOperadoresScreen extends StatefulWidget {
   const MapaGeneralOperadoresScreen({super.key});
 
@@ -13,59 +11,23 @@ class MapaGeneralOperadoresScreen extends StatefulWidget {
       _MapaGeneralOperadoresScreenState();
 }
 
-class _MapaGeneralOperadoresScreenState extends State<MapaGeneralOperadoresScreen>
-    with SingleTickerProviderStateMixin {
+class _MapaGeneralOperadoresScreenState
+    extends State<MapaGeneralOperadoresScreen>
+    with TickerProviderStateMixin {
   static const Color _primary = Color(0xFF0F172A);
   static const Color _accent = Color(0xFF06B6D4);
   static const Color _success = Color(0xFF10B981);
   static const Color _bg = Color(0xFFF0F9FF);
+  static const LatLng _fallbackCenter = LatLng(18.7451879, -98.9083418);
 
   final MapController _mapController = MapController();
-  late AnimationController _pulseController;
+  final Map<String, _OperadorAnimacion> _operadorAnimaciones = {};
   bool _contentVisible = false;
-  bool _autoCentered = false;
-  _MapVisualStyle _mapStyle = _MapVisualStyle.streets;
-
-  String get _tileUrlTemplate {
-    switch (_mapStyle) {
-      case _MapVisualStyle.streets:
-        return 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
-      case _MapVisualStyle.light:
-        return 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
-      case _MapVisualStyle.satellite:
-        return 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-    }
-  }
-
-  String get _styleLabel {
-    switch (_mapStyle) {
-      case _MapVisualStyle.streets:
-        return 'Calles Pro';
-      case _MapVisualStyle.light:
-        return 'Claro';
-      case _MapVisualStyle.satellite:
-        return 'Satélite';
-    }
-  }
-
-  String get _attributionText {
-    switch (_mapStyle) {
-      case _MapVisualStyle.streets:
-      case _MapVisualStyle.satellite:
-        return 'Tiles © Esri';
-      case _MapVisualStyle.light:
-        return '© OpenStreetMap contributors © CARTO';
-    }
-  }
+  String _ultimaFirmaSnapshot = '';
 
   @override
   void initState() {
     super.initState();
-    _pulseController = AnimationController(
-      duration: const Duration(milliseconds: 1400),
-      vsync: this,
-    )..repeat();
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       setState(() => _contentVisible = true);
@@ -74,8 +36,100 @@ class _MapaGeneralOperadoresScreenState extends State<MapaGeneralOperadoresScree
 
   @override
   void dispose() {
-    _pulseController.dispose();
+    for (final animacion in _operadorAnimaciones.values) {
+      animacion.controller.dispose();
+    }
     super.dispose();
+  }
+
+  Color _colorOperador(String operadorId) {
+    const palette = [
+      Color(0xFF0EA5E9),
+      Color(0xFF10B981),
+      Color(0xFFF59E0B),
+      Color(0xFFEF4444),
+      Color(0xFF6366F1),
+      Color(0xFF14B8A6),
+      Color(0xFFF97316),
+      Color(0xFF8B5CF6),
+    ];
+    return palette[operadorId.hashCode.abs() % palette.length];
+  }
+
+  bool _mismaPosicion(LatLng a, LatLng b) {
+    const epsilon = 0.000001;
+    return (a.latitude - b.latitude).abs() < epsilon &&
+        (a.longitude - b.longitude).abs() < epsilon;
+  }
+
+  void _sincronizarAnimacionOperador(String operadorId, LatLng nuevaPosicion) {
+    final existente = _operadorAnimaciones[operadorId];
+    if (existente == null) {
+      final controller = AnimationController(
+        duration: const Duration(milliseconds: 600),
+        vsync: this,
+      );
+      _operadorAnimaciones[operadorId] = _OperadorAnimacion(
+        controller: controller,
+        posicionActual: nuevaPosicion,
+        objetivo: nuevaPosicion,
+      );
+      return;
+    }
+
+    if (_mismaPosicion(existente.objetivo, nuevaPosicion)) return;
+
+    existente.objetivo = nuevaPosicion;
+    final animation =
+        _LatLngTween(
+          begin: existente.posicionActual,
+          end: nuevaPosicion,
+        ).animate(
+          CurvedAnimation(
+            parent: existente.controller,
+            curve: Curves.easeInOut,
+          ),
+        );
+
+    void listener() {
+      if (!mounted) return;
+      setState(() {
+        existente.posicionActual = animation.value;
+      });
+    }
+
+    if (existente.listener != null) {
+      existente.controller.removeListener(existente.listener!);
+    }
+    existente.listener = listener;
+
+    existente.controller
+      ..stop()
+      ..addListener(listener)
+      ..forward(from: 0);
+  }
+
+  void _eliminarOperadoresInactivos(Set<String> activos) {
+    final idsActuales = _operadorAnimaciones.keys.toList();
+    for (final id in idsActuales) {
+      if (activos.contains(id)) continue;
+      _operadorAnimaciones[id]?.controller.dispose();
+      _operadorAnimaciones.remove(id);
+    }
+  }
+
+  void _centrarMapa(LatLng centro, {required bool hayOperadores}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _mapController.move(centro, hayOperadores ? 13.2 : 14.6);
+    });
+  }
+
+  String _firmaOperadores(List<_OperadorActivo> operadores) {
+    final ordenados = [...operadores]..sort((a, b) => a.id.compareTo(b.id));
+    return ordenados
+        .map((o) => '${o.id}:${o.posicion.latitude}:${o.posicion.longitude}')
+        .join('|');
   }
 
   LatLng? _extractPosition(Map<String, dynamic> data) {
@@ -96,7 +150,11 @@ class _MapaGeneralOperadoresScreenState extends State<MapaGeneralOperadoresScree
       data['latitud'] ?? data['latitude'] ?? data['lat'] ?? data['y'],
     );
     final lng = parse(
-      data['longitud'] ?? data['longitude'] ?? data['lng'] ?? data['lon'] ?? data['x'],
+      data['longitud'] ??
+          data['longitude'] ??
+          data['lng'] ??
+          data['lon'] ??
+          data['x'],
     );
 
     if (lat == null || lng == null) return null;
@@ -162,7 +220,7 @@ class _MapaGeneralOperadoresScreenState extends State<MapaGeneralOperadoresScree
           StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
             stream: FirebaseFirestore.instance
                 .collection('usuarios')
-                .where('rol', isEqualTo: 'operador')
+                .where('gps_activo', isEqualTo: true)
                 .snapshots(),
             builder: (context, snapshot) {
               if (snapshot.hasError) {
@@ -177,86 +235,83 @@ class _MapaGeneralOperadoresScreenState extends State<MapaGeneralOperadoresScree
               }
 
               final docs = snapshot.data?.docs ?? [];
-              final markers = <Marker>[];
+              final operadores = <_OperadorActivo>[];
               final tracked = <Map<String, String>>[];
 
               for (final doc in docs) {
                 final data = doc.data();
                 final position = _extractPosition(data);
+                if (position == null) continue;
+
                 final nombre =
                     data['nombre']?.toString().trim().isNotEmpty == true
-                        ? data['nombre'].toString().trim()
-                        : 'Sin nombre';
+                    ? data['nombre'].toString().trim()
+                    : 'Sin nombre';
                 final camion = data['camion_actual']?.toString().trim() ?? '';
                 final direccion = data['direccion']?.toString().trim() ?? '';
 
                 tracked.add({
                   'nombre': nombre,
                   'camion': camion.isEmpty ? 'Sin camión asignado' : camion,
-                  'direccion':
-                      direccion.isEmpty ? 'Ubicación no disponible' : direccion,
+                  'direccion': direccion.isEmpty
+                      ? 'Ubicación no disponible'
+                      : direccion,
                 });
 
-                if (position == null) continue;
-
-                markers.add(
-                  Marker(
-                    point: position,
-                    width: 54,
-                    height: 54,
-                    child: AnimatedBuilder(
-                      animation: _pulseController,
-                      builder: (context, child) {
-                        final t = _pulseController.value;
-                        final ringScale = 0.7 + (t * 0.8);
-                        final ringOpacity = (1 - t).clamp(0.0, 1.0) * 0.35;
-                        return Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            Transform.scale(
-                              scale: ringScale,
-                              child: Container(
-                                width: 48,
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: _accent.withOpacity(ringOpacity),
-                                ),
-                              ),
-                            ),
-                            Container(
-                              width: 18,
-                              height: 18,
-                              decoration: BoxDecoration(
-                                color: _success,
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 2.4),
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
+                operadores.add(
+                  _OperadorActivo(
+                    id: doc.id,
+                    nombre: nombre,
+                    posicion: position,
+                    color: _colorOperador(doc.id),
                   ),
                 );
               }
 
-              LatLng center = const LatLng(19.4326, -99.1332);
-              if (markers.isNotEmpty) {
+              final idsActivos = operadores.map((o) => o.id).toSet();
+              _eliminarOperadoresInactivos(idsActivos);
+              for (final operador in operadores) {
+                _sincronizarAnimacionOperador(operador.id, operador.posicion);
+              }
+
+              final markers = operadores
+                  .map((operador) {
+                    final posicionAnimada =
+                        _operadorAnimaciones[operador.id]?.posicionActual ??
+                        operador.posicion;
+                    return Marker(
+                      point: posicionAnimada,
+                      width: 128,
+                      height: 82,
+                      alignment: Alignment.topCenter,
+                      child: AnimatedTruckMarker(
+                        operadorNombre: operador.nombre,
+                        posicion: posicionAnimada,
+                        color: operador.color,
+                      ),
+                    );
+                  })
+                  .toList(growable: false);
+
+              LatLng center = _fallbackCenter;
+              if (operadores.isNotEmpty) {
                 final latAvg =
-                    markers.map((m) => m.point.latitude).reduce((a, b) => a + b) /
-                        markers.length;
+                    operadores
+                        .map((o) => o.posicion.latitude)
+                        .reduce((a, b) => a + b) /
+                    operadores.length;
                 final lngAvg =
-                    markers.map((m) => m.point.longitude).reduce((a, b) => a + b) /
-                        markers.length;
+                    operadores
+                        .map((o) => o.posicion.longitude)
+                        .reduce((a, b) => a + b) /
+                    operadores.length;
                 center = LatLng(latAvg, lngAvg);
               }
 
-              if (!_autoCentered && markers.isNotEmpty) {
-                _autoCentered = true;
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  _mapController.move(center, 13.2);
-                });
+              final firma = _firmaOperadores(operadores);
+              if (firma != _ultimaFirmaSnapshot) {
+                _ultimaFirmaSnapshot = firma;
+                _centrarMapa(center, hayOperadores: operadores.isNotEmpty);
               }
 
               return Column(
@@ -297,7 +352,7 @@ class _MapaGeneralOperadoresScreenState extends State<MapaGeneralOperadoresScree
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
-                                'Seguimiento en tiempo real • ${markers.length} operadores con GPS • $_styleLabel',
+                                'Seguimiento en tiempo real • ${markers.length} operadores con GPS activo',
                                 style: const TextStyle(
                                   color: _primary,
                                   fontWeight: FontWeight.w700,
@@ -305,35 +360,14 @@ class _MapaGeneralOperadoresScreenState extends State<MapaGeneralOperadoresScree
                                 ),
                               ),
                             ),
-                            PopupMenuButton<_MapVisualStyle>(
-                              tooltip: 'Estilo de mapa',
-                              icon: const Icon(Icons.layers_rounded),
-                              color: Colors.white,
-                              onSelected: (style) {
-                                setState(() {
-                                  _mapStyle = style;
-                                });
-                              },
-                              itemBuilder: (_) => const [
-                                PopupMenuItem(
-                                  value: _MapVisualStyle.streets,
-                                  child: Text('Calles Pro'),
-                                ),
-                                PopupMenuItem(
-                                  value: _MapVisualStyle.light,
-                                  child: Text('Claro'),
-                                ),
-                                PopupMenuItem(
-                                  value: _MapVisualStyle.satellite,
-                                  child: Text('Satélite'),
-                                ),
-                              ],
-                            ),
                             IconButton(
-                              onPressed: markers.isEmpty
-                                  ? null
-                                  : () => _mapController.move(center, 13.2),
-                              icon: const Icon(Icons.center_focus_strong_rounded),
+                              onPressed: () => _centrarMapa(
+                                center,
+                                hayOperadores: markers.isNotEmpty,
+                              ),
+                              icon: const Icon(
+                                Icons.center_focus_strong_rounded,
+                              ),
                               color: _primary,
                               tooltip: 'Centrar mapa',
                             ),
@@ -364,28 +398,24 @@ class _MapaGeneralOperadoresScreenState extends State<MapaGeneralOperadoresScree
                           child: FlutterMap(
                             mapController: _mapController,
                             options: MapOptions(
-                              initialCenter: center,
-                              initialZoom: 12.2,
+                              initialCenter: _fallbackCenter,
+                              initialZoom: 14.6,
                               minZoom: 5,
                               maxZoom: 18,
                             ),
                             children: [
                               TileLayer(
-                                urlTemplate: _tileUrlTemplate,
-                                userAgentPackageName: 'com.recicladora.app',
-                                subdomains: _mapStyle == _MapVisualStyle.light
-                                    ? const ['a', 'b', 'c', 'd']
-                                    : const [],
+                                urlTemplate:
+                                    'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+                                userAgentPackageName:
+                                    'com.recicladora.guadalajara',
+                                subdomains: const ['a', 'b', 'c', 'd'],
                               ),
-                              if (_mapStyle == _MapVisualStyle.satellite)
-                                TileLayer(
-                                  urlTemplate:
-                                      'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
-                                  userAgentPackageName: 'com.recicladora.app',
-                                ),
                               RichAttributionWidget(
                                 attributions: [
-                                  TextSourceAttribution(_attributionText),
+                                  TextSourceAttribution(
+                                    '© OpenStreetMap contributors © CARTO',
+                                  ),
                                 ],
                               ),
                               MarkerLayer(markers: markers),
@@ -415,7 +445,9 @@ class _MapaGeneralOperadoresScreenState extends State<MapaGeneralOperadoresScree
                               end: Alignment.bottomRight,
                             ),
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: _accent.withOpacity(0.22)),
+                            border: Border.all(
+                              color: _accent.withOpacity(0.22),
+                            ),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -462,6 +494,91 @@ class _MapaGeneralOperadoresScreenState extends State<MapaGeneralOperadoresScree
           ),
         ],
       ),
+    );
+  }
+}
+
+class AnimatedTruckMarker extends StatelessWidget {
+  final String operadorNombre;
+  final LatLng posicion;
+  final Color color;
+
+  const AnimatedTruckMarker({
+    super.key,
+    required this.operadorNombre,
+    required this.posicion,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.local_shipping, size: 36, color: color),
+        const SizedBox(height: 2),
+        Container(
+          constraints: const BoxConstraints(maxWidth: 120),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.78),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: color.withValues(alpha: 0.28)),
+          ),
+          child: Text(
+            operadorNombre,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              color: _MapaGeneralOperadoresScreenState._primary,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _OperadorActivo {
+  final String id;
+  final String nombre;
+  final LatLng posicion;
+  final Color color;
+
+  const _OperadorActivo({
+    required this.id,
+    required this.nombre,
+    required this.posicion,
+    required this.color,
+  });
+}
+
+class _OperadorAnimacion {
+  final AnimationController controller;
+  LatLng posicionActual;
+  LatLng objetivo;
+  VoidCallback? listener;
+
+  _OperadorAnimacion({
+    required this.controller,
+    required this.posicionActual,
+    required this.objetivo,
+  });
+}
+
+class _LatLngTween extends Tween<LatLng> {
+  _LatLngTween({required super.begin, required super.end});
+
+  @override
+  LatLng lerp(double t) {
+    final b = begin!;
+    final e = end!;
+    return LatLng(
+      b.latitude + (e.latitude - b.latitude) * t,
+      b.longitude + (e.longitude - b.longitude) * t,
     );
   }
 }

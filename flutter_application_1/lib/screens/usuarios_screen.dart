@@ -11,6 +11,56 @@ class UsuariosScreen extends StatefulWidget {
 class _UsuariosScreenState extends State<UsuariosScreen> {
   String filtroRol = "operador";
 
+  Future<void> _liberarSesionUsuario({
+    required String uid,
+    required String nombre,
+    required bool sesionActiva,
+  }) async {
+    if (!sesionActiva) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('La cuenta de $nombre no tiene una sesión activa.'),
+          backgroundColor: const Color(0xFF64748B),
+        ),
+      );
+      return;
+    }
+
+    final confirmar = await _confirmarAccion(
+      titulo: 'Liberar sesión activa',
+      mensaje:
+          'Se cerrará la sesión remota de $nombre para permitir iniciar en otro dispositivo. ¿Deseas continuar?',
+      textoConfirmar: 'LIBERAR',
+    );
+
+    if (!confirmar) return;
+
+    try {
+      await FirebaseFirestore.instance.collection('usuarios').doc(uid).set({
+        'sesion_activa': false,
+        'sesion_dispositivo_id': '',
+        'sesion_dispositivo_nombre': '',
+        'sesion_ultima_salida': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Sesión liberada para $nombre.'),
+          backgroundColor: const Color(0xFF16A34A),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No se pudo liberar la sesión: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   Future<bool> _confirmarAccion({
     required String titulo,
     required String mensaje,
@@ -772,6 +822,9 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                   itemBuilder: (context, index) {
                     final doc = usuarios[index];
                     final data = doc.data() as Map<String, dynamic>;
+                    final sesionActiva = data['sesion_activa'] == true;
+                    final sesionDispositivo =
+                        data['sesion_dispositivo_nombre']?.toString() ?? '';
 
                     String nombre = data["nombre"] ?? "";
                     String inicial = nombre.isNotEmpty
@@ -847,11 +900,64 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
+                              const SizedBox(height: 5),
+                              Row(
+                                children: [
+                                  Icon(
+                                    sesionActiva
+                                        ? Icons.lock_person_rounded
+                                        : Icons.lock_open_rounded,
+                                    size: 14,
+                                    color: sesionActiva
+                                        ? const Color(0xFFEA580C)
+                                        : const Color(0xFF16A34A),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      sesionActiva
+                                          ? 'Sesión activa ${sesionDispositivo.isEmpty ? '' : 'en $sesionDispositivo'}'
+                                          : 'Sin sesión activa',
+                                      style: TextStyle(
+                                        color: sesionActiva
+                                            ? const Color(0xFF9A3412)
+                                            : const Color(0xFF166534),
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ],
                           ),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: const Color(
+                                    0xFFEA580C,
+                                  ).withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: IconButton(
+                                  icon: const Icon(
+                                    Icons.lock_reset_rounded,
+                                    color: Color(0xFFEA580C),
+                                    size: 20,
+                                  ),
+                                  onPressed: () => _liberarSesionUsuario(
+                                    uid: doc.id,
+                                    nombre: nombre,
+                                    sesionActiva: sesionActiva,
+                                  ),
+                                  tooltip: 'Liberar sesión activa',
+                                ),
+                              ),
+                              const SizedBox(width: 8),
                               Container(
                                 decoration: BoxDecoration(
                                   color: Colors.blue.withValues(alpha: 0.1),

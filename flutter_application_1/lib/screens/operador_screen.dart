@@ -7,6 +7,7 @@ import 'checklist_screen.dart';
 import 'jornada_screen.dart';
 import 'confirmar_camion_screen.dart';
 import 'login_screen.dart';
+import 'widgets/notificaciones_drawer.dart';
 import 'widgets_conexion/connection_wrapper.dart';
 
 class OperadorScreen extends StatefulWidget {
@@ -28,6 +29,7 @@ class _OperadorScreenState extends State<OperadorScreen> {
 
   Future<void> _cerrarSesion() async {
     try {
+      await SessionManager.limpiarSesionRemota();
       await FirebaseAuth.instance.signOut();
       await SessionManager.limpiarSesion();
 
@@ -349,6 +351,10 @@ class _OperadorScreenState extends State<OperadorScreen> {
             ],
           ),
         ),
+        endDrawer: NotificacionesDrawer(
+          rolUsuario: 'operador',
+          nombreUsuario: widget.nombreUsuario,
+        ),
         appBar: AppBar(
           elevation: 0,
           backgroundColor: Colors.transparent,
@@ -382,6 +388,15 @@ class _OperadorScreenState extends State<OperadorScreen> {
               ),
             ),
           ),
+          actions: [
+            Builder(
+              builder: (context) => NotificacionesBellButton(
+                rolUsuario: 'operador',
+                nombreUsuario: widget.nombreUsuario,
+                onPressed: () => Scaffold.of(context).openEndDrawer(),
+              ),
+            ),
+          ],
         ),
         body: SafeArea(
           top: false,

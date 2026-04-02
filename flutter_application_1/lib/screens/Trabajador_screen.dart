@@ -5,6 +5,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../config/session_manager.dart';
 
 import 'login_screen.dart';
+import 'widgets/notificaciones_drawer.dart';
 import 'widgets_conexion/connection_wrapper.dart';
 
 class TrabajadorScreen extends StatefulWidget {
@@ -187,6 +188,7 @@ class _TrabajadorScreen extends State<TrabajadorScreen> {
 
   Future<void> _cerrarSesion() async {
     try {
+      await SessionManager.limpiarSesionRemota();
       await FirebaseAuth.instance.signOut();
       await SessionManager.limpiarSesion();
       if (!mounted) return;
@@ -267,6 +269,10 @@ class _TrabajadorScreen extends State<TrabajadorScreen> {
     return ConnectionWrapper(
       child: Scaffold(
         drawer: _buildTrabajadorDrawer(context),
+        endDrawer: NotificacionesDrawer(
+          rolUsuario: 'trabajador',
+          nombreUsuario: nombreUsuario,
+        ),
         appBar: AppBar(
           title: Row(
             mainAxisSize: MainAxisSize.min,
@@ -288,6 +294,15 @@ class _TrabajadorScreen extends State<TrabajadorScreen> {
             ],
           ),
           backgroundColor: Colors.green,
+          actions: [
+            Builder(
+              builder: (context) => NotificacionesBellButton(
+                rolUsuario: 'trabajador',
+                nombreUsuario: nombreUsuario,
+                onPressed: () => Scaffold.of(context).openEndDrawer(),
+              ),
+            ),
+          ],
         ),
         body: RefreshIndicator(
           onRefresh: _recargarPanelTrabajador,
