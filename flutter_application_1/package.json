@@ -1,0 +1,14 @@
+{
+  "name": "recicladora-migration-tools",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Herramientas de migracion para Firebase Auth y Firestore",
+  "type": "commonjs",
+  "scripts": {
+    "migrate:legacy-users:dry": "node scripts/firebase/migrate_legacy_users.js --dry-run",
+    "migrate:legacy-users": "node scripts/firebase/migrate_legacy_users.js --apply"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0"
+  }
+}

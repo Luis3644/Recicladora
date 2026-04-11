@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -163,21 +166,214 @@ class _LoginScreenState extends State<LoginScreen> {
   String _dispositivoIdActual = '';
 
   static const String _keyDispositivoUnico = 'dispositivo_unico_id';
+  static const Duration _firebaseTimeout = Duration(seconds: 12);
+  static const String _googleWebClientId =
+      '940984773428-55ivvst2ec661mg3nvuggssr9jvk3166.apps.googleusercontent.com';
+  String _normalizarCorreo(String value) => value.trim().toLowerCase();
+
+  List<String> _obtenerAuthProviders(User? user) {
+    final providers =
+        user?.providerData.map((provider) => provider.providerId).toSet() ??
+        <String>{};
+
+    if (providers.contains('google.com') && providers.contains('password')) {
+      return ['google', 'password'];
+    }
+
+    if (providers.contains('google.com')) {
+      return ['google'];
+    }
+
+    if (providers.contains('password')) {
+      return ['password'];
+    }
+
+    return <String>[];
+  }
+
+  String _obtenerProveedorAuth(User? user) {
+    final providers = _obtenerAuthProviders(user).toSet();
+
+    if (providers.contains('google') && providers.contains('password')) {
+      return 'password_google';
+    }
+
+    if (providers.contains('google')) {
+      return 'google';
+    }
+
+    if (providers.contains('password')) {
+      return 'password';
+    }
+
+    return 'unknown';
+  }
+
+  Future<bool> _tieneConexion() async {
+    final resultados = await Connectivity().checkConnectivity();
+    return !resultados.contains(ConnectivityResult.none);
+  }
+
+  Future<String?> _pedirContrasenaParaVincular(String email) async {
+    final controller = TextEditingController();
+    bool visible = false;
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Vincular acceso con Google'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Esta cuenta ya existe con correo. Ingresa la contraseña de $email para habilitar también acceso con Google.',
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: controller,
+                    obscureText: !visible,
+                    decoration: InputDecoration(
+                      labelText: 'Contraseña',
+                      border: const OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          visible ? Icons.visibility : Icons.visibility_off,
+                        ),
+                        onPressed: () {
+                          setDialogState(() => visible = !visible);
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancelar'),
+                ),
+                FilledButton(
+                  onPressed: () =>
+                      Navigator.of(dialogContext).pop(controller.text.trim()),
+                  child: const Text('Vincular'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    controller.dispose();
+    return result;
+  }
+
+  Future<void> _continuarPostAuth(User? firebaseUser) async {
+    if (firebaseUser?.email != null) {
+      emailController.text = firebaseUser!.email!;
+    }
+
+    final userDoc = await _obtenerPerfilUsuario(
+      uid: firebaseUser?.uid,
+      email: firebaseUser?.email,
+    );
+
+    if (userDoc == null) {
+      await _mostrarErrorNoRegistrado();
+      return;
+    }
+
+    final permitido = await _validarYRegistrarSesionUnica(
+      userDoc,
+    ).timeout(_firebaseTimeout);
+    if (!permitido) return;
+
+    await _redirigirSegunRol(userDoc);
+  }
+
+  String _mensajeDiagnosticoError({required String etapa, Object? error}) {
+    if (error is TimeoutException) {
+      final etapaNormalizada = etapa.toLowerCase();
+
+      if (etapaNormalizada.contains('google play services')) {
+        return 'Fallo en $etapa: Google Play Services no respondió a tiempo. Revisa Play Services, la cuenta Google del teléfono y la conexión del dispositivo.';
+      }
+
+      if (etapaNormalizada.contains('firebase auth') ||
+          etapaNormalizada.contains('inicio de sesión con correo') ||
+          etapaNormalizada.contains('inicio de sesión con google') ||
+          etapaNormalizada.contains('autenticación con firebase') ||
+          etapaNormalizada.contains('intercambio de credencial')) {
+        return 'Fallo en $etapa: Firebase Auth no respondió desde el dispositivo. Revisa internet, DNS, VPN o bloqueo de red en el teléfono.';
+      }
+
+      if (etapaNormalizada.contains('firestore') ||
+          etapaNormalizada.contains('perfil del usuario') ||
+          etapaNormalizada.contains('sesión única')) {
+        return 'Fallo en $etapa: Firestore no respondió desde el dispositivo. Revisa internet, DNS, VPN o bloqueo de red en el teléfono.';
+      }
+
+      return 'Fallo en $etapa: la respuesta tardó demasiado. Revisa internet o la conexión con Firebase.';
+    }
+
+    if (error is PlatformException) {
+      final mensaje = error.message ?? '';
+      if (error.code == 'network_error' ||
+          mensaje.contains('ApiException: 7')) {
+        return 'Fallo en $etapa: Google Play Services no pudo completar la autenticación (ApiException 7). Revisa internet, Play Services y la cuenta Google del teléfono.';
+      }
+
+      return 'Fallo en $etapa: ${error.code}${mensaje.isNotEmpty ? ' - $mensaje' : ''}';
+    }
+
+    if (error is FirebaseAuthException) {
+      final mensaje = error.message ?? '';
+      return 'Fallo en $etapa: Firebase Auth (${error.code})${mensaje.isNotEmpty ? ' - $mensaje' : ''}';
+    }
+
+    if (error is FirebaseException) {
+      final mensaje = error.message ?? '';
+      return 'Fallo en $etapa: Firestore/Firebase (${error.plugin}:${error.code})${mensaje.isNotEmpty ? ' - $mensaje' : ''}';
+    }
+
+    return 'Fallo en $etapa: $error';
+  }
+
+  void _mostrarErrorDiagnostico({required String etapa, Object? error}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(_mensajeDiagnosticoError(etapa: etapa, error: error)),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 5),
+      ),
+    );
+  }
 
   @override
   void initState() {
     super.initState();
-    _googleSignIn = GoogleSignIn(scopes: const ['email', 'profile']);
+    _googleSignIn = GoogleSignIn(
+      scopes: const ['email', 'profile'],
+      serverClientId: _googleWebClientId,
+    );
   }
 
   Future<DocumentSnapshot<Map<String, dynamic>>?> _obtenerPerfilUsuario({
     String? uid,
     String? email,
   }) async {
-    final emailNormalizado = email?.trim().toLowerCase();
+    final emailNormalizado = email == null ? null : _normalizarCorreo(email);
 
     if (uid != null && uid.isNotEmpty) {
-      final doc = await _firestore.collection('usuarios').doc(uid).get();
+      final doc = await _firestore
+          .collection('usuarios')
+          .doc(uid)
+          .get()
+          .timeout(_firebaseTimeout);
       if (doc.exists) {
         final data = doc.data();
         final emailDoc = data?['email']?.toString().trim().toLowerCase();
@@ -194,8 +390,9 @@ class _LoginScreenState extends State<LoginScreen> {
     if (email != null && email.isNotEmpty) {
       final query = await _firestore
           .collection('usuarios')
-          .where('email', isEqualTo: email.trim())
-          .get();
+          .where('email', isEqualTo: emailNormalizado)
+          .get()
+          .timeout(_firebaseTimeout);
 
       if (query.docs.isEmpty) return null;
       if (query.docs.length == 1) return query.docs.first;
@@ -418,6 +615,10 @@ class _LoginScreenState extends State<LoginScreen> {
     DocumentSnapshot<Map<String, dynamic>> userDoc,
   ) async {
     final data = userDoc.data() ?? {};
+    final uidAuth = _auth.currentUser?.uid ?? '';
+    final emailAuth = _auth.currentUser?.email == null
+        ? ''
+        : _normalizarCorreo(_auth.currentUser!.email!);
     final dispositivoId = await _obtenerDispositivoId();
     final dispositivoActualNombre = _nombreDispositivoActual();
     _dispositivoIdActual = dispositivoId;
@@ -439,104 +640,76 @@ class _LoginScreenState extends State<LoginScreen> {
       return false;
     }
 
-    await _firestore.collection('usuarios').doc(userDoc.id).set({
-      'sesion_activa': true,
-      'sesion_dispositivo_id': dispositivoId,
-      'sesion_dispositivo_nombre': dispositivoActualNombre,
-      'sesion_ultimo_inicio': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    await _firestore
+        .collection('usuarios')
+        .doc(userDoc.id)
+        .set({
+          if (uidAuth.isNotEmpty &&
+              (data['uid'] == null || data['uid'].toString().trim().isEmpty))
+            'uid': uidAuth,
+          if (emailAuth.isNotEmpty) 'email': emailAuth,
+          'email_normalizado': emailAuth,
+          'proveedor_auth': _obtenerProveedorAuth(_auth.currentUser),
+          'auth_providers': _obtenerAuthProviders(_auth.currentUser),
+          'sesion_activa': true,
+          'sesion_dispositivo_id': dispositivoId,
+          'sesion_dispositivo_nombre': dispositivoActualNombre,
+          'sesion_ultimo_inicio': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true))
+        .timeout(_firebaseTimeout);
 
     return true;
-  }
-
-  Future<DocumentSnapshot<Map<String, dynamic>>?>
-  _autenticarContrasenaFirestore() async {
-    final email = emailController.text.trim();
-    final password = passwordController.text.trim();
-
-    if (email.isEmpty || password.isEmpty) return null;
-
-    final query = await _firestore
-        .collection('usuarios')
-        .where('email', isEqualTo: email)
-        .limit(1)
-        .get();
-
-    if (query.docs.isEmpty) return null;
-
-    final doc = query.docs.first;
-    final data = doc.data();
-    final contrasenaGuardada = data['contrasena']?.toString() ?? '';
-
-    if (contrasenaGuardada.isEmpty || contrasenaGuardada != password) {
-      return null;
-    }
-
-    return doc;
   }
 
   Future<void> loginUsuario() async {
     if (!_formKey.currentState!.validate()) return;
 
+    if (!await _tieneConexion()) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Sin conexión a internet. Revisa tu red e inténtalo.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       isLoading = true;
     });
 
+    final email = _normalizarCorreo(emailController.text);
+    final password = passwordController.text.trim();
+
     try {
-      final userCredential = await _auth.signInWithEmailAndPassword(
-        email: emailController.text.trim(),
-        password: passwordController.text.trim(),
-      );
+      final userCredential = await _auth
+          .signInWithEmailAndPassword(email: email, password: password)
+          .timeout(_firebaseTimeout);
 
-      final firebaseUser = userCredential.user;
-      final userDoc = await _obtenerPerfilUsuario(
-        uid: firebaseUser?.uid,
-        email: firebaseUser?.email ?? emailController.text.trim(),
-      );
-
-      if (userDoc == null) {
-        await _mostrarErrorNoRegistrado();
-        return;
-      }
-
-      final permitido = await _validarYRegistrarSesionUnica(userDoc);
-      if (!permitido) return;
-
-      await _redirigirSegunRol(userDoc);
+      await _continuarPostAuth(userCredential.user);
     } on FirebaseAuthException catch (e) {
-      // Respaldo para usuarios registrados directamente en Firestore.
-      if (e.code == 'user-not-found' ||
-          e.code == 'wrong-password' ||
-          e.code == 'invalid-credential' ||
-          e.code == 'invalid-login-credentials') {
-        final userDoc = await _autenticarContrasenaFirestore();
-        if (userDoc != null) {
-          final permitido = await _validarYRegistrarSesionUnica(userDoc);
-          if (!permitido) return;
-          await _redirigirSegunRol(userDoc);
-          return;
-        }
-      }
+      final mensaje = switch (e.code) {
+        'user-not-found' => 'El correo no existe en Firebase Authentication.',
+        'wrong-password' => 'La contraseña es incorrecta.',
+        'invalid-credential' =>
+          'Correo o contraseña inválidos. El usuario debe existir en Firebase Authentication.',
+        'invalid-login-credentials' =>
+          'Correo o contraseña inválidos. El usuario debe existir en Firebase Authentication.',
+        _ => e.message ?? 'Error al iniciar sesión con correo',
+      };
 
-      var mensaje = 'Error al iniciar sesión';
-
-      if (e.code == 'user-not-found') {
-        mensaje = 'Usuario no encontrado';
-      } else if (e.code == 'wrong-password') {
-        mensaje = 'Contraseña incorrecta';
-      } else if (e.code == 'invalid-email') {
-        mensaje = 'Correo inválido';
-      }
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(mensaje), backgroundColor: Colors.red),
+      _mostrarErrorDiagnostico(
+        etapa: 'inicio de sesión con correo',
+        error: FirebaseAuthException(code: e.code, message: mensaje),
+      );
+    } on TimeoutException {
+      _mostrarErrorDiagnostico(
+        etapa: 'inicio de sesión con correo',
+        error: TimeoutException('Firebase Auth no respondió'),
       );
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-      );
+      _mostrarErrorDiagnostico(etapa: 'inicio de sesión con correo', error: e);
     } finally {
       if (mounted) {
         setState(() {
@@ -547,6 +720,17 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> loginConGoogle() async {
+    if (!await _tieneConexion()) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Sin conexión a internet. Revisa tu red e inténtalo.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       isLoading = true;
     });
@@ -558,7 +742,17 @@ class _LoginScreenState extends State<LoginScreen> {
         provider.addScope('email');
         provider.addScope('profile');
         provider.setCustomParameters({'prompt': 'select_account'});
-        userCredential = await _auth.signInWithPopup(provider);
+        try {
+          userCredential = await _auth
+              .signInWithPopup(provider)
+              .timeout(_firebaseTimeout);
+        } on TimeoutException catch (e) {
+          _mostrarErrorDiagnostico(
+            etapa: 'inicio de sesión con Google en web',
+            error: e,
+          );
+          return;
+        }
       } else {
         // Fuerza el selector de cuentas para evitar reingreso automático.
         try {
@@ -570,48 +764,117 @@ class _LoginScreenState extends State<LoginScreen> {
         final googleUser = await _googleSignIn.signIn();
         if (googleUser == null) return;
 
-        final googleAuth = await googleUser.authentication;
+        GoogleSignInAuthentication googleAuth;
+        try {
+          googleAuth = await googleUser.authentication.timeout(
+            _firebaseTimeout,
+          );
+        } on TimeoutException catch (e) {
+          _mostrarErrorDiagnostico(
+            etapa: 'obtención de tokens de Google',
+            error: e,
+          );
+          return;
+        }
+
         final credential = GoogleAuthProvider.credential(
           accessToken: googleAuth.accessToken,
           idToken: googleAuth.idToken,
         );
-        userCredential = await _auth.signInWithCredential(credential);
+
+        try {
+          userCredential = await _auth
+              .signInWithCredential(credential)
+              .timeout(_firebaseTimeout);
+        } on PlatformException catch (e) {
+          final mensaje = e.message ?? '';
+          final esPlayServices =
+              e.code == 'network_error' || mensaje.contains('ApiException: 7');
+
+          if (!esPlayServices) rethrow;
+
+          // Fallback sin GoogleSignIn plugin cuando Play Services falla.
+          try {
+            final provider = GoogleAuthProvider();
+            provider.addScope('email');
+            provider.addScope('profile');
+            userCredential = await _auth
+                .signInWithProvider(provider)
+                .timeout(_firebaseTimeout);
+          } on TimeoutException catch (te) {
+            _mostrarErrorDiagnostico(
+              etapa: 'fallback Google con FirebaseAuth provider',
+              error: te,
+            );
+            return;
+          }
+        } on TimeoutException catch (e) {
+          _mostrarErrorDiagnostico(
+            etapa: 'intercambio de credencial con Firebase Auth',
+            error: e,
+          );
+          return;
+        }
       }
 
-      final firebaseUser = userCredential.user;
-      if (firebaseUser?.email != null) {
-        emailController.text = firebaseUser!.email!;
-      }
-      final userDoc = await _obtenerPerfilUsuario(
-        uid: firebaseUser?.uid,
-        email: firebaseUser?.email,
-      );
-
-      if (userDoc == null) {
-        await _mostrarErrorNoRegistrado();
-        return;
-      }
-
-      final permitido = await _validarYRegistrarSesionUnica(userDoc);
-      if (!permitido) return;
-
-      await _redirigirSegunRol(userDoc);
+      await _continuarPostAuth(userCredential.user);
     } on FirebaseAuthException catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error con Google: ${e.message ?? e.code}'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (e.code == 'account-exists-with-different-credential') {
+        final dynamic ex = e;
+        final AuthCredential? pending = ex.credential as AuthCredential?;
+        final emailCuenta =
+            ((ex.email as String?) ?? emailController.text.trim())
+                .trim()
+                .toLowerCase();
+
+        if (emailCuenta.isEmpty) {
+          _mostrarErrorDiagnostico(
+            etapa: 'vinculación de cuenta con Google',
+            error: FirebaseAuthException(
+              code: e.code,
+              message:
+                  'No se pudo resolver el correo para vincular la cuenta. Intenta con el correo manual primero.',
+            ),
+          );
+          return;
+        }
+
+        final pass = await _pedirContrasenaParaVincular(emailCuenta);
+        if (pass == null || pass.isEmpty) return;
+
+        try {
+          final baseCred = await _auth
+              .signInWithEmailAndPassword(email: emailCuenta, password: pass)
+              .timeout(_firebaseTimeout);
+
+          if (pending != null) {
+            try {
+              await baseCred.user?.linkWithCredential(pending);
+            } on FirebaseAuthException catch (linkError) {
+              if (linkError.code != 'provider-already-linked') {
+                rethrow;
+              }
+            }
+          }
+
+          await _continuarPostAuth(_auth.currentUser ?? baseCred.user);
+          return;
+        } catch (linkProcessError) {
+          _mostrarErrorDiagnostico(
+            etapa: 'vinculación de cuenta con Google',
+            error: linkProcessError,
+          );
+          return;
+        }
+      }
+
+      _mostrarErrorDiagnostico(etapa: 'autenticación con Firebase', error: e);
+    } on PlatformException catch (e) {
+      _mostrarErrorDiagnostico(etapa: 'Google Play Services', error: e);
+    } on FirebaseException catch (e) {
+      _mostrarErrorDiagnostico(etapa: 'Firestore/Firebase', error: e);
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al iniciar con Google: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _mostrarErrorDiagnostico(etapa: 'inicio de sesión con Google', error: e);
     } finally {
       if (mounted) {
         setState(() {

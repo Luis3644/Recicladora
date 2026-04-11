@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 // 1. IMPORTANTE: Agregamos esta línea para las localizaciones
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -63,7 +66,6 @@ class MyApp extends StatelessWidget {
         Locale('en', 'US'), // Inglés por si acaso
       ],
       locale: const Locale('es', 'ES'), // Forzamos la app a español
-
       // ---------------------------------------------------------
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
@@ -71,7 +73,62 @@ class MyApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: const SessionBootstrapScreen(),
+      home: const AppSplashScreen(child: SessionBootstrapScreen()),
+    );
+  }
+}
+
+class AppSplashScreen extends StatefulWidget {
+  const AppSplashScreen({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<AppSplashScreen> createState() => _AppSplashScreenState();
+}
+
+class _AppSplashScreenState extends State<AppSplashScreen> {
+  bool _showChild = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _iniciarSplash();
+  }
+
+  Future<void> _iniciarSplash() async {
+    await Future<void>.delayed(const Duration(seconds: 2));
+    if (!mounted) return;
+    setState(() => _showChild = true);
+  }
+
+  bool _usarSplashPc(BoxConstraints constraints) {
+    if (!kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.macOS ||
+            defaultTargetPlatform == TargetPlatform.linux)) {
+      return true;
+    }
+    return constraints.maxWidth >= 900;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_showChild) return widget.child;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final usarPc = _usarSplashPc(constraints);
+        final imagePath = usarPc
+            ? 'assets/splash screen pc.jpeg'
+            : 'assets/imagen splassh screen movil.jpeg';
+
+        return Scaffold(
+          body: SizedBox.expand(
+            child: Image.asset(imagePath, fit: BoxFit.cover),
+          ),
+        );
+      },
     );
   }
 }
@@ -79,44 +136,56 @@ class MyApp extends StatelessWidget {
 class SessionBootstrapScreen extends StatelessWidget {
   const SessionBootstrapScreen({super.key});
 
+  static const Duration _firebaseTimeout = Duration(seconds: 10);
+
+  String _normalizarCorreo(String value) => value.trim().toLowerCase();
+
   Future<Widget> _resolverPantallaInicial() async {
-    final sesionGuardada = await SessionManager.obtenerSesion();
-    if (sesionGuardada != null) {
-      if (!_rolValido(sesionGuardada.rol)) {
-        await SessionManager.limpiarSesion();
-      } else {
-        return _pantallaPorRol(sesionGuardada.rol, sesionGuardada.nombre);
+    try {
+      final sesionGuardada = await SessionManager.obtenerSesion();
+      if (sesionGuardada != null) {
+        if (!_rolValido(sesionGuardada.rol)) {
+          await SessionManager.limpiarSesion();
+        } else {
+          return _pantallaPorRol(sesionGuardada.rol, sesionGuardada.nombre);
+        }
       }
-    }
 
-    final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        return const LoginScreen();
+      }
+
+      final userDoc = await _obtenerPerfilUsuarioFirebase(currentUser);
+      final data = userDoc?.data();
+      final rol = data?['rol']?.toString();
+      final nombre = data?['nombre']?.toString() ?? '';
+
+      if (rol == null || rol.isEmpty) {
+        await FirebaseAuth.instance.signOut();
+        return const LoginScreen();
+      }
+
+      final usuarioDocId = userDoc!.id;
+      final dispositivoId =
+          data?['sesion_dispositivo_id']?.toString().trim().isNotEmpty == true
+          ? data!['sesion_dispositivo_id'].toString().trim()
+          : 'bootstrap-device';
+
+      await SessionManager.guardarSesion(
+        rol: rol,
+        nombre: nombre,
+        usuarioDocId: usuarioDocId,
+        dispositivoId: dispositivoId,
+      );
+      return _pantallaPorRol(rol, nombre);
+    } on TimeoutException {
+      return const LoginScreen();
+    } on FirebaseException {
+      return const LoginScreen();
+    } catch (_) {
       return const LoginScreen();
     }
-
-    final userDoc = await _obtenerPerfilUsuarioFirebase(currentUser);
-    final data = userDoc?.data();
-    final rol = data?['rol']?.toString();
-    final nombre = data?['nombre']?.toString() ?? '';
-
-    if (rol == null || rol.isEmpty) {
-      await FirebaseAuth.instance.signOut();
-      return const LoginScreen();
-    }
-
-    final usuarioDocId = userDoc!.id;
-    final dispositivoId =
-        data?['sesion_dispositivo_id']?.toString().trim().isNotEmpty == true
-        ? data!['sesion_dispositivo_id'].toString().trim()
-        : 'bootstrap-device';
-
-    await SessionManager.guardarSesion(
-      rol: rol,
-      nombre: nombre,
-      usuarioDocId: usuarioDocId,
-      dispositivoId: dispositivoId,
-    );
-    return _pantallaPorRol(rol, nombre);
   }
 
   Future<DocumentSnapshot<Map<String, dynamic>>?> _obtenerPerfilUsuarioFirebase(
@@ -125,18 +194,21 @@ class SessionBootstrapScreen extends StatelessWidget {
     final porUid = await FirebaseFirestore.instance
         .collection('usuarios')
         .doc(currentUser.uid)
-        .get();
+        .get()
+        .timeout(_firebaseTimeout);
 
     if (porUid.exists) return porUid;
 
     final email = currentUser.email;
     if (email == null || email.isEmpty) return null;
+    final emailNormalizado = _normalizarCorreo(email);
 
     final porEmail = await FirebaseFirestore.instance
         .collection('usuarios')
-        .where('email', isEqualTo: email)
+        .where('email', isEqualTo: emailNormalizado)
         .limit(1)
-        .get();
+        .get()
+        .timeout(_firebaseTimeout);
 
     if (porEmail.docs.isEmpty) return null;
     return porEmail.docs.first;

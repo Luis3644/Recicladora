@@ -38,6 +38,8 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - assets/imagen splassh screen movil.jpeg
+    - assets/splash screen pc.jpeg
     - assets/imagenes/equipo/
     - assets/logo recicladora.png
     - assets/logo icono.jpeg

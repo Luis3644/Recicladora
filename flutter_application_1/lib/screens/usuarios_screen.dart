@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 class UsuariosScreen extends StatefulWidget {
   const UsuariosScreen({super.key});
@@ -10,6 +12,44 @@ class UsuariosScreen extends StatefulWidget {
 
 class _UsuariosScreenState extends State<UsuariosScreen> {
   String filtroRol = "operador";
+
+  Future<String> _crearUsuarioAuthDesdeAdmin({
+    required String email,
+    required String password,
+  }) async {
+    final appName = 'admin-create-${DateTime.now().microsecondsSinceEpoch}';
+    FirebaseApp? appSecundaria;
+
+    try {
+      appSecundaria = await Firebase.initializeApp(
+        name: appName,
+        options: Firebase.app().options,
+      );
+
+      final authSecundaria = FirebaseAuth.instanceFor(app: appSecundaria);
+      final cred = await authSecundaria.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      final uid = cred.user?.uid;
+      if (uid == null || uid.isEmpty) {
+        throw FirebaseAuthException(
+          code: 'internal-error',
+          message: 'No se pudo obtener el UID del usuario creado.',
+        );
+      }
+
+      return uid;
+    } finally {
+      if (appSecundaria != null) {
+        try {
+          await FirebaseAuth.instanceFor(app: appSecundaria).signOut();
+        } catch (_) {}
+        await appSecundaria.delete();
+      }
+    }
+  }
 
   Future<void> _liberarSesionUsuario({
     required String uid,
@@ -172,15 +212,21 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            onPressed: () {
-              FirebaseFirestore.instance
+            onPressed: () async {
+              await FirebaseFirestore.instance
                   .collection("usuarios")
                   .doc(uid)
-                  .delete();
+                  .set({
+                    'activo': false,
+                    'sesion_activa': false,
+                    'sesion_dispositivo_id': '',
+                    'sesion_dispositivo_nombre': '',
+                    'fecha_baja': FieldValue.serverTimestamp(),
+                  }, SetOptions(merge: true));
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text("Usuario eliminado correctamente"),
+                  content: Text("Usuario desactivado correctamente"),
                   backgroundColor: Colors.green,
                   duration: Duration(seconds: 2),
                 ),
@@ -219,15 +265,6 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
     final curp = TextEditingController(text: esEdicion ? data!["curp"] : "");
     final direccion = TextEditingController(
       text: esEdicion ? data!["direccion"] : "",
-    );
-    final contrasenaActual = esEdicion
-        ? (data?["contrasena"]?.toString() ?? "")
-        : "";
-    final tieneContrasenaActual = contrasenaActual.trim().isNotEmpty;
-    final contrasenaActualController = TextEditingController(
-      text: tieneContrasenaActual
-          ? contrasenaActual
-          : "Sin contraseña registrada",
     );
     final contrasenaNueva = TextEditingController();
     final rfc = TextEditingController(text: esEdicion ? data!["rfc"] : "");
@@ -303,6 +340,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                 "Correo Electrónico",
                 Icons.email,
                 keyboard: TextInputType.emailAddress,
+                readOnly: esEdicion,
               ),
               _buildTextField(
                 telefono,
@@ -311,12 +349,8 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                 keyboard: TextInputType.phone,
               ),
               _buildTextField(curp, "CURP", Icons.badge),
-              if (esEdicion)
-                _buildCurrentPasswordField(
-                  contrasenaActualController,
-                  tieneContrasenaActual,
-                ),
-              _buildNewPasswordField(contrasenaNueva, esEdicion),
+              if (!esEdicion)
+                _buildNewPasswordField(contrasenaNueva, esEdicion),
               _buildTextField(direccion, "Dirección", Icons.home),
 
               // --- CAMPOS OPERADOR ---
@@ -463,11 +497,16 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                         if (!confirmarGuardado) return;
 
                         try {
+                          final emailNormalizado = email.text
+                              .trim()
+                              .toLowerCase();
+
                           Map<String, dynamic> datos = {
                             "nombre": nombre.text.trim(),
                             "apellido_paterno": apellidoP.text.trim(),
                             "apellido_materno": apellidoM.text.trim(),
-                            "email": email.text.trim(),
+                            "email": emailNormalizado,
+                            "email_normalizado": emailNormalizado,
                             "telefono": telefono.text.trim(),
                             "curp": curp.text.trim(),
                             "direccion": direccion.text.trim(),
@@ -475,11 +514,14 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                             "activo": esEdicion
                                 ? (data!["activo"] ?? true)
                                 : true,
+                            "proveedor_auth": esEdicion
+                                ? (data!["proveedor_auth"] ?? "password")
+                                : "password",
+                            "auth_providers": esEdicion
+                                ? (data!["auth_providers"] ?? ["password"])
+                                : ["password"],
+                            "fecha_actualizacion": FieldValue.serverTimestamp(),
                           };
-
-                          if (contrasenaNueva.text.trim().isNotEmpty) {
-                            datos["contrasena"] = contrasenaNueva.text.trim();
-                          }
 
                           if (filtroRol == "operador") {
                             datos.addAll({
@@ -494,17 +536,57 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                                 .doc(uid)
                                 .update(datos);
                           } else {
+                            final existeEmail = await FirebaseFirestore.instance
+                                .collection('usuarios')
+                                .where('email', isEqualTo: emailNormalizado)
+                                .limit(1)
+                                .get();
+
+                            if (existeEmail.docs.isNotEmpty) {
+                              throw Exception(
+                                'Ya existe un perfil en Firestore con ese correo.',
+                              );
+                            }
+
+                            final uidNuevo = await _crearUsuarioAuthDesdeAdmin(
+                              email: emailNormalizado,
+                              password: contrasenaNueva.text.trim(),
+                            );
+
+                            datos.addAll({
+                              "uid": uidNuevo,
+                              "fecha_registro": FieldValue.serverTimestamp(),
+                              "sesion_activa": false,
+                              "sesion_dispositivo_id": '',
+                              "sesion_dispositivo_nombre": '',
+                            });
+
                             await FirebaseFirestore.instance
                                 .collection("usuarios")
-                                .add(datos);
+                                .doc(uidNuevo)
+                                .set(datos);
                           }
 
                           if (mounted) Navigator.pop(context);
                         } catch (e) {
+                          String mensaje = "Error al guardar: $e";
+                          if (e is FirebaseAuthException) {
+                            if (e.code == 'email-already-in-use') {
+                              mensaje =
+                                  'Ya existe una cuenta en Authentication con ese correo.';
+                            } else if (e.code == 'weak-password') {
+                              mensaje =
+                                  'La contraseña es débil. Usa al menos 6 caracteres.';
+                            } else if (e.message != null &&
+                                e.message!.isNotEmpty) {
+                              mensaje = e.message!;
+                            }
+                          }
+
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text("Error al guardar: $e"),
+                                content: Text(mensaje),
                                 backgroundColor: Colors.red,
                                 duration: const Duration(seconds: 5),
                               ),
@@ -537,12 +619,14 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
     String label,
     IconData icon, {
     TextInputType keyboard = TextInputType.text,
+    bool readOnly = false,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: TextField(
         controller: controller,
         keyboardType: keyboard,
+        readOnly: readOnly,
         decoration: InputDecoration(
           labelText: label,
           labelStyle: const TextStyle(
@@ -574,83 +658,6 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
     );
   }
 
-  Widget _buildCurrentPasswordField(
-    TextEditingController controller,
-    bool tieneContrasenaActual,
-  ) {
-    bool mostrarContrasena = false;
-
-    return StatefulBuilder(
-      builder: (BuildContext context, StateSetter setPasswordState) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 14),
-          child: TextField(
-            readOnly: true,
-            controller: controller,
-            obscureText: tieneContrasenaActual ? !mostrarContrasena : false,
-            decoration: InputDecoration(
-              labelText: "Contraseña actual",
-              labelStyle: const TextStyle(
-                color: Colors.grey,
-                fontWeight: FontWeight.w500,
-                fontSize: 13,
-              ),
-              helperText: tieneContrasenaActual
-                  ? "Usa el ojo para mostrar u ocultar la contraseña."
-                  : "Este usuario aún no tiene contraseña guardada.",
-              helperStyle: TextStyle(color: Colors.grey[500], fontSize: 12),
-              prefixIcon: const Icon(
-                Icons.lock_clock_outlined,
-                size: 20,
-                color: Color(0xFF1D4ED8),
-              ),
-              suffixIcon: tieneContrasenaActual
-                  ? IconButton(
-                      icon: Icon(
-                        mostrarContrasena
-                            ? Icons.visibility_rounded
-                            : Icons.visibility_off_rounded,
-                        size: 20,
-                        color: const Color(0xFF1D4ED8),
-                      ),
-                      onPressed: () {
-                        setPasswordState(() {
-                          mostrarContrasena = !mostrarContrasena;
-                        });
-                      },
-                    )
-                  : const Icon(
-                      Icons.info_outline,
-                      size: 20,
-                      color: Color(0xFF1D4ED8),
-                    ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey[300]!, width: 1),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(
-                  color: Color(0xFF1D4ED8),
-                  width: 2,
-                ),
-              ),
-              filled: true,
-              fillColor: const Color(0xFFF2F4FA),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 14,
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   Widget _buildNewPasswordField(
     TextEditingController controller,
     bool esEdicion,
@@ -673,7 +680,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
               ),
               helperText: esEdicion
                   ? "Déjala vacía para mantener la contraseña actual."
-                  : null,
+                  : "Obligatoria solo para cuentas de correo y contraseña.",
               helperStyle: TextStyle(color: Colors.grey[500], fontSize: 12),
               prefixIcon: const Icon(
                 Icons.lock_outline,
@@ -791,7 +798,11 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                     child: CircularProgressIndicator(color: Color(0xFF1D4ED8)),
                   );
 
-                final usuarios = snapshot.data!.docs;
+                final usuarios = snapshot.data!.docs.where((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  return data['activo'] != false;
+                }).toList();
+
                 if (usuarios.isEmpty) {
                   return Center(
                     child: Column(

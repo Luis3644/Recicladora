@@ -34,13 +34,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   bool _obscurePassword = true;
+
+  String _normalizarCorreo(String value) => value.trim().toLowerCase();
+
+  List<String> _authProvidersIniciales() => ['password'];
+
   Future<void> registrarUsuario() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final emailNormalizado = _normalizarCorreo(emailController.text);
 
     try {
       UserCredential userCredential = await _auth
           .createUserWithEmailAndPassword(
-            email: emailController.text.trim(),
+            email: emailNormalizado,
             password: passwordController.text.trim(),
           );
 
@@ -54,8 +61,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
         "direccion": direccionController.text.trim(),
         "curp": curpController.text.trim(),
 
-        "email": emailController.text.trim(),
+        "email": emailNormalizado,
+        "email_normalizado": emailNormalizado,
         "rol": rolSeleccionado,
+        "proveedor_auth": "password",
+        "auth_providers": _authProvidersIniciales(),
 
         // 🔥 Operador
         "rfc": rolSeleccionado == "operador" ? rfcController.text.trim() : null,
