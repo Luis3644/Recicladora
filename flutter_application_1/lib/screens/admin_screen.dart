@@ -10,8 +10,10 @@ import 'mapa_general_operadores_screen.dart';
 import 'panel_general_usuarios_screen.dart';
 import 'usuarios_screen.dart';
 import 'widgets/lista_incidentes_admin.dart';
+import 'widgets/reporte_gasolina_camiones_screen.dart';
 import 'widgets/notificaciones_drawer.dart';
 import 'widgets/reportes_equipo_screen.dart';
+import 'widgets/reporte_toneladas_camiones_screen.dart';
 
 class _AnimatedOptionCard extends StatefulWidget {
   final IconData icon;
@@ -261,7 +263,7 @@ class _AdminScreenState extends State<AdminScreen> {
       await _notificaciones.show(
         2001,
         'Seguridad en planta',
-        'Usa guantes, lentes y botas antes de iniciar.',
+        'Recordatorio Usa cubrebocas, guantes y el uniforme',
         details,
       );
     } catch (e) {
@@ -296,12 +298,12 @@ class _AdminScreenState extends State<AdminScreen> {
               SizedBox(height: 8),
               _RecomendacionItemAdmin(
                 icon: Icons.hiking_outlined,
-                texto: 'Trabaja con botas de seguridad antideslizantes.',
+                texto: 'Utiliza cubrebocas en todo momento.',
               ),
               SizedBox(height: 8),
               _RecomendacionItemAdmin(
                 icon: Icons.construction_outlined,
-                texto: 'Si aplica, usa casco y chaleco reflectante.',
+                texto: 'Usa el uniforme para mayor seguridad.',
               ),
               SizedBox(height: 8),
               _RecomendacionItemAdmin(
@@ -720,6 +722,23 @@ class _AdminScreenState extends State<AdminScreen> {
                             color: const Color(0xFF10B981),
                             compact: isMobile,
                           ),
+                          _AnimatedOptionCard(
+                            icon: Icons.local_gas_station_rounded,
+                            title: 'Reporte de Gasolina',
+                            description: 'Tabla de cargas y descarga en Excel',
+                            onTap: _abrirReporteGasolina,
+                            color: const Color(0xFFF59E0B),
+                            compact: isMobile,
+                          ),
+                          _AnimatedOptionCard(
+                            icon: Icons.scale_rounded,
+                            title: 'Reporte de Toneladas',
+                            description:
+                                'Apartado inicial para cargas de camiones',
+                            onTap: _abrirReporteToneladas,
+                            color: const Color(0xFF0F766E),
+                            compact: isMobile,
+                          ),
                         ],
                       ),
                       const SizedBox(height: 32),
@@ -816,6 +835,20 @@ class _AdminScreenState extends State<AdminScreen> {
       MaterialPageRoute(
         builder: (_) => AdminNotificacionesScreen(adminNombre: nombreUsuario),
       ),
+    );
+  }
+
+  void _abrirReporteGasolina() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ReporteGasolinaCamionesScreen()),
+    );
+  }
+
+  void _abrirReporteToneladas() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ReporteToneladasCamionesScreen()),
     );
   }
 

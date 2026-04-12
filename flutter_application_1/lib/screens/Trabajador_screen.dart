@@ -87,7 +87,7 @@ class _TrabajadorScreen extends State<TrabajadorScreen> {
       await _notificaciones.show(
         3001,
         'Seguridad en planta',
-        'Usa guantes, lentes y botas antes de iniciar.',
+        'Recordatorio Usa cubrebocas, guantes y el uniforme',
         details,
       );
     } catch (e) {
@@ -122,12 +122,12 @@ class _TrabajadorScreen extends State<TrabajadorScreen> {
               SizedBox(height: 8),
               _RecomendacionItemTrabajador(
                 icon: Icons.hiking_outlined,
-                texto: 'Trabaja con botas de seguridad antideslizantes.',
+                texto: 'Utiliza cubrebocas en todo momento.',
               ),
               SizedBox(height: 8),
               _RecomendacionItemTrabajador(
                 icon: Icons.construction_outlined,
-                texto: 'Si aplica, usa casco y chaleco reflectante.',
+                texto: 'Usa el uniforme para mayor seguridad.',
               ),
               SizedBox(height: 8),
               _RecomendacionItemTrabajador(

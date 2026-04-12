@@ -20,7 +20,8 @@ class _ConfirmarCamionContent extends StatefulWidget {
   });
 
   @override
-  State<_ConfirmarCamionContent> createState() => _ConfirmarCamionContentState();
+  State<_ConfirmarCamionContent> createState() =>
+      _ConfirmarCamionContentState();
 }
 
 class _ConfirmarCamionContentState extends State<_ConfirmarCamionContent>
@@ -119,7 +120,9 @@ class _ConfirmarCamionContentState extends State<_ConfirmarCamionContent>
                   opacity: _contentVisible ? 1 : 0,
                   child: AnimatedSlide(
                     duration: const Duration(milliseconds: 600),
-                    offset: _contentVisible ? Offset.zero : const Offset(0, 0.05),
+                    offset: _contentVisible
+                        ? Offset.zero
+                        : const Offset(0, 0.05),
                     curve: Curves.easeOutCubic,
                     child: Container(
                       decoration: BoxDecoration(
@@ -142,19 +145,20 @@ class _ConfirmarCamionContentState extends State<_ConfirmarCamionContent>
                               height: 260,
                               width: double.infinity,
                               fit: BoxFit.cover,
-                              loadingBuilder: (context, child, loadingProgress) {
-                                if (loadingProgress == null) return child;
-                                return Container(
-                                  height: 260,
-                                  color: Colors.grey[100],
-                                  child: const Center(
-                                    child: CircularProgressIndicator(
-                                      color: _accent,
-                                      strokeWidth: 3,
-                                    ),
-                                  ),
-                                );
-                              },
+                              loadingBuilder:
+                                  (context, child, loadingProgress) {
+                                    if (loadingProgress == null) return child;
+                                    return Container(
+                                      height: 260,
+                                      color: Colors.grey[100],
+                                      child: const Center(
+                                        child: CircularProgressIndicator(
+                                          color: _accent,
+                                          strokeWidth: 3,
+                                        ),
+                                      ),
+                                    );
+                                  },
                               errorBuilder: (context, error, stackTrace) {
                                 print("Error cargando imagen: $error");
                                 return Container(
@@ -183,7 +187,7 @@ class _ConfirmarCamionContentState extends State<_ConfirmarCamionContent>
                                           color: Colors.grey[600],
                                           fontSize: 14,
                                         ),
-                                      )
+                                      ),
                                     ],
                                   ),
                                 );
@@ -216,11 +220,17 @@ class _ConfirmarCamionContentState extends State<_ConfirmarCamionContent>
                 const SizedBox(height: 28),
                 ScaleTransition(
                   scale: Tween<double>(begin: 0.8, end: 1.0).animate(
-                    CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
+                    CurvedAnimation(
+                      parent: _controller,
+                      curve: Curves.easeOutBack,
+                    ),
                   ),
                   child: FadeTransition(
                     opacity: Tween<double>(begin: 0, end: 1).animate(
-                      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+                      CurvedAnimation(
+                        parent: _controller,
+                        curve: Curves.easeOut,
+                      ),
                     ),
                     child: Text(
                       widget.tipo,
@@ -271,7 +281,10 @@ class _ConfirmarCamionContentState extends State<_ConfirmarCamionContent>
                 const SizedBox(height: 32),
                 ScaleTransition(
                   scale: Tween<double>(begin: 0.7, end: 1.0).animate(
-                    CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
+                    CurvedAnimation(
+                      parent: _controller,
+                      curve: Curves.easeOutBack,
+                    ),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -292,6 +305,7 @@ class _ConfirmarCamionContentState extends State<_ConfirmarCamionContent>
                             MaterialPageRoute(
                               builder: (_) => ChecklistScreen(
                                 nombreUsuario: widget.operador,
+                                camionId: widget.camionId,
                                 camion: widget.tipo,
                                 placas: widget.placas,
                               ),

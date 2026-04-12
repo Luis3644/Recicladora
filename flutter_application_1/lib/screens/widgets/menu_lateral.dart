@@ -8,12 +8,14 @@ class MenuLateral extends StatelessWidget {
   final String nombreUsuario;
   final String camion; // <--- Agregamos esto
   final String placas;
+  final bool mostrarCerrarSesion;
 
   const MenuLateral({
     super.key,
     required this.nombreUsuario,
     this.camion = "Sin asignar", // Valor por defecto
     this.placas = "---",
+    this.mostrarCerrarSesion = true,
   });
 
   // Colores que ya estás usando
@@ -92,24 +94,28 @@ class MenuLateral extends StatelessWidget {
             ),
             onTap: () => Navigator.of(context).pop(), // Solo cierra el menú
           ),
-          ListTile(
-            leading: const Icon(Icons.logout_rounded, color: Colors.redAccent),
-            title: const Text(
-              "Cerrar sesión",
-              style: TextStyle(fontWeight: FontWeight.w700),
+          if (mostrarCerrarSesion)
+            ListTile(
+              leading: const Icon(
+                Icons.logout_rounded,
+                color: Colors.redAccent,
+              ),
+              title: const Text(
+                "Cerrar sesión",
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              onTap: () async {
+                await SessionManager.limpiarSesionRemota();
+                await FirebaseAuth.instance.signOut();
+                await SessionManager.limpiarSesion();
+                if (context.mounted) {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                    (route) => false,
+                  );
+                }
+              },
             ),
-            onTap: () async {
-              await SessionManager.limpiarSesionRemota();
-              await FirebaseAuth.instance.signOut();
-              await SessionManager.limpiarSesion();
-              if (context.mounted) {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const LoginScreen()),
-                  (route) => false,
-                );
-              }
-            },
-          ),
           const Spacer(),
           const Padding(
             padding: EdgeInsets.all(16),

@@ -78,6 +78,8 @@ class _OperadorScreenState extends State<OperadorScreen> {
   }
 
   Future<void> _inicializarFlujoIngreso() async {
+    await _sanearCamionesDelOperadorSiNoHayJornada();
+
     final redirigido = await verificarJornada();
 
     if (!mounted || redirigido || _avisoMostrado) return;
@@ -91,6 +93,37 @@ class _OperadorScreenState extends State<OperadorScreen> {
       if (!mounted) return;
       _mostrarDialogoRecomendaciones();
     });
+  }
+
+  Future<void> _sanearCamionesDelOperadorSiNoHayJornada() async {
+    final userRef = FirebaseFirestore.instance
+        .collection("usuarios")
+        .doc(widget.nombreUsuario);
+    final userDoc = await userRef.get();
+    if (!userDoc.exists) return;
+
+    final data = userDoc.data() ?? <String, dynamic>{};
+    final jornadaActiva = data["jornada_activa"] == true;
+    if (jornadaActiva) return;
+
+    final camionesOcupados = await FirebaseFirestore.instance
+        .collection("camiones")
+        .where("operador", isEqualTo: widget.nombreUsuario)
+        .get();
+
+    for (final doc in camionesOcupados.docs) {
+      await doc.reference.update({"ocupado": false, "operador": ""});
+    }
+
+    if ((data["camion_actual"] ?? "").toString().isNotEmpty ||
+        (data["placas_actuales"] ?? "").toString().isNotEmpty ||
+        (data["camion_id"] ?? "").toString().isNotEmpty) {
+      await userRef.set({
+        "camion_actual": "",
+        "placas_actuales": "",
+        "camion_id": "",
+      }, SetOptions(merge: true));
+    }
   }
 
   Future<void> _recargarPanelOperador() async {
@@ -178,7 +211,7 @@ class _OperadorScreenState extends State<OperadorScreen> {
       await _notificaciones.show(
         1001,
         'Seguridad en planta',
-        'Usa guantes, lentes y botas antes de iniciar.',
+        'Recordatorio Usa cubrebocas, guantes y el uniforme',
         details,
       );
     } catch (e) {
@@ -213,12 +246,12 @@ class _OperadorScreenState extends State<OperadorScreen> {
               SizedBox(height: 8),
               _RecomendacionItem(
                 icon: Icons.hiking_outlined,
-                texto: 'Trabaja con botas de seguridad antideslizantes.',
+                texto: 'Utiliza cubrebocas en todo momento.',
               ),
               SizedBox(height: 8),
               _RecomendacionItem(
                 icon: Icons.construction_outlined,
-                texto: 'Si aplica, usa casco y chaleco reflectante.',
+                texto: 'Usa el uniforme para mayor seguridad.',
               ),
               SizedBox(height: 8),
               _RecomendacionItem(
@@ -257,6 +290,7 @@ class _OperadorScreenState extends State<OperadorScreen> {
           .set({
             "nombre": widget.nombreUsuario,
             "jornada_activa": true,
+            "camion_id": camionId,
             "camion_actual": tipoCamion,
             "placas_actuales": placasRecibidas,
           }, SetOptions(merge: true));
@@ -269,6 +303,7 @@ class _OperadorScreenState extends State<OperadorScreen> {
         MaterialPageRoute(
           builder: (_) => ChecklistScreen(
             nombreUsuario: widget.nombreUsuario,
+            camionId: camionId,
             camion: tipoCamion,
             placas: placasRecibidas,
           ),

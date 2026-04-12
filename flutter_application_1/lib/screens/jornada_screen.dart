@@ -31,16 +31,18 @@ class JornadaScreen extends StatefulWidget {
 class _JornadaScreenState extends State<JornadaScreen> {
   final TextEditingController toneladasController = TextEditingController();
   final TextEditingController gasolinaController = TextEditingController();
-  
+
   // Controllers para formulario de gasolina
   final TextEditingController folioGasolinaController = TextEditingController();
-  final TextEditingController cantidadGasolinaController = TextEditingController();
+  final TextEditingController cantidadGasolinaController =
+      TextEditingController();
   final TextEditingController montoGasolinaController = TextEditingController();
-  
+
   // Controllers para toneladas
   final TextEditingController folioToneladaController = TextEditingController();
-  final TextEditingController cantidadToneladaController = TextEditingController();
-  
+  final TextEditingController cantidadToneladaController =
+      TextEditingController();
+
   final FlutterLocalNotificationsPlugin _notificaciones =
       FlutterLocalNotificationsPlugin();
 
@@ -233,9 +235,9 @@ class _JornadaScreenState extends State<JornadaScreen> {
 
     _limpiarFormularioGasolina();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Registro cancelado')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Registro cancelado')));
   }
 
   Future<void> _inicializarNotificacionesUbicacion() async {
@@ -433,9 +435,7 @@ class _JornadaScreenState extends State<JornadaScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: _primary.withValues(alpha: 0.08),
-        ),
+        border: Border.all(color: _primary.withValues(alpha: 0.08)),
         boxShadow: [
           BoxShadow(
             color: _primary.withValues(alpha: 0.06),
@@ -480,9 +480,7 @@ class _JornadaScreenState extends State<JornadaScreen> {
             decoration: BoxDecoration(
               color: const Color(0xFFF8FAFC),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: _primary.withValues(alpha: 0.1),
-              ),
+              border: Border.all(color: _primary.withValues(alpha: 0.1)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -527,18 +525,9 @@ class _JornadaScreenState extends State<JornadaScreen> {
           DropdownButtonFormField<String>(
             value: _conceptoGasolina,
             items: const [
-              DropdownMenuItem(
-                value: 'gasolina',
-                child: Text('Gasolina'),
-              ),
-              DropdownMenuItem(
-                value: 'diesel',
-                child: Text('Diésel'),
-              ),
-              DropdownMenuItem(
-                value: 'gas',
-                child: Text('Gas'),
-              ),
+              DropdownMenuItem(value: 'gasolina', child: Text('Gasolina')),
+              DropdownMenuItem(value: 'diesel', child: Text('Diésel')),
+              DropdownMenuItem(value: 'gas', child: Text('Gas')),
             ],
             onChanged: (value) {
               if (value != null) {
@@ -562,9 +551,7 @@ class _JornadaScreenState extends State<JornadaScreen> {
             decoration: BoxDecoration(
               color: const Color(0xFFF8FAFC),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: _primary.withValues(alpha: 0.1),
-              ),
+              border: Border.all(color: _primary.withValues(alpha: 0.1)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -610,10 +597,7 @@ class _JornadaScreenState extends State<JornadaScreen> {
           DropdownButtonFormField<String>(
             value: _unidadGasolina,
             items: const [
-              DropdownMenuItem(
-                value: 'litros',
-                child: Text('Litros'),
-              ),
+              DropdownMenuItem(value: 'litros', child: Text('Litros')),
               DropdownMenuItem(
                 value: 'kilogramos',
                 child: Text('Kilogramos (kg)'),
@@ -655,10 +639,7 @@ class _JornadaScreenState extends State<JornadaScreen> {
           DropdownButtonFormField<String>(
             value: _metodoPagoGasolina,
             items: const [
-              DropdownMenuItem(
-                value: 'efectivo',
-                child: Text('Efectivo'),
-              ),
+              DropdownMenuItem(value: 'efectivo', child: Text('Efectivo')),
               DropdownMenuItem(
                 value: 'debito',
                 child: Text('Tarjeta de Débito'),
@@ -752,9 +733,7 @@ class _JornadaScreenState extends State<JornadaScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: _primary.withValues(alpha: 0.08),
-        ),
+        border: Border.all(color: _primary.withValues(alpha: 0.08)),
         boxShadow: [
           BoxShadow(
             color: _primary.withValues(alpha: 0.06),
@@ -774,10 +753,7 @@ class _JornadaScreenState extends State<JornadaScreen> {
                   color: _accent.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(
-                  Icons.scale_rounded,
-                  color: _accent,
-                ),
+                child: const Icon(Icons.scale_rounded, color: _accent),
               ),
               const SizedBox(width: 12),
               const Expanded(
@@ -830,7 +806,20 @@ class _JornadaScreenState extends State<JornadaScreen> {
   Future<void> finalizarJornada() async {
     await _detenerMonitoreoUbicacion(motivo: 'Jornada finalizada');
 
-    /// liberar camion
+    final userRef = FirebaseFirestore.instance
+        .collection("usuarios")
+        .doc(widget.operador);
+    final userDoc = await userRef.get();
+    final camionId = (userDoc.data()?['camion_id'] ?? '').toString();
+
+    if (camionId.isNotEmpty) {
+      await FirebaseFirestore.instance.collection("camiones").doc(camionId).set(
+        {"ocupado": false, "operador": ""},
+        SetOptions(merge: true),
+      );
+    }
+
+    // Fallback para limpiar cualquier registro atascado por versiones anteriores.
     var snapshot = await FirebaseFirestore.instance
         .collection("camiones")
         .where("operador", isEqualTo: widget.operador)
@@ -841,15 +830,13 @@ class _JornadaScreenState extends State<JornadaScreen> {
     }
 
     /// cerrar jornada del operador
-    await FirebaseFirestore.instance
-        .collection("usuarios")
-        .doc(widget.operador)
-        .update({
-          "jornada_activa": false,
-          "camion_actual": "",
-          "placas_actuales": "",
-          "gps_activo": false,
-        });
+    await userRef.update({
+      "jornada_activa": false,
+      "camion_id": "",
+      "camion_actual": "",
+      "placas_actuales": "",
+      "gps_activo": false,
+    });
 
     ScaffoldMessenger.of(
       context,
@@ -922,6 +909,7 @@ class _JornadaScreenState extends State<JornadaScreen> {
           nombreUsuario: widget.operador,
           camion: widget.camion,
           placas: widget.placas,
+          mostrarCerrarSesion: false,
         ),
         body: Stack(
           children: [
@@ -1216,10 +1204,7 @@ class _JornadaScreenState extends State<JornadaScreen> {
                           children: [
                             const Row(
                               children: [
-                                Icon(
-                                  Icons.logout_rounded,
-                                  color: _danger,
-                                ),
+                                Icon(Icons.logout_rounded, color: _danger),
                                 SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
@@ -1338,7 +1323,9 @@ class _RegistroGasolinaScreenState extends State<RegistroGasolinaScreen> {
     final cantidad = double.tryParse(
       _cantidadController.text.trim().replaceAll(',', '.'),
     );
-    final monto = double.tryParse(_montoController.text.trim().replaceAll(',', '.'));
+    final monto = double.tryParse(
+      _montoController.text.trim().replaceAll(',', '.'),
+    );
 
     if (folio.isEmpty || cantidad == null || monto == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1441,316 +1428,336 @@ class _RegistroGasolinaScreenState extends State<RegistroGasolinaScreen> {
           ),
           SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                gradient: LinearGradient(
-                  colors: [
-                    _accent.withValues(alpha: 0.18),
-                    _success.withValues(alpha: 0.12),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                border: Border.all(color: _accent.withValues(alpha: 0.20)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Nuevo registro',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: _primary,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    gradient: LinearGradient(
+                      colors: [
+                        _accent.withValues(alpha: 0.18),
+                        _success.withValues(alpha: 0.12),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
+                    border: Border.all(color: _accent.withValues(alpha: 0.20)),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Captura los datos del consumo de combustible para la jornada activa.',
-                    style: TextStyle(
-                      color: _primary.withValues(alpha: 0.72),
-                      height: 1.35,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: _primary.withValues(alpha: 0.08)),
-                boxShadow: [
-                  BoxShadow(
-                    color: _primary.withValues(alpha: 0.06),
-                    blurRadius: 16,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: _InfoPill(
-                          label: 'Fecha',
-                          value: _formatearFecha(DateTime.now()),
-                          icon: Icons.calendar_month_rounded,
+                      const Text(
+                        'Nuevo registro',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: _primary,
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _InfoPill(
-                          label: 'Automóvil',
-                          value: '${widget.camion} (${widget.placas})',
-                          icon: Icons.local_shipping_rounded,
+                      const SizedBox(height: 6),
+                      Text(
+                        'Captura los datos del consumo de combustible para la jornada activa.',
+                        style: TextStyle(
+                          color: _primary.withValues(alpha: 0.72),
+                          height: 1.35,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: _folioController,
-                    decoration: InputDecoration(
-                      labelText: 'Folio',
-                      hintText: 'Ej: F-00124',
-                      prefixIcon: const Icon(Icons.receipt_long_rounded),
-                      filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
-                      border: inputBorder,
-                      enabledBorder: inputBorder,
-                      focusedBorder: inputBorder.copyWith(
-                        borderSide: BorderSide(color: _accent, width: 1.5),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: _primary.withValues(alpha: 0.08)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _primary.withValues(alpha: 0.06),
+                        blurRadius: 16,
+                        offset: const Offset(0, 6),
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    value: _concepto,
-                    items: const [
-                      DropdownMenuItem(value: 'gasolina', child: Text('Gasolina')),
-                      DropdownMenuItem(value: 'diesel', child: Text('Diésel')),
-                      DropdownMenuItem(value: 'gas', child: Text('Gas')),
                     ],
-                    onChanged: (value) {
-                      if (value != null) setState(() => _concepto = value);
-                    },
-                    decoration: InputDecoration(
-                      labelText: 'Concepto',
-                      prefixIcon: const Icon(Icons.category_rounded),
-                      filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
-                      border: inputBorder,
-                      enabledBorder: inputBorder,
-                      focusedBorder: inputBorder.copyWith(
-                        borderSide: BorderSide(color: _accent, width: 1.5),
-                      ),
-                    ),
                   ),
-                  const SizedBox(height: 12),
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final narrow = constraints.maxWidth < 430;
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _InfoPill(
+                              label: 'Fecha',
+                              value: _formatearFecha(DateTime.now()),
+                              icon: Icons.calendar_month_rounded,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _InfoPill(
+                              label: 'Automóvil',
+                              value: '${widget.camion} (${widget.placas})',
+                              icon: Icons.local_shipping_rounded,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      TextField(
+                        controller: _folioController,
+                        decoration: InputDecoration(
+                          labelText: 'Folio',
+                          hintText: 'Ej: F-00124',
+                          prefixIcon: const Icon(Icons.receipt_long_rounded),
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          border: inputBorder,
+                          enabledBorder: inputBorder,
+                          focusedBorder: inputBorder.copyWith(
+                            borderSide: BorderSide(color: _accent, width: 1.5),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        value: _concepto,
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'gasolina',
+                            child: Text('Gasolina'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'diesel',
+                            child: Text('Diésel'),
+                          ),
+                          DropdownMenuItem(value: 'gas', child: Text('Gas')),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) setState(() => _concepto = value);
+                        },
+                        decoration: InputDecoration(
+                          labelText: 'Concepto',
+                          prefixIcon: const Icon(Icons.category_rounded),
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          border: inputBorder,
+                          enabledBorder: inputBorder,
+                          focusedBorder: inputBorder.copyWith(
+                            borderSide: BorderSide(color: _accent, width: 1.5),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final narrow = constraints.maxWidth < 430;
 
-                      final cantidadField = TextField(
-                        controller: _cantidadController,
+                          final cantidadField = TextField(
+                            controller: _cantidadController,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            decoration: InputDecoration(
+                              labelText: 'Cantidad',
+                              hintText: '0.00',
+                              prefixIcon: const Icon(Icons.numbers_rounded),
+                              filled: true,
+                              fillColor: const Color(0xFFF8FAFC),
+                              border: inputBorder,
+                              enabledBorder: inputBorder,
+                              focusedBorder: inputBorder.copyWith(
+                                borderSide: BorderSide(
+                                  color: _accent,
+                                  width: 1.5,
+                                ),
+                              ),
+                            ),
+                          );
+
+                          final unidadField = DropdownButtonFormField<String>(
+                            value: _unidad,
+                            isExpanded: true,
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'litros',
+                                child: Text('Litros'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'kilogramos',
+                                child: Text('Kilogramos (kg)'),
+                              ),
+                            ],
+                            onChanged: (value) {
+                              if (value != null)
+                                setState(() => _unidad = value);
+                            },
+                            decoration: InputDecoration(
+                              labelText: 'Unidad',
+                              filled: true,
+                              fillColor: const Color(0xFFF8FAFC),
+                              border: inputBorder,
+                              enabledBorder: inputBorder,
+                              focusedBorder: inputBorder.copyWith(
+                                borderSide: BorderSide(
+                                  color: _accent,
+                                  width: 1.5,
+                                ),
+                              ),
+                            ),
+                          );
+
+                          if (narrow) {
+                            return Column(
+                              children: [
+                                cantidadField,
+                                const SizedBox(height: 10),
+                                unidadField,
+                              ],
+                            );
+                          }
+
+                          return Row(
+                            children: [
+                              Expanded(child: cantidadField),
+                              const SizedBox(width: 10),
+                              Expanded(child: unidadField),
+                            ],
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _montoController,
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
                         decoration: InputDecoration(
-                          labelText: 'Cantidad',
+                          labelText: 'Monto',
                           hintText: '0.00',
-                          prefixIcon: const Icon(Icons.numbers_rounded),
+                          prefixIcon: const Icon(Icons.attach_money_rounded),
                           filled: true,
                           fillColor: const Color(0xFFF8FAFC),
                           border: inputBorder,
                           enabledBorder: inputBorder,
                           focusedBorder: inputBorder.copyWith(
-                            borderSide: BorderSide(
-                              color: _accent,
-                              width: 1.5,
-                            ),
+                            borderSide: BorderSide(color: _accent, width: 1.5),
                           ),
                         ),
-                      );
-
-                      final unidadField = DropdownButtonFormField<String>(
-                        value: _unidad,
-                        isExpanded: true,
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        value: _metodoPago,
                         items: const [
-                          DropdownMenuItem(value: 'litros', child: Text('Litros')),
                           DropdownMenuItem(
-                            value: 'kilogramos',
-                            child: Text('Kilogramos (kg)'),
+                            value: 'efectivo',
+                            child: Text('Efectivo'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'debito',
+                            child: Text('T. Débito'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'credito',
+                            child: Text('T. Crédito'),
                           ),
                         ],
                         onChanged: (value) {
-                          if (value != null) setState(() => _unidad = value);
+                          if (value != null)
+                            setState(() => _metodoPago = value);
                         },
                         decoration: InputDecoration(
-                          labelText: 'Unidad',
+                          labelText: 'Método de pago',
+                          prefixIcon: const Icon(Icons.payment_rounded),
                           filled: true,
                           fillColor: const Color(0xFFF8FAFC),
                           border: inputBorder,
                           enabledBorder: inputBorder,
                           focusedBorder: inputBorder.copyWith(
-                            borderSide: BorderSide(
-                              color: _accent,
-                              width: 1.5,
-                            ),
+                            borderSide: BorderSide(color: _accent, width: 1.5),
                           ),
                         ),
-                      );
-
-                      if (narrow) {
-                        return Column(
-                          children: [
-                            cantidadField,
-                            const SizedBox(height: 10),
-                            unidadField,
-                          ],
-                        );
-                      }
-
-                      return Row(
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isNarrow = constraints.maxWidth < 410;
+                    if (isNarrow) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Expanded(child: cantidadField),
-                          const SizedBox(width: 10),
-                          Expanded(child: unidadField),
+                          FilledButton.icon(
+                            onPressed: _guardarRegistro,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: _success,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            icon: const Icon(Icons.check_circle_rounded),
+                            label: const Text('Registrar'),
+                          ),
+                          const SizedBox(height: 10),
+                          OutlinedButton.icon(
+                            onPressed: _cancelarRegistro,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: _primary,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            icon: const Icon(Icons.cancel_rounded),
+                            label: const Text('Cancelar'),
+                          ),
                         ],
                       );
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _montoController,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    decoration: InputDecoration(
-                      labelText: 'Monto',
-                      hintText: '0.00',
-                      prefixIcon: const Icon(Icons.attach_money_rounded),
-                      filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
-                      border: inputBorder,
-                      enabledBorder: inputBorder,
-                      focusedBorder: inputBorder.copyWith(
-                        borderSide: BorderSide(color: _accent, width: 1.5),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    value: _metodoPago,
-                    items: const [
-                      DropdownMenuItem(value: 'efectivo', child: Text('Efectivo')),
-                      DropdownMenuItem(value: 'debito', child: Text('T. Débito')),
-                      DropdownMenuItem(value: 'credito', child: Text('T. Crédito')),
-                    ],
-                    onChanged: (value) {
-                      if (value != null) setState(() => _metodoPago = value);
-                    },
-                    decoration: InputDecoration(
-                      labelText: 'Método de pago',
-                      prefixIcon: const Icon(Icons.payment_rounded),
-                      filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
-                      border: inputBorder,
-                      enabledBorder: inputBorder,
-                      focusedBorder: inputBorder.copyWith(
-                        borderSide: BorderSide(color: _accent, width: 1.5),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final isNarrow = constraints.maxWidth < 410;
-                if (isNarrow) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      FilledButton.icon(
-                        onPressed: _guardarRegistro,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: _success,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        icon: const Icon(Icons.check_circle_rounded),
-                        label: const Text('Registrar'),
-                      ),
-                      const SizedBox(height: 10),
-                      OutlinedButton.icon(
-                        onPressed: _cancelarRegistro,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: _primary,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        icon: const Icon(Icons.cancel_rounded),
-                        label: const Text('Cancelar'),
-                      ),
-                    ],
-                  );
-                }
+                    }
 
-                return Row(
-                  children: [
-                    Expanded(
-                      child: FilledButton.icon(
-                        onPressed: _guardarRegistro,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: _success,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+                    return Row(
+                      children: [
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: _guardarRegistro,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: _success,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            icon: const Icon(Icons.check_circle_rounded),
+                            label: const Text('Registrar'),
                           ),
                         ),
-                        icon: const Icon(Icons.check_circle_rounded),
-                        label: const Text('Registrar'),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _cancelarRegistro,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: _primary,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _cancelarRegistro,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: _primary,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            icon: const Icon(Icons.cancel_rounded),
+                            label: const Text('Cancelar'),
                           ),
                         ),
-                        icon: const Icon(Icons.cancel_rounded),
-                        label: const Text('Cancelar'),
-                      ),
-                    ),
-                  ],
-                );
-              },
+                      ],
+                    );
+                  },
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
         ],
       ),
     );
@@ -1867,11 +1874,11 @@ class _SwipeToConfirmButtonState extends State<_SwipeToConfirmButton> {
       builder: (context, constraints) {
         const knobSize = 54.0;
         final double maxDrag = (constraints.maxWidth - knobSize)
-          .clamp(0.0, double.infinity)
-          .toDouble();
+            .clamp(0.0, double.infinity)
+            .toDouble();
         final double fillWidth = (_dragX + knobSize)
-          .clamp(knobSize, constraints.maxWidth)
-          .toDouble();
+            .clamp(knobSize, constraints.maxWidth)
+            .toDouble();
 
         return Container(
           height: 58,
@@ -1973,9 +1980,7 @@ class RegistroToneladasScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Registro de Toneladas'),
-      ),
+      appBar: AppBar(title: const Text('Registro de Toneladas')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(

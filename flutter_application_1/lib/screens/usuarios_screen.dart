@@ -13,6 +13,30 @@ class UsuariosScreen extends StatefulWidget {
 class _UsuariosScreenState extends State<UsuariosScreen> {
   String filtroRol = "operador";
 
+  String _tituloRol(String rol) {
+    switch (rol) {
+      case 'admin':
+        return 'Administradores';
+      case 'trabajador':
+        return 'Trabajadores';
+      case 'operador':
+      default:
+        return 'Operadores';
+    }
+  }
+
+  String _tituloNuevo(String rol) {
+    switch (rol) {
+      case 'admin':
+        return 'Nuevo Administrador';
+      case 'trabajador':
+        return 'Nuevo Trabajador';
+      case 'operador':
+      default:
+        return 'Nuevo Operador';
+    }
+  }
+
   Future<String> _crearUsuarioAuthDesdeAdmin({
     required String email,
     required String password,
@@ -266,6 +290,15 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
     final direccion = TextEditingController(
       text: esEdicion ? data!["direccion"] : "",
     );
+    final contrasenaActual = esEdicion
+        ? (data?["contrasena"]?.toString() ?? "")
+        : "";
+    final tieneContrasenaActual = contrasenaActual.trim().isNotEmpty;
+    final contrasenaActualController = TextEditingController(
+      text: tieneContrasenaActual
+          ? contrasenaActual
+          : "Sin contrasena registrada",
+    );
     final contrasenaNueva = TextEditingController();
     final rfc = TextEditingController(text: esEdicion ? data!["rfc"] : "");
     final tipoLicencia = TextEditingController(
@@ -349,8 +382,12 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                 keyboard: TextInputType.phone,
               ),
               _buildTextField(curp, "CURP", Icons.badge),
-              if (!esEdicion)
-                _buildNewPasswordField(contrasenaNueva, esEdicion),
+              if (esEdicion)
+                _buildCurrentPasswordField(
+                  contrasenaActualController,
+                  tieneContrasenaActual,
+                ),
+              _buildNewPasswordField(contrasenaNueva, esEdicion),
               _buildTextField(direccion, "Dirección", Icons.home),
 
               // --- CAMPOS OPERADOR ---
@@ -523,6 +560,10 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                             "fecha_actualizacion": FieldValue.serverTimestamp(),
                           };
 
+                          if (contrasenaNueva.text.trim().isNotEmpty) {
+                            datos["contrasena"] = contrasenaNueva.text.trim();
+                          }
+
                           if (filtroRol == "operador") {
                             datos.addAll({
                               "rfc": rfc.text.trim(),
@@ -658,6 +699,83 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
     );
   }
 
+  Widget _buildCurrentPasswordField(
+    TextEditingController controller,
+    bool tieneContrasenaActual,
+  ) {
+    bool mostrarContrasena = false;
+
+    return StatefulBuilder(
+      builder: (BuildContext context, StateSetter setPasswordState) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 14),
+          child: TextField(
+            readOnly: true,
+            controller: controller,
+            obscureText: tieneContrasenaActual ? !mostrarContrasena : false,
+            decoration: InputDecoration(
+              labelText: "Contraseña actual",
+              labelStyle: const TextStyle(
+                color: Colors.grey,
+                fontWeight: FontWeight.w500,
+                fontSize: 13,
+              ),
+              helperText: tieneContrasenaActual
+                  ? "Usa el ojo para mostrar u ocultar la contraseña."
+                  : "Este usuario aún no tiene contraseña guardada.",
+              helperStyle: TextStyle(color: Colors.grey[500], fontSize: 12),
+              prefixIcon: const Icon(
+                Icons.lock_clock_outlined,
+                size: 20,
+                color: Color(0xFF1D4ED8),
+              ),
+              suffixIcon: tieneContrasenaActual
+                  ? IconButton(
+                      icon: Icon(
+                        mostrarContrasena
+                            ? Icons.visibility_rounded
+                            : Icons.visibility_off_rounded,
+                        size: 20,
+                        color: const Color(0xFF1D4ED8),
+                      ),
+                      onPressed: () {
+                        setPasswordState(() {
+                          mostrarContrasena = !mostrarContrasena;
+                        });
+                      },
+                    )
+                  : const Icon(
+                      Icons.info_outline,
+                      size: 20,
+                      color: Color(0xFF1D4ED8),
+                    ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey[300]!, width: 1),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(
+                  color: Color(0xFF1D4ED8),
+                  width: 2,
+                ),
+              ),
+              filled: true,
+              fillColor: const Color(0xFFF2F4FA),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 14,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildNewPasswordField(
     TextEditingController controller,
     bool esEdicion,
@@ -733,9 +851,9 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FB),
       appBar: AppBar(
-        title: const Text(
-          "Gestión de Usuarios",
-          style: TextStyle(
+        title: Text(
+          "Gestión de ${_tituloRol(filtroRol)}",
+          style: const TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 20,
             letterSpacing: 0.5,
@@ -750,9 +868,12 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
         backgroundColor: const Color(0xFF1D4ED8),
         onPressed: () => mostrarFormulario(),
         icon: const Icon(Icons.person_add_alt_1, color: Colors.white),
-        label: const Text(
-          "Nuevo Usuario",
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+        label: Text(
+          _tituloNuevo(filtroRol),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
       body: Column(
@@ -779,6 +900,8 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                     _roleButton("operador", "👷 Operadores"),
                     const SizedBox(width: 12),
                     _roleButton("trabajador", "👨‍💼 Trabajadores"),
+                    const SizedBox(width: 12),
+                    _roleButton("admin", "🛡️ Administradores"),
                   ],
                 ),
               ],
@@ -815,7 +938,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          "No hay ${filtroRol}es registrados",
+                          "No hay ${_tituloRol(filtroRol).toLowerCase()} registrados",
                           style: TextStyle(
                             color: Colors.grey[500],
                             fontSize: 16,

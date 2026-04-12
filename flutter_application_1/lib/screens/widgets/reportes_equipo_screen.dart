@@ -168,9 +168,10 @@ class _ReportesEquipoScreenState extends State<ReportesEquipoScreen>
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            DateFormat('EEEE, d MMMM', 'es_ES')
-                                .format(_fechaSeleccionada)
-                                .toUpperCase(),
+                            DateFormat(
+                              'EEEE, d MMMM',
+                              'es_ES',
+                            ).format(_fechaSeleccionada).toUpperCase(),
                             style: const TextStyle(
                               color: _primary,
                               fontWeight: FontWeight.w700,
@@ -181,8 +182,9 @@ class _ReportesEquipoScreenState extends State<ReportesEquipoScreen>
                         if (DateFormat('yyyyMMdd').format(_fechaSeleccionada) !=
                             DateFormat('yyyyMMdd').format(DateTime.now()))
                           TextButton(
-                            onPressed: () =>
-                                setState(() => _fechaSeleccionada = DateTime.now()),
+                            onPressed: () => setState(
+                              () => _fechaSeleccionada = DateTime.now(),
+                            ),
                             child: const Text('VER HOY'),
                           ),
                       ],
@@ -243,7 +245,8 @@ class _ReportesEquipoScreenState extends State<ReportesEquipoScreen>
                       padding: const EdgeInsets.fromLTRB(16, 6, 16, 20),
                       itemCount: filtrados.length,
                       itemBuilder: (context, index) {
-                        final reporte = filtrados[index].data() as Map<String, dynamic>;
+                        final reporte =
+                            filtrados[index].data() as Map<String, dynamic>;
                         return _buildCardBonita(reporte, index);
                       },
                     );
@@ -263,12 +266,10 @@ class _ReportesEquipoScreenState extends State<ReportesEquipoScreen>
         : '--:--';
 
     final faltantes = <String>[];
-    if (r['casco'] == false) faltantes.add('Casco');
-    if (r['botas'] == false) faltantes.add('Botas');
+    if (r['cubrebocas'] == false) faltantes.add('Cubrebocas');
     if (r['gafas'] == false) faltantes.add('Gafas');
     if (r['guantes'] == false) faltantes.add('Guantes');
-    if (r['pantalon'] == false) faltantes.add('Pantalón');
-    if (r['camisa'] == false) faltantes.add('Camisa');
+    if (r['uniforme'] == false) faltantes.add('Uniforme');
 
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
@@ -303,10 +304,7 @@ class _ReportesEquipoScreenState extends State<ReportesEquipoScreen>
           childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
           leading: CircleAvatar(
             backgroundColor: _warning.withOpacity(0.14),
-            child: const Icon(
-              Icons.warning_amber_rounded,
-              color: _warning,
-            ),
+            child: const Icon(Icons.warning_amber_rounded, color: _warning),
           ),
           title: Text(
             r['operador'] ?? 'Operador',
@@ -346,30 +344,30 @@ class _ReportesEquipoScreenState extends State<ReportesEquipoScreen>
                     ]
                   : faltantes.map(_chipError).toList(),
             ),
-            if (r['reporte'] != null && r['reporte'].toString().trim().isNotEmpty)
-              ...[
-                const SizedBox(height: 14),
-                Divider(color: _primary.withOpacity(0.15)),
-                const SizedBox(height: 8),
-                Text(
-                  'OBSERVACIONES',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 11,
-                    color: _primary.withOpacity(0.7),
-                    letterSpacing: 0.4,
-                  ),
+            if (r['reporte'] != null &&
+                r['reporte'].toString().trim().isNotEmpty) ...[
+              const SizedBox(height: 14),
+              Divider(color: _primary.withOpacity(0.15)),
+              const SizedBox(height: 8),
+              Text(
+                'OBSERVACIONES',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 11,
+                  color: _primary.withOpacity(0.7),
+                  letterSpacing: 0.4,
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  r['reporte'].toString(),
-                  style: const TextStyle(
-                    color: Color(0xFFB91C1C),
-                    fontSize: 13,
-                    height: 1.35,
-                  ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                r['reporte'].toString(),
+                style: const TextStyle(
+                  color: Color(0xFFB91C1C),
+                  fontSize: 13,
+                  height: 1.35,
                 ),
-              ],
+              ),
+            ],
           ],
         ),
       ),

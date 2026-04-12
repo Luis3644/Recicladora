@@ -12,10 +12,14 @@ class PanelGeneralUsuariosScreen extends StatefulWidget {
 
 class _PanelGeneralUsuariosScreenState extends State<PanelGeneralUsuariosScreen>
     with SingleTickerProviderStateMixin {
-  static const Color _primary = Color(0xFF0F172A);
-  static const Color _accent = Color(0xFF06B6D4);
-  static const Color _success = Color(0xFF10B981);
-  static const Color _bg = Color(0xFFF0F9FF);
+  static const Color _primary = Color(0xFF0B1F3A);
+  static const Color _secondary = Color(0xFF1E3A8A);
+  static const Color _accent = Color(0xFF0F766E);
+  static const Color _success = Color(0xFF15803D);
+  static const Color _warning = Color(0xFFB45309);
+  static const Color _danger = Color(0xFFB91C1C);
+  static const Color _bg = Color(0xFFF3F6FB);
+  static const Color _surface = Colors.white;
 
   bool _contentVisible = false;
   late AnimationController _controller;
@@ -62,6 +66,67 @@ class _PanelGeneralUsuariosScreenState extends State<PanelGeneralUsuariosScreen>
     );
   }
 
+  DateTime? _fechaDesdeFirestore(dynamic valor) {
+    if (valor is Timestamp) return valor.toDate();
+    if (valor is DateTime) return valor;
+    if (valor is String) return DateTime.tryParse(valor);
+    return null;
+  }
+
+  String _textoTiempoRelativo(DateTime fecha) {
+    final ahora = DateTime.now();
+    final diferencia = ahora.difference(fecha);
+
+    if (diferencia.inMinutes < 1) {
+      return 'hace unos segundos';
+    }
+    if (diferencia.inHours < 1) {
+      final minutos = diferencia.inMinutes;
+      return 'hace $minutos ${minutos == 1 ? 'minuto' : 'minutos'}';
+    }
+    if (diferencia.inDays < 1) {
+      final horas = diferencia.inHours;
+      return 'hace $horas ${horas == 1 ? 'hora' : 'horas'}';
+    }
+
+    final dias = diferencia.inDays;
+    return 'hace $dias ${dias == 1 ? 'día' : 'días'}';
+  }
+
+  ({bool activo, String texto}) _estadoUsuario(Map<String, dynamic> data) {
+    final sesionActiva = data['sesion_activa'] == true;
+    final activo = data['activo'] != false;
+
+    if (sesionActiva && activo) {
+      return (activo: true, texto: 'Activo');
+    }
+
+    final fechaSalida = _fechaDesdeFirestore(
+      data['sesion_ultima_salida'] ?? data['fecha_baja'],
+    );
+
+    if (fechaSalida != null) {
+      return (
+        activo: false,
+        texto: 'Inactivo ${_textoTiempoRelativo(fechaSalida)}',
+      );
+    }
+
+    return (activo: false, texto: 'Sin iniciar sesión');
+  }
+
+  Color _colorPorRol(String rol) {
+    switch (rol.toLowerCase()) {
+      case 'operador':
+        return _success;
+      case 'admin':
+        return _warning;
+      case 'trabajador':
+      default:
+        return _secondary;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -77,15 +142,15 @@ class _PanelGeneralUsuariosScreenState extends State<PanelGeneralUsuariosScreen>
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [_primary, Color(0xFF1E293B)],
+              colors: [_primary, _secondary],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             boxShadow: [
               BoxShadow(
-                color: _primary.withOpacity(0.3),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
+                color: _primary.withOpacity(0.35),
+                blurRadius: 22,
+                offset: const Offset(0, 10),
               ),
             ],
           ),
@@ -101,7 +166,7 @@ class _PanelGeneralUsuariosScreenState extends State<PanelGeneralUsuariosScreen>
               height: 240,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: _accent.withOpacity(0.1),
+                color: _secondary.withOpacity(0.08),
               ),
             ),
           ),
@@ -113,7 +178,7 @@ class _PanelGeneralUsuariosScreenState extends State<PanelGeneralUsuariosScreen>
               height: 240,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: _success.withOpacity(0.08),
+                color: _accent.withOpacity(0.07),
               ),
             ),
           ),
@@ -127,28 +192,42 @@ class _PanelGeneralUsuariosScreenState extends State<PanelGeneralUsuariosScreen>
                   child: Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.9),
+                      gradient: LinearGradient(
+                        colors: [
+                          _surface.withOpacity(0.98),
+                          const Color(0xFFEFF4FF).withOpacity(0.95),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: _accent.withOpacity(0.2)),
+                      border: Border.all(color: _secondary.withOpacity(0.2)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _primary.withOpacity(0.08),
+                          blurRadius: 12,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
                     ),
                     child: Row(
                       children: [
                         Container(
                           padding: const EdgeInsets.all(9),
                           decoration: BoxDecoration(
-                            color: _accent.withOpacity(0.15),
+                            color: _secondary.withOpacity(0.14),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Icon(
                             Icons.groups_rounded,
-                            color: _accent,
+                            color: _secondary,
                             size: 22,
                           ),
                         ),
                         const SizedBox(width: 10),
                         const Expanded(
                           child: Text(
-                            'Lista completa de trabajadores y operadores',
+                            'Vista general de trabajadores, operadores y administradores',
                             style: TextStyle(
                               color: _primary,
                               fontSize: 13,
@@ -174,16 +253,16 @@ class _PanelGeneralUsuariosScreenState extends State<PanelGeneralUsuariosScreen>
                     }
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Center(
-                        child: CircularProgressIndicator(color: _accent),
+                        child: CircularProgressIndicator(color: _secondary),
                       );
                     }
 
                     final docs = [...snapshot.data!.docs];
                     docs.sort((a, b) {
-                      final an =
-                          (a.data()['nombre']?.toString().trim() ?? '').toLowerCase();
-                      final bn =
-                          (b.data()['nombre']?.toString().trim() ?? '').toLowerCase();
+                      final an = (a.data()['nombre']?.toString().trim() ?? '')
+                          .toLowerCase();
+                      final bn = (b.data()['nombre']?.toString().trim() ?? '')
+                          .toLowerCase();
                       return an.compareTo(bn);
                     });
 
@@ -218,9 +297,10 @@ class _PanelGeneralUsuariosScreenState extends State<PanelGeneralUsuariosScreen>
                         final data = docs[index].data();
                         final nombre =
                             data['nombre']?.toString().trim().isNotEmpty == true
-                                ? data['nombre'].toString().trim()
-                                : 'Sin nombre';
-                        final apellido = data['apellido_paterno']
+                            ? data['nombre'].toString().trim()
+                            : 'Sin nombre';
+                        final apellido =
+                            data['apellido_paterno']
                                     ?.toString()
                                     .trim()
                                     .isNotEmpty ==
@@ -228,14 +308,19 @@ class _PanelGeneralUsuariosScreenState extends State<PanelGeneralUsuariosScreen>
                             ? data['apellido_paterno'].toString().trim()
                             : '';
                         final rol = data['rol']?.toString() ?? 'usuario';
-                        final telefono = data['telefono']?.toString().trim() ?? '';
-                        final camion = data['camion_actual']?.toString().trim() ?? '';
-                        final nombreCompleto =
-                            apellido.isNotEmpty ? '$nombre $apellido' : nombre;
-                        final inicial =
-                            nombreCompleto.isNotEmpty ? nombreCompleto[0] : '?';
-                        final rolColor =
-                            rol.toLowerCase() == 'operador' ? _success : _accent;
+                        final telefono =
+                            data['telefono']?.toString().trim() ?? '';
+                        final camion =
+                            data['camion_actual']?.toString().trim() ?? '';
+                        final nombreCompleto = apellido.isNotEmpty
+                            ? '$nombre $apellido'
+                            : nombre;
+                        final inicial = nombreCompleto.isNotEmpty
+                            ? nombreCompleto[0]
+                            : '?';
+                        final rolColor = _colorPorRol(rol);
+                        final estado = _estadoUsuario(data);
+                        final colorEstado = estado.activo ? _success : _danger;
 
                         return TweenAnimationBuilder<double>(
                           tween: Tween(begin: 0, end: 1),
@@ -251,20 +336,19 @@ class _PanelGeneralUsuariosScreenState extends State<PanelGeneralUsuariosScreen>
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
-                                colors: [
-                                  Colors.white,
-                                  rolColor.withOpacity(0.04),
-                                ],
+                                colors: [_surface, rolColor.withOpacity(0.06)],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ),
                               borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: rolColor.withOpacity(0.22)),
+                              border: Border.all(
+                                color: rolColor.withOpacity(0.25),
+                              ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: _primary.withOpacity(0.06),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 5),
+                                  color: _primary.withOpacity(0.07),
+                                  blurRadius: 14,
+                                  offset: const Offset(0, 6),
                                 ),
                               ],
                             ),
@@ -284,7 +368,8 @@ class _PanelGeneralUsuariosScreenState extends State<PanelGeneralUsuariosScreen>
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         nombreCompleto,
@@ -304,7 +389,8 @@ class _PanelGeneralUsuariosScreenState extends State<PanelGeneralUsuariosScreen>
                                             ),
                                             decoration: BoxDecoration(
                                               color: rolColor.withOpacity(0.12),
-                                              borderRadius: BorderRadius.circular(30),
+                                              borderRadius:
+                                                  BorderRadius.circular(30),
                                             ),
                                             child: Text(
                                               rol,
@@ -321,7 +407,9 @@ class _PanelGeneralUsuariosScreenState extends State<PanelGeneralUsuariosScreen>
                                               child: Text(
                                                 'Camión: $camion',
                                                 style: TextStyle(
-                                                  color: _primary.withOpacity(0.7),
+                                                  color: _primary.withOpacity(
+                                                    0.72,
+                                                  ),
                                                   fontSize: 11,
                                                 ),
                                                 overflow: TextOverflow.ellipsis,
@@ -340,6 +428,32 @@ class _PanelGeneralUsuariosScreenState extends State<PanelGeneralUsuariosScreen>
                                           fontSize: 12,
                                         ),
                                       ),
+                                      const SizedBox(height: 6),
+                                      Row(
+                                        children: [
+                                          Container(
+                                            width: 10,
+                                            height: 10,
+                                            decoration: BoxDecoration(
+                                              color: colorEstado,
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Expanded(
+                                            child: Text(
+                                              estado.texto,
+                                              style: TextStyle(
+                                                color: colorEstado,
+                                                fontSize: 11.5,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -349,9 +463,9 @@ class _PanelGeneralUsuariosScreenState extends State<PanelGeneralUsuariosScreen>
                                       ? null
                                       : () => _llamarTelefono(telefono),
                                   style: IconButton.styleFrom(
-                                    backgroundColor: _success,
-                                    disabledBackgroundColor:
-                                        _primary.withOpacity(0.2),
+                                    backgroundColor: _secondary,
+                                    disabledBackgroundColor: _secondary
+                                        .withOpacity(0.2),
                                   ),
                                   icon: const Icon(Icons.call_rounded),
                                   color: Colors.white,
