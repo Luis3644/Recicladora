@@ -2,10 +2,12 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:excel/excel.dart' as ex;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+
+import '../../utils/download_file.dart';
 
 enum _FiltroPeriodo { semana, mensual, anual, todos }
 
@@ -21,6 +23,29 @@ class _ReporteGasolinaCamionesScreenState
     extends State<ReporteGasolinaCamionesScreen> {
   _FiltroPeriodo _filtro = _FiltroPeriodo.todos;
   bool _exportando = false;
+
+  String _mensajeDescargaPorPlataforma() {
+    if (kIsWeb) {
+      return 'En web, el archivo Excel se descarga en la carpeta predeterminada del navegador.';
+    }
+
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      return 'En computadora, el archivo Excel se guarda en la carpeta Downloads.';
+    }
+
+    return 'En movil, al exportar se abre el selector para compartir el archivo Excel.';
+  }
+
+  Directory _directorioDescargasEscritorio() {
+    if (Platform.isWindows) {
+      final base =
+          Platform.environment['USERPROFILE'] ?? Directory.current.path;
+      return Directory('$base\\Downloads');
+    }
+
+    final base = Platform.environment['HOME'] ?? Directory.current.path;
+    return Directory('$base/Downloads');
+  }
 
   DateTime? _toDate(dynamic value) {
     if (value is Timestamp) return value.toDate();
@@ -68,7 +93,25 @@ class _ReporteGasolinaCamionesScreenState
 
     try {
       final excel = ex.Excel.createExcel();
+      final nombresHojas = excel.tables.keys.toList();
+
+      if (nombresHojas.isEmpty) {
+        throw Exception('No se pudo inicializar la hoja de Excel.');
+      }
+
+      final hojaBase = nombresHojas.first;
+      if (hojaBase != 'Gasolina') {
+        excel.rename(hojaBase, 'Gasolina');
+      }
       final sheet = excel['Gasolina'];
+
+      // Seguridad extra: elimina hojas residuales y deja solo "Gasolina".
+      final otrasHojas = excel.tables.keys
+          .where((name) => name != 'Gasolina')
+          .toList();
+      for (final hoja in otrasHojas) {
+        excel.delete(hoja);
+      }
 
       sheet.appendRow([
         ex.TextCellValue('FECHA'),
@@ -102,16 +145,49 @@ class _ReporteGasolinaCamionesScreenState
 
       final bytes = excel.encode();
       if (bytes == null) throw Exception('No se pudo generar el archivo.');
+      final excelBytes = bytes is List<int> ? bytes : List<int>.from(bytes);
 
-      final dir = await getTemporaryDirectory();
       final nombre =
           'reporte_gasolina_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx';
-      final file = File('${dir.path}/$nombre');
-      await file.writeAsBytes(bytes, flush: true);
 
-      await Share.shareXFiles([
-        XFile(file.path),
-      ], text: 'Reporte de gasolina de camiones');
+      final esEscritorio =
+          !kIsWeb &&
+          (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
+
+      if (kIsWeb) {
+        await downloadFile(
+          Uint8List.fromList(excelBytes),
+          nombre,
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Archivo Excel descargado.')),
+        );
+        return;
+      }
+
+      final dir = esEscritorio
+          ? _directorioDescargasEscritorio()
+          : Directory.systemTemp;
+
+      if (!dir.existsSync()) {
+        dir.createSync(recursive: true);
+      }
+
+      final file = File('${dir.path}/$nombre');
+      await file.writeAsBytes(excelBytes, flush: true);
+
+      if (esEscritorio) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Archivo Excel guardado en: ${file.path}')),
+        );
+      } else {
+        await Share.shareXFiles([
+          XFile(file.path),
+        ], text: 'Reporte de gasolina de camiones');
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -201,6 +277,18 @@ class _ReporteGasolinaCamionesScreenState
                       label: Text(_exportando ? 'Exportando' : 'Excel'),
                     ),
                   ],
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    _mensajeDescargaPorPlataforma(),
+                    style: const TextStyle(
+                      color: Color(0xFF64748B),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Align(
