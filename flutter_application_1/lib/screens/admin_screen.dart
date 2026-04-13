@@ -690,9 +690,9 @@ class _AdminScreenState extends State<AdminScreen> {
                         children: [
                           _AnimatedOptionCard(
                             icon: Icons.people_alt_rounded,
-                            title: 'Gestión de Usuarios',
+                            title: 'Usuarios',
                             description:
-                                'Ver, editar y eliminar usuarios del sistema',
+                                'Ver, editar, agregar y eliminar usuarios del sistema',
                             onTap: _abrirUsuarios,
                             color: const Color(0xFF2563EB),
                             compact: isMobile,
@@ -707,7 +707,7 @@ class _AdminScreenState extends State<AdminScreen> {
                           ),
                           _AnimatedOptionCard(
                             icon: Icons.emergency_share,
-                            title: 'Incidentes en Ruta',
+                            title: 'Reportes de operadores',
                             description: 'Tráfico, averías y retrasos en ruta',
                             onTap: _abrirIncidentes,
                             color: const Color(0xFF60A5FA),
