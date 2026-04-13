@@ -932,16 +932,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(height: 20),
                         const Text(
-                          'RECICLADORA GUADALAJARA',
-                          style: TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1F1F1F),
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
                           'Inicia sesión en tu cuenta',
                           style: TextStyle(
                             fontSize: 14,
