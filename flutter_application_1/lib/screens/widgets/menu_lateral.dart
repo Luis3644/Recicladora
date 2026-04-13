@@ -66,25 +66,7 @@ class MenuLateral extends StatelessWidget {
             ),
           ),
 
-          ListTile(
-            leading: const Icon(
-              Icons.report_problem_rounded,
-              color: Colors.orange,
-            ),
-            title: const Text("Reportar Problema"),
-            onTap: () {
-              Navigator.of(context).pop(); // Cierra el menú
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => ReporteScreen(
-                    nombreUsuario: nombreUsuario,
-                    camion: camion,
-                    placas: placas,
-                  ),
-                ),
-              );
-            },
-          ),
+         
 
           ListTile(
             leading: const Icon(Icons.home_rounded, color: _primary),

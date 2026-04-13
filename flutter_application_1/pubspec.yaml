@@ -31,6 +31,7 @@ dependencies:
   excel: ^4.0.6
   path_provider: ^2.1.5
   share_plus: ^11.1.0
+  firebase_messaging: ^16.1.1
 
 dev_dependencies:
   flutter_test:

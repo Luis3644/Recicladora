@@ -337,7 +337,9 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
 
               // --- TÍTULO ---
               Text(
-                esEdicion ? "Editar Usuario" : "Agregar Nuevo Usuario",
+                esEdicion
+                    ? "Editar ${_tituloNuevo(filtroRol).substring(6)}"
+                    : _tituloNuevo(filtroRol),
                 style: const TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w800,

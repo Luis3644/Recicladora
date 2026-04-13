@@ -8,6 +8,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'operador_screen.dart';
+import 'reporte_screen.dart'; // Asegúrate de que esta línea esté presente
 import 'widgets_conexion/connection_wrapper.dart';
 import 'widgets/menu_lateral.dart';
 import 'widgets/notificaciones_drawer.dart';
@@ -753,7 +754,9 @@ class _JornadaScreenState extends State<JornadaScreen> {
                   color: _accent.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.scale_rounded, color: _accent),
+                child: const Icon(
+                  Icons.scale_rounded, color: _accent,
+                ),
               ),
               const SizedBox(width: 12),
               const Expanded(
@@ -896,6 +899,24 @@ class _JornadaScreenState extends State<JornadaScreen> {
             ),
           ),
           actions: [
+            IconButton(
+              icon: const Icon(
+                Icons.warning_rounded,
+                color: Colors.orangeAccent,
+              ),
+              tooltip: 'Reportar problema',
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => ReporteScreen(
+                      nombreUsuario: widget.operador,
+                      camion: widget.camion,
+                      placas: widget.placas,
+                    ),
+                  ),
+                );
+              },
+            ),
             Builder(
               builder: (context) => NotificacionesBellButton(
                 rolUsuario: 'operador',

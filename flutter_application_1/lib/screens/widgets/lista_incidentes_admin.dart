@@ -80,7 +80,7 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
       backgroundColor: _bg,
       appBar: AppBar(
         title: const Text(
-          'Incidentes en Ruta',
+          'Reportes de Operadores',
           style: TextStyle(fontWeight: FontWeight.w700, letterSpacing: 0.2),
         ),
         backgroundColor: Colors.transparent,

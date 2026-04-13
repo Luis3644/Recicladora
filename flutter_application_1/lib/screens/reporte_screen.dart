@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'widgets_conexion/connection_wrapper.dart';
 
 class ReporteScreen extends StatefulWidget {
@@ -27,8 +28,8 @@ class _ReporteScreenState extends State<ReporteScreen>
     with SingleTickerProviderStateMixin {
   final TextEditingController _descripcionController = TextEditingController();
   
-  XFile? _imagenXFile; // Cambio: Usamos XFile en lugar de File
-  Uint8List? _webImage; // Para mostrar la imagen en el navegador
+  List<XFile> _imagenesXFile = []; // Cambio: Lista de imágenes
+  List<Uint8List?> _webImages = []; // Para web
   bool _subiendo = false;
   bool _contentVisible = false;
   late AnimationController _controller;
@@ -64,47 +65,74 @@ class _ReporteScreenState extends State<ReporteScreen>
 
   // Función para elegir imagen (Cámara o Galería)
   Future<void> _seleccionarImagen(ImageSource source) async {
+    if (_imagenesXFile.length >= 3) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Máximo 3 imágenes permitidas")),
+      );
+      return;
+    }
+
     final pickedFile = await _picker.pickImage(source: source, imageQuality: 50);
     
     if (pickedFile != null) {
       if (kIsWeb) {
         var f = await pickedFile.readAsBytes();
         setState(() {
-          _webImage = f;
-          _imagenXFile = pickedFile;
+          _webImages.add(f);
+          _imagenesXFile.add(pickedFile);
         });
       } else {
         setState(() {
-          _imagenXFile = pickedFile;
+          _imagenesXFile.add(pickedFile);
+          _webImages.add(null);
         });
       }
     }
   }
 
+  // Eliminar imagen
+  void _eliminarImagen(int index) {
+    setState(() {
+      _imagenesXFile.removeAt(index);
+      _webImages.removeAt(index);
+    });
+  }
+
   Future<void> _enviarReporte() async {
     if (_descripcionController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Escribe el mensaje del problema")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Escribe el mensaje del problema")),
+      );
       return;
     }
 
     setState(() => _subiendo = true);
 
     try {
-      String? imageUrl;
-      if (_imagenXFile != null) {
-        String fileName = 'reportes/${DateTime.now().millisecondsSinceEpoch}.jpg';
+      List<String> imageUrls = [];
       
+      // Subir cada imagen
+      for (int i = 0; i < _imagenesXFile.length; i++) {
+        String fileName = 'reportes/${DateTime.now().millisecondsSinceEpoch}_$i.jpg';
+        
         Reference storageRef = FirebaseStorage.instance.ref().child(fileName);
         UploadTask uploadTask;
-        // CORRECCIÓN PARA WEB: Usamos putData o putBlob en lugar de putFile
+        
         if (kIsWeb) {
-         uploadTask = storageRef.putData(_webImage!, SettableMetadata(contentType: 'image/jpeg'));
+          uploadTask = storageRef.putData(
+            _webImages[i]!,
+            SettableMetadata(contentType: 'image/jpeg'),
+          );
         } else {
-         uploadTask = storageRef.putFile(File(_imagenXFile!.path), SettableMetadata(contentType: 'image/jpeg'));
+          uploadTask = storageRef.putFile(
+            File(_imagenesXFile[i].path),
+            SettableMetadata(contentType: 'image/jpeg'),
+          );
         }
         
         TaskSnapshot snapshot = await uploadTask;
-        imageUrl = await snapshot.ref.getDownloadURL();
+        String imageUrl = await snapshot.ref.getDownloadURL();
+        imageUrls.add(imageUrl);
       }
 
       await FirebaseFirestore.instance.collection("reportes").add({
@@ -113,17 +141,22 @@ class _ReporteScreenState extends State<ReporteScreen>
         "mensaje": _descripcionController.text,
         "operador": widget.nombreUsuario,
         "placas": widget.placas,
-        "fotoUrl": imageUrl ?? "",
+        "fotosUrl": imageUrls,
         "visto": false,
       });
 
+      // La notificación se envía automáticamente con Cloud Functions
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Reporte enviado al Administrador")));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Reporte enviado al Administrador")),
+        );
       }
     } catch (e) {
-      print("ERROR DETECTADO: $e"); // Esto te dirá más en la consola de VS Code/Android Studio
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error al enviar: $e")));
+      print("ERROR DETECTADO: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error al enviar: $e")),
+      );
     } finally {
       if (mounted) setState(() => _subiendo = false);
     }
@@ -162,7 +195,6 @@ class _ReporteScreenState extends State<ReporteScreen>
         ),
         body: Stack(
           children: [
-            // Decorative circles
             Positioned(
               top: -100,
               right: -60,
@@ -315,179 +347,225 @@ class _ReporteScreenState extends State<ReporteScreen>
                   AnimatedOpacity(
                     opacity: _contentVisible ? 1 : 0,
                     duration: const Duration(milliseconds: 850),
-                    child: Text(
-                      "Adjuntar foto (opcional)",
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: _primary,
-                        letterSpacing: 0.2,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  ScaleTransition(
-                    scale: Tween<double>(begin: 0.8, end: 1.0).animate(
-                      CurvedAnimation(
-                          parent: _controller, curve: Curves.easeOutBack),
-                    ),
-                    child: Container(
-                      height: 200,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                            color: _accent.withOpacity(0.3), width: 2),
-                        borderRadius: BorderRadius.circular(16),
-                        color: Colors.white,
-                        boxShadow: [
-                          BoxShadow(
-                            color: _accent.withOpacity(0.1),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: _imagenXFile != null
-                          ? (kIsWeb
-                              ? Image.memory(_webImage!, fit: BoxFit.cover)
-                              : Image.file(File(_imagenXFile!.path),
-                                  fit: BoxFit.cover))
-                          : Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.camera_alt_rounded,
-                                    size: 64,
-                                    color: _accent.withOpacity(0.4)),
-                                const SizedBox(height: 8),
-                                Text("Toca para agregar foto",
-                                    style: TextStyle(
-                                      color:
-                                          _primary.withOpacity(0.6),
-                                      fontSize: 14,
-                                    )),
-                              ],
-                            ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  ScaleTransition(
-                    scale: Tween<double>(begin: 0.85, end: 1.0).animate(
-                      CurvedAnimation(
-                          parent: _controller,
-                          curve: const Interval(0.3, 1.0,
-                              curve: Curves.easeOutBack)),
-                    ),
                     child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
+                        Text(
+                          "Adjuntar fotos (${_imagenesXFile.length}/3)",
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: _primary,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                        if (_imagenesXFile.length < 3)
+                          ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: _accent,
                               foregroundColor: Colors.white,
-                              minimumSize: const Size(double.infinity, 48),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              elevation: 3,
-                            ),
-                            onPressed: () =>
-                                _seleccionarImagen(ImageSource.camera),
-                            icon: const Icon(Icons.photo_camera_rounded),
-                            label: const Text(
-                              "Cámara",
-                              style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14,
+                                borderRadius: BorderRadius.circular(8),
                               ),
                             ),
+                            onPressed: () => _seleccionarImagen(ImageSource.camera),
+                            icon: const Icon(Icons.add, size: 18),
+                            label: const Text("Agregar"),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor:
-                                  _accent.withOpacity(0.8),
-                              foregroundColor: Colors.white,
-                              minimumSize: const Size(double.infinity, 48),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              elevation: 3,
-                            ),
-                            onPressed: () =>
-                                _seleccionarImagen(ImageSource.gallery),
-                            icon: const Icon(Icons.image_rounded),
-                            label: const Text(
-                              "Galería",
-                              style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                        ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 32),
-                  ScaleTransition(
-                    scale: Tween<double>(begin: 0.7, end: 1.0).animate(
-                      CurvedAnimation(
-                          parent: _controller,
-                          curve: const Interval(0.4, 1.0,
-                              curve: Curves.easeOutBack)),
-                    ),
-                    child: _subiendo
-                        ? Container(
-                            width: double.infinity,
-                            height: 56,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [_danger, Color(0xFFEF4444)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(14),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: _danger.withOpacity(0.3),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 4),
+                  const SizedBox(height: 12),
+                  // Grid de imágenes
+                  if (_imagenesXFile.isNotEmpty)
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 3,
+                        childAspectRatio: 1,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                      ),
+                      itemCount: _imagenesXFile.length,
+                      itemBuilder: (context, index) {
+                        return Stack(
+                          children: [
+                            Container(
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: _accent.withOpacity(0.3),
+                                  width: 2,
                                 ),
-                              ],
-                            ),
-                            child: const Center(
-                              child: CircularProgressIndicator(
+                                borderRadius: BorderRadius.circular(12),
                                 color: Colors.white,
-                                strokeWidth: 3,
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(10),
+                                child: kIsWeb
+                                    ? Image.memory(
+                                        _webImages[index]!,
+                                        fit: BoxFit.cover,
+                                      )
+                                    : Image.file(
+                                        File(_imagenesXFile[index].path),
+                                        fit: BoxFit.cover,
+                                      ),
                               ),
                             ),
-                          )
-                        : ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _danger,
-                              foregroundColor: Colors.white,
-                              minimumSize:
-                                  const Size(double.infinity, 56),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
+                            Positioned(
+                              top: 4,
+                              right: 4,
+                              child: GestureDetector(
+                                onTap: () => _eliminarImagen(index),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: _danger,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  padding: const EdgeInsets.all(4),
+                                  child: const Icon(
+                                    Icons.close,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                ),
                               ),
-                              elevation: 4,
                             ),
-                            onPressed: _enviarReporte,
-                            icon: const Icon(Icons.send_rounded,
-                                size: 22),
-                            label: const Text(
-                              "ENVIAR REPORTE",
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.5,
-                              ),
+                          ],
+                        );
+                      },
+                    ),
+                  if (_imagenesXFile.isEmpty)
+                    Container(
+                      height: 150,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: _accent.withOpacity(0.3),
+                          width: 2,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        color: Colors.white,
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.image_rounded,
+                              size: 48, color: _accent.withOpacity(0.4)),
+                          const SizedBox(height: 8),
+                          Text(
+                            "Sin fotos adjuntas",
+                            style: TextStyle(
+                              color: _primary.withOpacity(0.6),
+                              fontSize: 14,
                             ),
                           ),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _accent,
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size(double.infinity, 48),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 3,
+                          ),
+                          onPressed: _imagenesXFile.length >= 3
+                              ? null
+                              : () => _seleccionarImagen(ImageSource.camera),
+                          icon: const Icon(Icons.photo_camera_rounded),
+                          label: const Text(
+                            "Cámara",
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _accent.withOpacity(0.8),
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size(double.infinity, 48),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 3,
+                          ),
+                          onPressed: _imagenesXFile.length >= 3
+                              ? null
+                              : () => _seleccionarImagen(ImageSource.gallery),
+                          icon: const Icon(Icons.image_rounded),
+                          label: const Text(
+                            "Galería",
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
+                  const SizedBox(height: 32),
+                  _subiendo
+                      ? Container(
+                          width: double.infinity,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [_danger, const Color(0xFFEF4444)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(
+                                color: _danger.withOpacity(0.3),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: const Center(
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 3,
+                            ),
+                          ),
+                        )
+                      : ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _danger,
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size(double.infinity, 56),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            elevation: 4,
+                          ),
+                          onPressed: _enviarReporte,
+                          icon: const Icon(Icons.send_rounded, size: 22),
+                          label: const Text(
+                            "ENVIAR REPORTE",
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
                 ],
               ),
             ),

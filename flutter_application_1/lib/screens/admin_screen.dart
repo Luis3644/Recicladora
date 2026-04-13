@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:firebase_messaging/firebase_messaging.dart'; // Agregar esta importación
 
 import '../config/session_manager.dart';
 import 'admin_notificaciones_screen.dart';
@@ -9,7 +10,7 @@ import 'login_screen.dart';
 import 'mapa_general_operadores_screen.dart';
 import 'panel_general_usuarios_screen.dart';
 import 'usuarios_screen.dart';
-import 'widgets/lista_incidentes_admin.dart';
+import 'widgets/lista_incidentes_admin.dart'; // Agregar esta importación
 import 'widgets/reporte_gasolina_camiones_screen.dart';
 import 'widgets/notificaciones_drawer.dart';
 import 'widgets/reportes_equipo_screen.dart';
