@@ -482,8 +482,7 @@ class _OperadorScreenState extends State<OperadorScreen> {
                   sliver: StreamBuilder<QuerySnapshot>(
                     stream: FirebaseFirestore.instance
                         .collection("camiones")
-                        .where("activo", isEqualTo: true)
-                        .where("ocupado", isEqualTo: false)
+                        .where("ocupado", isEqualTo: false) // Quitar .where("activo", isEqualTo: true)
                         .snapshots(),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
@@ -532,39 +531,51 @@ class _OperadorScreenState extends State<OperadorScreen> {
                         itemCount: camiones.length,
                         separatorBuilder: (_, __) => const SizedBox(height: 12),
                         itemBuilder: (context, index) {
-                          final data =
-                              camiones[index].data() as Map<String, dynamic>;
+                          final data = camiones[index].data() as Map<String, dynamic>;
                           final tipo = (data["tipo"] ?? "Camión").toString();
                           final placas = (data["placas"] ?? "").toString();
+                          final estado = data["estado"] ?? "Disponible";
+                          final disponible = estado == "Disponible";
 
                           return InkWell(
                             borderRadius: BorderRadius.circular(18),
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => ConfirmarCamionScreen(
-                                    operador: widget.nombreUsuario,
-                                    camionId: camiones[index].id,
-                                    tipo: data["tipo"],
-
-                                    foto: data["foto"],
-                                    placas: data["placas"] ?? "S/P",
-                                    modelo: data['modelo'] ?? "N/A",
-                                  ),
-                                ),
-                              );
-                            },
+                            onTap: disponible
+                                ? () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => ConfirmarCamionScreen(
+                                          operador: widget.nombreUsuario,
+                                          camionId: camiones[index].id,
+                                          tipo: data["tipo"],
+                                          foto: data["foto"],
+                                          placas: data["placas"] ?? "S/P",
+                                          modelo: data['modelo'] ?? "N/A",
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                : () {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          estado == "En Mantenimiento"
+                                              ? "Este camión está en mantenimiento y no se puede seleccionar."
+                                              : "Este camión está fuera de servicio y no se puede seleccionar.",
+                                        ),
+                                      ),
+                                    );
+                                  },
                             child: Container(
                               decoration: BoxDecoration(
-                                color: Colors.white,
+                                color: disponible ? Colors.white : Colors.grey[100], // Gris si no disponible
                                 borderRadius: BorderRadius.circular(18),
                                 border: Border.all(
-                                  color: const Color(0xFFE6ECFF),
+                                  color: disponible ? const Color(0xFFE6ECFF) : Colors.grey.shade300,
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.06),
+                                    color: Colors.black.withOpacity(disponible ? 0.06 : 0.03),
                                     blurRadius: 18,
                                     offset: const Offset(0, 10),
                                   ),
@@ -577,16 +588,20 @@ class _OperadorScreenState extends State<OperadorScreen> {
                                     width: 52,
                                     height: 52,
                                     decoration: BoxDecoration(
-                                      gradient: const LinearGradient(
-                                        colors: [_primary, _primary2],
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                      ),
+                                      gradient: disponible
+                                          ? const LinearGradient(
+                                              colors: [_primary, _primary2],
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                            )
+                                          : const LinearGradient(
+                                              colors: [Colors.grey, Colors.grey],
+                                            ),
                                       borderRadius: BorderRadius.circular(16),
                                     ),
-                                    child: const Icon(
+                                    child: Icon(
                                       Icons.local_shipping_rounded,
-                                      color: Colors.white,
+                                      color: disponible ? Colors.white : Colors.grey[600],
                                       size: 28,
                                     ),
                                   ),
@@ -600,10 +615,10 @@ class _OperadorScreenState extends State<OperadorScreen> {
                                           tipo,
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontSize: 18,
                                             fontWeight: FontWeight.w800,
-                                            color: Color(0xFF0F172A),
+                                            color: disponible ? const Color(0xFF0F172A) : Colors.grey[600],
                                           ),
                                         ),
                                         const SizedBox(height: 4),
@@ -613,9 +628,9 @@ class _OperadorScreenState extends State<OperadorScreen> {
                                               : "Placas: $placas",
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontSize: 14,
-                                            color: Color(0xFF475569),
+                                            color: disponible ? const Color(0xFF475569) : Colors.grey[500],
                                             height: 1.1,
                                           ),
                                         ),
@@ -629,25 +644,25 @@ class _OperadorScreenState extends State<OperadorScreen> {
                                       vertical: 6,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFFEFF6FF),
+                                      color: _getEstadoColor(estado).withOpacity(0.15),
                                       borderRadius: BorderRadius.circular(999),
                                       border: Border.all(
-                                        color: const Color(0xFFBFDBFE),
+                                        color: _getEstadoColor(estado).withOpacity(0.3),
                                       ),
                                     ),
-                                    child: const Text(
-                                      "Disponible",
+                                    child: Text(
+                                      estado,
                                       style: TextStyle(
-                                        color: Color(0xFF1D4ED8),
+                                        color: _getEstadoColor(estado),
                                         fontWeight: FontWeight.w700,
                                         fontSize: 12,
                                       ),
                                     ),
                                   ),
                                   const SizedBox(width: 6),
-                                  const Icon(
-                                    Icons.chevron_right_rounded,
-                                    color: Color(0xFF94A3B8),
+                                  Icon(
+                                    disponible ? Icons.chevron_right_rounded : Icons.block_rounded,
+                                    color: disponible ? const Color(0xFF94A3B8) : Colors.grey[400],
                                     size: 26,
                                   ),
                                 ],
@@ -684,5 +699,18 @@ class _RecomendacionItem extends StatelessWidget {
         Expanded(child: Text(texto, style: const TextStyle(height: 1.25))),
       ],
     );
+  }
+}
+
+Color _getEstadoColor(String estado) {
+  switch (estado) {
+    case 'Disponible':
+      return const Color(0xFF10B981); // verde
+    case 'En Mantenimiento':
+      return const Color(0xFFF59E0B); // amarillo
+    case 'Fuera de Servicio':
+      return const Color(0xFFDC2626); // rojo
+    default:
+      return const Color(0xFF1D4ED8); // azul
   }
 }

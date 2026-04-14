@@ -15,6 +15,7 @@ import 'widgets/reporte_gasolina_camiones_screen.dart';
 import 'widgets/notificaciones_drawer.dart';
 import 'widgets/reportes_equipo_screen.dart';
 import 'widgets/reporte_toneladas_camiones_screen.dart';
+import 'gestion_camiones_screen.dart'; // Agregar esta línea
 
 class _AnimatedOptionCard extends StatefulWidget {
   final IconData icon;
@@ -1424,6 +1425,19 @@ class _AdminScreenState extends State<AdminScreen> {
                 ),
               ),
             ),
+          ),
+          ListTile(
+            leading: Icon(Icons.local_shipping_rounded, color: accentColor),
+            title: const Text(
+              'Gestión de Camiones',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const GestionCamionesScreen()),
+              );
+            },
           ),
           ListTile(
             leading: Icon(Icons.logout_rounded, color: accentColor),

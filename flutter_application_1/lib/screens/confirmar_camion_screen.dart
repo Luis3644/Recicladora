@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'checklist_screen.dart';
 import 'widgets_conexion/connection_wrapper.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class _ConfirmarCamionContent extends StatefulWidget {
   final String operador;
@@ -33,6 +34,7 @@ class _ConfirmarCamionContentState extends State<_ConfirmarCamionContent>
   static const Color _accent = Color(0xFF06B6D4);
   static const Color _success = Color(0xFF10B981);
   static const Color _danger = Color(0xFFDC2626);
+  static const Color _bgColor = Color(0xFFF0F9FF);
 
   @override
   void initState() {
@@ -57,7 +59,7 @@ class _ConfirmarCamionContentState extends State<_ConfirmarCamionContent>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F9FF),
+      backgroundColor: _bgColor,
       appBar: AppBar(
         title: const Text(
           "Confirmar camión",
@@ -70,13 +72,13 @@ class _ConfirmarCamionContentState extends State<_ConfirmarCamionContent>
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [_primary, Color(0xFF1E293B)],
+              colors: [_primary, const Color(0xFF1E293B)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             boxShadow: [
               BoxShadow(
-                color: Color(0xFF0F172A).withOpacity(0.3),
+                color: _primary.withOpacity(0.3),
                 blurRadius: 20,
                 offset: Offset(0, 8),
               ),
@@ -330,7 +332,7 @@ class _ConfirmarCamionContentState extends State<_ConfirmarCamionContent>
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                             side: BorderSide(
-                              color: _danger.withValues(alpha: 0.3),
+                              color: _danger.withOpacity(0.3),
                               width: 1.5,
                             ),
                           ),
