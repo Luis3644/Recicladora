@@ -850,7 +850,7 @@ class _AdminScreenState extends State<AdminScreen> {
   void _abrirReporteToneladas() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const ReporteToneladasCamionesScreen()),
+      MaterialPageRoute(builder: (_) =>  ReporteToneladasAdminScreen()),
     );
   }
 
