@@ -9,8 +9,7 @@ import 'package:open_file/open_file.dart';
 
 // Solo en Web
 // ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
-
+import 'package:universal_html/html.dart' as html;
 class ListaIncidentesAdmin extends StatefulWidget {
   const ListaIncidentesAdmin({super.key});
 
