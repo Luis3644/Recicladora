@@ -359,19 +359,7 @@ class _ReporteScreenState extends State<ReporteScreen>
                             letterSpacing: 0.2,
                           ),
                         ),
-                        if (_imagenesXFile.length < 3)
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _accent,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            onPressed: () => _seleccionarImagen(ImageSource.camera),
-                            icon: const Icon(Icons.add, size: 18),
-                            label: const Text("Agregar"),
-                          ),
+                       
                       ],
                     ),
                   ),

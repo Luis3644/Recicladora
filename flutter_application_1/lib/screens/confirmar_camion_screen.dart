@@ -1,4 +1,4 @@
-import 'dart:typed_data';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'checklist_screen.dart';
 import 'widgets_conexion/connection_wrapper.dart';
@@ -42,7 +42,7 @@ class _ConfirmarCamionContentState extends State<_ConfirmarCamionContent>
 
   // --- Estado del reporte de problema ---
   final TextEditingController _reporteController = TextEditingController();
- final List<Uint8List> _fotosReporte =[];
+  final List<File> _fotosReporte = [];
   bool _enviandoReporte = false;
 
   @override
@@ -81,21 +81,19 @@ class _ConfirmarCamionContentState extends State<_ConfirmarCamionContent>
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
     if (picked != null) {
-     final bytes = await picked.readAsBytes();
-    setState(() => _fotosReporte.add(bytes));
+      setState(() => _fotosReporte.add(File(picked.path)));
     }
   }
 
   Future<List<String>> _subirFotos() async {
     List<String> urls = [];
-    for (final bytes in _fotosReporte) {
-  final ref = FirebaseStorage.instance
-      .ref()
-      .child('reportes_camiones/${widget.camionId}_${DateTime.now().millisecondsSinceEpoch}.jpg');
-
-  await ref.putData(bytes); // 👈 CAMBIO CLAVE
-  urls.add(await ref.getDownloadURL());
-}
+    for (final foto in _fotosReporte) {
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('reportes_camiones/${widget.camionId}_${DateTime.now().millisecondsSinceEpoch}.jpg');
+      await ref.putFile(foto);
+      urls.add(await ref.getDownloadURL());
+    }
     return urls;
   }
 
@@ -216,39 +214,6 @@ class _ConfirmarCamionContentState extends State<_ConfirmarCamionContent>
                   ),
                   const SizedBox(height: 20),
 
-                  // Datos del camión
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: _bgColor,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: _accent.withOpacity(0.2)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Datos del camión',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: _accent,
-                            letterSpacing: 0.3,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        _buildDatoCamion(Icons.directions_bus_rounded, 'Tipo', widget.tipo),
-                        const SizedBox(height: 6),
-                        _buildDatoCamion(Icons.build_circle_rounded, 'Modelo', widget.modelo),
-                        const SizedBox(height: 6),
-                        _buildDatoCamion(Icons.pin_rounded, 'Placas', widget.placas),
-                        const SizedBox(height: 6),
-                        _buildDatoCamion(Icons.person_rounded, 'Operador', widget.operador),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
                   // Campo de descripción
                   const Text(
                     'Descripción del problema',
@@ -311,23 +276,23 @@ class _ConfirmarCamionContentState extends State<_ConfirmarCamionContent>
                     ],
                   ),
                   const SizedBox(height: 10),
-SingleChildScrollView(
-  scrollDirection: Axis.horizontal,
-  child: Row(
-    children: [
-      ...List.generate(_fotosReporte.length, (i) => Padding(
-        padding: const EdgeInsets.only(right: 10),
-        child: Stack(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.memory(
-                _fotosReporte[i], // 👈 ahora son bytes (Uint8List)
-                width: 80,
-                height: 80,
-                fit: BoxFit.cover,
-              ),
-            ),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        ...List.generate(_fotosReporte.length, (i) => Padding(
+                          padding: const EdgeInsets.only(right: 10),
+                          child: Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.file(
+                                  _fotosReporte[i],
+                                  width: 80,
+                                  height: 80,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
                               Positioned(
                                 top: 4,
                                 right: 4,

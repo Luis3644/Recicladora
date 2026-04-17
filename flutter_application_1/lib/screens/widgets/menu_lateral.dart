@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../config/session_manager.dart';
 import '../login_screen.dart';
 import '../reporte_screen.dart';
+import '../mis_reportes_operador.dart';
 
 class MenuLateral extends StatelessWidget {
   final String nombreUsuario;
@@ -66,38 +67,27 @@ class MenuLateral extends StatelessWidget {
             ),
           ),
 
-         
 
           ListTile(
-            leading: const Icon(Icons.home_rounded, color: _primary),
-            title: const Text(
-              "Inicio",
-              style: TextStyle(fontWeight: FontWeight.w700),
-            ),
-            onTap: () => Navigator.of(context).pop(), // Solo cierra el menú
-          ),
-          if (mostrarCerrarSesion)
-            ListTile(
-              leading: const Icon(
-                Icons.logout_rounded,
-                color: Colors.redAccent,
-              ),
-              title: const Text(
-                "Cerrar sesión",
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
-              onTap: () async {
-                await SessionManager.limpiarSesionRemota();
-                await FirebaseAuth.instance.signOut();
-                await SessionManager.limpiarSesion();
-                if (context.mounted) {
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (_) => const LoginScreen()),
-                    (route) => false,
-                  );
-                }
-              },
-            ),
+  leading: const Icon(Icons.assignment_ind_rounded, color: Color(0xFF06B6D4)), // Color accent que usas
+  title: const Text(
+    'Mis Reportes ',
+    style: TextStyle(fontWeight: FontWeight.w700),
+  ),
+  onTap: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const MisReportesOperador(nombreOperador: 'Alberto'), 
+        // Nota: Aquí 'Alberto' debería ser la variable donde guardas el nombre del usuario logueado
+      ),
+    );
+  },
+),
+
+         
+
+        
           const Spacer(),
           const Padding(
             padding: EdgeInsets.all(16),
