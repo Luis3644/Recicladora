@@ -6,10 +6,11 @@ import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:open_file/open_file.dart';
+import 'package:gal/gal.dart';
 
-// Solo en Web
 // ignore: avoid_web_libraries_in_flutter
 import 'package:universal_html/html.dart' as html;
+
 class ListaIncidentesAdmin extends StatefulWidget {
   const ListaIncidentesAdmin({super.key});
 
@@ -20,23 +21,29 @@ class ListaIncidentesAdmin extends StatefulWidget {
 class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
     with SingleTickerProviderStateMixin {
   // ── Colores ───────────────────────────────────────────────────────────────
-  static const Color _primary  = Color(0xFF0F172A);
-  static const Color _accent   = Color(0xFF06B6D4);
-  static const Color _success  = Color(0xFF10B981);
-  static const Color _danger   = Color(0xFFEF4444);
-  static const Color _bgColor  = Color(0xFFF0F9FF);
-  static const Color _surface  = Color(0xFFFFFFFF);
-  static const Color _slate    = Color(0xFF64748B);
-  static const Color _border   = Color(0xFFE2E8F0);
+  static const Color _primary = Color(0xFF0F172A);
+  static const Color _accent  = Color(0xFF06B6D4);
+  static const Color _success = Color(0xFF10B981);
+  static const Color _danger  = Color(0xFFEF4444);
+  static const Color _bgColor = Color(0xFFF0F9FF);
+  static const Color _surface = Color(0xFFFFFFFF);
+  static const Color _slate   = Color(0xFF64748B);
+  static const Color _border  = Color(0xFFE2E8F0);
 
   // ── Filtros ───────────────────────────────────────────────────────────────
-  String   _filtroPeriodo  = 'hoy';
-  String?  _filtroOperador;
-  DateTime? _filtroFecha;          // ← fecha exacta del calendario
-  List<String> _operadores = [];
-  bool _cargandoOperadores = true;
+  String    _filtroPeriodo  = 'hoy';
+  String?   _filtroOperador;
+  DateTime? _filtroFecha;
+  List<String> _operadores  = [];
+  bool _cargandoOperadores  = true;
 
-  // ── Animación ─────────────────────────────────────────────────────────────
+  // ── Etiquetas dinámicas ───────────────────────────────────────────────────
+  String get _labelMes {
+    final raw = DateFormat('MMMM', 'es_MX').format(DateTime.now());
+    return raw[0].toUpperCase() + raw.substring(1);
+  }
+  String get _labelAno => DateFormat('yyyy').format(DateTime.now());
+
   late AnimationController _fadeCtrl;
 
   @override
@@ -44,7 +51,7 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
     super.initState();
     _fadeCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 350),
+      duration: const Duration(milliseconds: 380),
     )..forward();
     _cargarOperadores();
   }
@@ -55,10 +62,7 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
     super.dispose();
   }
 
-  void _refresh() {
-    _fadeCtrl..reset()..forward();
-    setState(() {});
-  }
+  void _refresh() { _fadeCtrl..reset()..forward(); setState(() {}); }
 
   // ── Operadores A-Z ────────────────────────────────────────────────────────
   Future<void> _cargarOperadores() async {
@@ -71,7 +75,9 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
           .toSet()
           .toList()
         ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-      if (mounted) setState(() { _operadores = ops; _cargandoOperadores = false; });
+      if (mounted) {
+        setState(() { _operadores = ops; _cargandoOperadores = false; });
+      }
     } catch (_) {
       if (mounted) setState(() => _cargandoOperadores = false);
     }
@@ -99,26 +105,20 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
       ),
     );
     if (picked != null) {
-      setState(() {
-        _filtroFecha   = picked;
-        _filtroPeriodo = 'fecha'; // modo especial
-      });
+      setState(() { _filtroFecha = picked; _filtroPeriodo = 'fecha'; });
       _refresh();
     }
   }
 
-  // ── Dropdown operadores ───────────────────────────────────────────────────
-  void _mostrarDropdownOperadores() {
+  // ── Bottom sheet operadores ───────────────────────────────────────────────
+  void _mostrarOperadores() {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (_) => _OperadorSheet(
         operadores: _operadores,
         seleccionado: _filtroOperador,
-        onSelect: (op) {
-          setState(() => _filtroOperador = op);
-          _refresh();
-        },
+        onSelect: (op) { setState(() => _filtroOperador = op); _refresh(); },
       ),
     );
   }
@@ -137,7 +137,7 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
 
   // ── Eliminar reporte ──────────────────────────────────────────────────────
   Future<void> _eliminarReporte(String docId) async {
-    final confirmar = await showDialog<bool>(
+    final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
@@ -151,11 +151,13 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(Icons.delete_outline_rounded,
-                  color: _danger, size: 20),
+                  color: _danger, size: 22),
             ),
             const SizedBox(width: 12),
-            const Text('Eliminar reporte',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+            const Expanded(
+              child: Text('Eliminar reporte',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+            ),
           ],
         ),
         content: const Text(
@@ -170,7 +172,7 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
               side: const BorderSide(color: _border),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10)),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 11),
             ),
             onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Cancelar',
@@ -183,7 +185,7 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
               elevation: 0,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10)),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 11),
             ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Sí, eliminar',
@@ -192,8 +194,7 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
         ],
       ),
     );
-
-    if (confirmar == true) {
+    if (ok == true) {
       try {
         await FirebaseFirestore.instance
             .collection('reportes')
@@ -222,17 +223,13 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
     } else {
       switch (_filtroPeriodo) {
         case 'hoy':
-          desde = DateTime(now.year, now.month, now.day);
-          break;
+          desde = DateTime(now.year, now.month, now.day); break;
         case 'semana':
-          desde = now.subtract(const Duration(days: 7));
-          break;
+          desde = now.subtract(const Duration(days: 7)); break;
         case 'mes':
-          desde = DateTime(now.year, now.month, 1);
-          break;
+          desde = DateTime(now.year, now.month, 1); break;
         case 'año':
-          desde = DateTime(now.year, 1, 1);
-          break;
+          desde = DateTime(now.year, 1, 1); break;
       }
     }
 
@@ -253,28 +250,52 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
         .toList();
   }
 
-  // ── Descarga imagen ───────────────────────────────────────────────────────
+  // ── Guarda imagen en galería ─────────────────────────────────────────────
+  // Android 10+ (API 29+): usa MediaStore, sin permisos adicionales.
+  // Android  9- (API 28-): image_gallery_saver pide WRITE_EXTERNAL_STORAGE.
+  // iOS: guarda en Fotos, pide NSPhotoLibraryAddUsageDescription la 1a vez.
+  // Web: descarga directa al navegador.
   Future<void> _descargarImagen(String url, String nombre) async {
     try {
-      _snack('Iniciando descarga...', _accent);
+      _snack('Guardando en galeria...', _accent);
+
       final response = await http.get(Uri.parse(url));
+      if (response.statusCode != 200) {
+        _snack('No se pudo obtener la imagen (${response.statusCode})', _danger);
+        return;
+      }
       final bytes = response.bodyBytes;
+      final nombreArchivo = '${nombre}_${DateTime.now().millisecondsSinceEpoch}';
+
       if (kIsWeb) {
-        final blob = html.Blob([bytes]);
+        final blob    = html.Blob([bytes]);
         final blobUrl = html.Url.createObjectUrlFromBlob(blob);
-        final anchor = html.AnchorElement(href: blobUrl)
-          ..setAttribute('download', '$nombre.jpg')
+        html.AnchorElement(href: blobUrl)
+          ..setAttribute('download', '$nombreArchivo.jpg')
           ..click();
         html.Url.revokeObjectUrl(blobUrl);
+        _snack('Imagen descargada', _success);
+
+      } else if (Platform.isAndroid || Platform.isIOS) {
+        // gal guarda directo en galeria/Fotos sin configuracion extra.
+        // Funciona en Android 9+ y iOS sin permisos manuales.
+        final dir  = await getTemporaryDirectory();
+        final file = File('${dir.path}/$nombreArchivo.jpg');
+        await file.writeAsBytes(bytes);
+        await Gal.putImage(file.path);
+        _snack('Imagen guardada en galeria', _success);
+
       } else {
-        final dir = await getTemporaryDirectory();
-        final file = File('${dir.path}/$nombre.jpg');
+        // Desktop fallback
+        final dir  = await getDownloadsDirectory() ??
+            await getApplicationDocumentsDirectory();
+        final file = File('${dir.path}/$nombreArchivo.jpg');
         await file.writeAsBytes(bytes);
         await OpenFile.open(file.path);
+        _snack('Imagen guardada', _success);
       }
-      _snack('Imagen descargada', _success);
     } catch (e) {
-      _snack('Error: $e', _danger);
+      _snack('Error al guardar: $e', _danger);
     }
   }
 
@@ -302,7 +323,10 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
           actions: [
             IconButton(
               icon: const Icon(Icons.download_rounded),
-              onPressed: () { Navigator.pop(ctx); _descargarImagen(url, nombre); },
+              onPressed: () {
+                Navigator.pop(ctx);
+                _descargarImagen(url, nombre);
+              },
             ),
           ],
         ),
@@ -310,9 +334,12 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
           child: InteractiveViewer(
             minScale: 0.5,
             maxScale: 4.0,
-            child: Image.network(url, fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => const Icon(
-                  Icons.broken_image_rounded, color: Colors.white38, size: 64)),
+            child: Image.network(url,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Icon(
+                    Icons.broken_image_rounded,
+                    color: Colors.white38,
+                    size: 64)),
           ),
         ),
       ),
@@ -350,7 +377,7 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
   // ── AppBar ────────────────────────────────────────────────────────────────
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
-      title: const Text('Reportes',
+      title: const Text('Reportes de Operadores',
           style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
       backgroundColor: Colors.transparent,
       elevation: 0,
@@ -367,43 +394,44 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
     );
   }
 
-  // ── Filtros compactos ─────────────────────────────────────────────────────
+  // ── Barra de filtros ──────────────────────────────────────────────────────
   Widget _buildFiltros() {
-    final hayFiltroActivo = _filtroOperador != null ||
+    final hayActivo = _filtroOperador != null ||
         _filtroPeriodo != 'hoy' ||
         _filtroFecha != null;
 
     return Container(
       color: _primary,
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // ── Fila 1: chips de período + calendario ──────────────────
+          // ── Fila 1: chips período + calendario ────────────────────
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _chipPeriodo('hoy',    'Hoy',      Icons.today_rounded),
-                _chipPeriodo('semana', '7 días',   Icons.date_range_rounded),
-                _chipPeriodo('mes',    'Mes',      Icons.calendar_month_rounded),
-                _chipPeriodo('año',    'Año',      Icons.calendar_today_rounded),
-                _chipPeriodo('todo',   'Todo',     Icons.all_inclusive_rounded),
-                const SizedBox(width: 6),
-                // Separador visual
-                Container(width: 1, height: 22, color: Colors.white12),
-                const SizedBox(width: 6),
+                _chip('hoy',    'Hoy',     Icons.today_rounded),
+                _chip('semana', '7 días',  Icons.date_range_rounded),
+                _chip('mes',    _labelMes, Icons.calendar_month_rounded),
+                _chip('año',    _labelAno, Icons.calendar_today_rounded),
+                _chip('todo',   'Todo',    Icons.all_inclusive_rounded),
+                const SizedBox(width: 8),
+                Container(width: 1, height: 24, color: Colors.white12),
+                const SizedBox(width: 8),
                 // Botón calendario
                 GestureDetector(
                   onTap: _abrirCalendario,
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 9),
                     decoration: BoxDecoration(
                       color: (_filtroPeriodo == 'fecha' && _filtroFecha != null)
                           ? Colors.amber
                           : Colors.white12,
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(22),
                       border: Border.all(
                         color: (_filtroPeriodo == 'fecha' && _filtroFecha != null)
                             ? Colors.amber
@@ -413,19 +441,22 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.event_rounded, size: 13,
-                          color: (_filtroPeriodo == 'fecha' && _filtroFecha != null)
-                              ? _primary : Colors.white70),
-                        const SizedBox(width: 5),
+                        Icon(Icons.event_rounded,
+                            size: 14,
+                            color: (_filtroPeriodo == 'fecha' && _filtroFecha != null)
+                                ? _primary
+                                : Colors.white70),
+                        const SizedBox(width: 6),
                         Text(
                           (_filtroPeriodo == 'fecha' && _filtroFecha != null)
                               ? DateFormat('dd/MM/yy').format(_filtroFecha!)
                               : 'Fecha',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 13,
                             fontWeight: FontWeight.w700,
                             color: (_filtroPeriodo == 'fecha' && _filtroFecha != null)
-                                ? _primary : Colors.white70,
+                                ? _primary
+                                : Colors.white70,
                           ),
                         ),
                       ],
@@ -436,61 +467,72 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
             ),
           ),
 
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
 
-          // ── Fila 2: filtro operador + limpiar ─────────────────────
+          // ── Fila 2: operador + limpiar ────────────────────────────
           Row(
             children: [
-              // Botón operador
               Expanded(
                 child: _cargandoOperadores
-                    ? const SizedBox(height: 34,
-                        child: Center(child: CircularProgressIndicator(
-                            color: Colors.white38, strokeWidth: 2)))
+                    ? const SizedBox(
+                        height: 38,
+                        child: Center(
+                          child: CircularProgressIndicator(
+                              color: Colors.white38, strokeWidth: 2),
+                        ),
+                      )
                     : GestureDetector(
-                        onTap: _operadores.isEmpty ? null : _mostrarDropdownOperadores,
+                        onTap: _operadores.isEmpty ? null : _mostrarOperadores,
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 7),
+                              horizontal: 14, vertical: 9),
                           decoration: BoxDecoration(
                             color: _filtroOperador != null
-                                ? _accent : Colors.white10,
-                            borderRadius: BorderRadius.circular(20),
+                                ? _accent
+                                : Colors.white10,
+                            borderRadius: BorderRadius.circular(22),
                             border: Border.all(
                               color: _filtroOperador != null
-                                  ? _accent : Colors.white24,
+                                  ? _accent
+                                  : Colors.white24,
                             ),
                           ),
                           child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.person_rounded, size: 13,
+                              Icon(Icons.person_rounded,
+                                  size: 14,
                                   color: _filtroOperador != null
-                                      ? Colors.white : Colors.white60),
-                              const SizedBox(width: 6),
-                              Expanded(
+                                      ? Colors.white
+                                      : Colors.white60),
+                              const SizedBox(width: 7),
+                              Flexible(
                                 child: Text(
                                   _filtroOperador ?? 'Todos los operadores',
                                   overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.center,
                                   style: TextStyle(
-                                    fontSize: 12,
+                                    fontSize: 13,
                                     fontWeight: FontWeight.w700,
                                     color: _filtroOperador != null
-                                        ? Colors.white : Colors.white60,
+                                        ? Colors.white
+                                        : Colors.white60,
                                   ),
                                 ),
                               ),
-                              Icon(Icons.expand_more_rounded, size: 15,
+                              const SizedBox(width: 7),
+                              Icon(Icons.expand_more_rounded,
+                                  size: 16,
                                   color: _filtroOperador != null
-                                      ? Colors.white : Colors.white38),
+                                      ? Colors.white
+                                      : Colors.white38),
                             ],
                           ),
                         ),
                       ),
               ),
-
-              // Botón limpiar (solo si hay filtros activos)
-              if (hayFiltroActivo) ...[
+              if (hayActivo) ...[
                 const SizedBox(width: 8),
                 GestureDetector(
                   onTap: () {
@@ -503,20 +545,21 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 7),
+                        horizontal: 12, vertical: 9),
                     decoration: BoxDecoration(
                       color: _danger.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: _danger.withOpacity(0.4)),
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(color: _danger.withOpacity(0.35)),
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.close_rounded, size: 12, color: Colors.redAccent),
-                        SizedBox(width: 4),
+                        Icon(Icons.close_rounded,
+                            size: 13, color: Colors.redAccent),
+                        SizedBox(width: 5),
                         Text('Limpiar',
                             style: TextStyle(
-                                fontSize: 11,
+                                fontSize: 12,
                                 fontWeight: FontWeight.w700,
                                 color: Colors.redAccent)),
                       ],
@@ -531,7 +574,7 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
     );
   }
 
-  Widget _chipPeriodo(String valor, String label, IconData icon) {
+  Widget _chip(String valor, String label, IconData icon) {
     final sel = _filtroPeriodo == valor;
     return GestureDetector(
       onTap: () {
@@ -540,21 +583,22 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        margin: const EdgeInsets.only(right: 6),
-        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+        margin: const EdgeInsets.only(right: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
         decoration: BoxDecoration(
           color: sel ? _accent : Colors.white10,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(22),
           border: Border.all(color: sel ? _accent : Colors.white24),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 12, color: sel ? Colors.white : Colors.white60),
+            Icon(icon, size: 13,
+                color: sel ? Colors.white : Colors.white60),
             const SizedBox(width: 5),
             Text(label,
                 style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: sel ? Colors.white : Colors.white60)),
           ],
@@ -569,7 +613,8 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
       stream: _buildQuery().snapshots(),
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: _accent));
+          return const Center(
+              child: CircularProgressIndicator(color: _accent));
         }
         if (snap.hasError) {
           return _estadoVacio(Icons.cloud_off_rounded, _danger,
@@ -577,16 +622,15 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
         }
         final todos = snap.data?.docs ?? [];
         final docs  = _filtrarDocs(todos);
-
         if (docs.isEmpty) {
           return _estadoVacio(Icons.inbox_rounded, _slate,
               'Sin reportes', 'No hay resultados para los filtros aplicados');
         }
-
         return ListView.builder(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
           itemCount: docs.length,
-          itemBuilder: (_, i) => _buildCard(docs[i].data(), docs[i].id),
+          itemBuilder: (_, i) =>
+              _buildCard(docs[i].data(), docs[i].id, i),
         );
       },
     );
@@ -599,10 +643,10 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
                 color: color.withOpacity(0.08), shape: BoxShape.circle),
-            child: Icon(icon, size: 40, color: color.withOpacity(0.4)),
+            child: Icon(icon, size: 48, color: color.withOpacity(0.4)),
           ),
           const SizedBox(height: 14),
           Text(titulo,
@@ -622,238 +666,297 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
     );
   }
 
-  // ── Tarjeta COMPACTA ──────────────────────────────────────────────────────
-  Widget _buildCard(Map<String, dynamic> data, String docId) {
+  // ── Tarjeta ───────────────────────────────────────────────────────────────
+  Widget _buildCard(Map<String, dynamic> data, String docId, int index) {
     final fecha    = (data['fecha'] as Timestamp?)?.toDate();
     final fotos    = List<String>.from(data['fotosUrl'] ?? []);
     final operador = data['operador'] ?? '—';
     final visto    = data['visto'] == true;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: _surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: visto ? _border : _danger.withOpacity(0.2),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: _primary.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: 280 + (index * 50)),
+      curve: Curves.easeOutCubic,
+      builder: (context, val, child) => Transform.translate(
+        offset: Offset(0, 16 * (1 - val)),
+        child: Opacity(opacity: val, child: child),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // ── Barra lateral de color ─────────────────────────────
-              Container(
-                width: 4,
-                color: visto ? _success : _danger,
-              ),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: _surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+              color: visto ? _border : _danger.withOpacity(0.2)),
+          boxShadow: [
+            BoxShadow(
+                color: _primary.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 3)),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Barra lateral
+                Container(width: 4, color: visto ? _success : _danger),
 
-              // ── Contenido ─────────────────────────────────────────
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
+                Expanded(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // ── Fila superior: estado + fecha + acciones ──
-                      Row(
-                        children: [
-                          // Badge estado
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: (visto ? _success : _danger)
-                                  .withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  visto
-                                      ? Icons.check_circle_rounded
-                                      : Icons.radio_button_unchecked_rounded,
-                                  size: 10,
-                                  color: visto ? _success : _danger,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  visto ? 'VISTO' : 'PENDIENTE',
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w800,
-                                    color: visto ? _success : _danger,
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const Spacer(),
-                          // Fecha
-                          Text(
-                            fecha != null
-                                ? DateFormat('dd/MM/yy · HH:mm').format(fecha)
-                                : '—',
-                            style: const TextStyle(
-                                fontSize: 10,
-                                color: _slate,
-                                fontWeight: FontWeight.w500),
-                          ),
-                          const SizedBox(width: 8),
-                          // Botón eliminar
-                          GestureDetector(
-                            onTap: () => _eliminarReporte(docId),
-                            child: Container(
-                              padding: const EdgeInsets.all(5),
-                              decoration: BoxDecoration(
-                                color: _danger.withOpacity(0.08),
-                                borderRadius: BorderRadius.circular(7),
+                      // ── Cabecera ──────────────────────────────────
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 11, 12, 0),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 18,
+                              backgroundColor: (visto ? _success : _danger)
+                                  .withOpacity(0.12),
+                              child: Icon(
+                                visto
+                                    ? Icons.check_circle_rounded
+                                    : Icons.report_problem_rounded,
+                                color: visto ? _success : _danger,
+                                size: 18,
                               ),
-                              child: const Icon(Icons.delete_outline_rounded,
-                                  size: 14, color: _danger),
                             ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 10),
-
-                      // ── Fila info: operador + camión + placas ─────
-                      Row(
-                        children: [
-                          _miniTag(Icons.person_rounded, operador, _accent),
-                          const SizedBox(width: 6),
-                          _miniTag(Icons.directions_bus_rounded,
-                              data['camion'] ?? '—', _slate),
-                          const SizedBox(width: 6),
-                          _miniTag(Icons.pin_rounded,
-                              data['placas'] ?? '—', _success),
-                        ],
-                      ),
-
-                      const SizedBox(height: 10),
-
-                      // ── Mensaje (truncado 2 líneas) ───────────────
-                      Text(
-                        data['mensaje'] ?? 'Sin descripción',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: _primary,
-                          fontWeight: FontWeight.w500,
-                          height: 1.4,
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    operador,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 14,
+                                        color: _primary),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Row(
+                                    children: [
+                                      _miniTag(Icons.directions_bus_rounded,
+                                          data['camion'] ?? '—', _slate),
+                                      const SizedBox(width: 6),
+                                      _miniTag(Icons.access_time_rounded,
+                                          fecha != null
+                                              ? DateFormat('dd/MM/yy · HH:mm')
+                                                  .format(fecha)
+                                              : '—',
+                                          _accent),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            // Botón eliminar
+                            GestureDetector(
+                              onTap: () => _eliminarReporte(docId),
+                              child: Container(
+                                padding: const EdgeInsets.all(7),
+                                decoration: BoxDecoration(
+                                  color: _danger.withOpacity(0.08),
+                                  borderRadius: BorderRadius.circular(9),
+                                  border: Border.all(
+                                      color: _danger.withOpacity(0.2)),
+                                ),
+                                child: const Icon(
+                                    Icons.delete_outline_rounded,
+                                    size: 18,
+                                    color: _danger),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
 
-                      // ── Fotos en miniatura ────────────────────────
+                      const Padding(
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
+                        child: Divider(height: 1, color: Color(0xFFE2E8F0)),
+                      ),
+
+                      // ── Badge estado + placas ─────────────────────
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 9, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: (visto ? _success : _danger)
+                                    .withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                    color: (visto ? _success : _danger)
+                                        .withOpacity(0.25)),
+                              ),
+                              child: Text(
+                                visto ? 'REVISADO' : 'PENDIENTE',
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    color: visto ? _success : _danger,
+                                    letterSpacing: 0.5),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            _miniTag(Icons.pin_rounded,
+                                data['placas'] ?? '—', _success),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      // ── Descripción ───────────────────────────────
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text('DESCRIPCIÓN DEL INCIDENTE',
+                              style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  color: _primary.withOpacity(0.45),
+                                  letterSpacing: 0.6)),
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            data['mensaje'] ?? 'Sin descripción',
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 13,
+                                color: _primary,
+                                fontWeight: FontWeight.w500,
+                                height: 1.4),
+                          ),
+                        ),
+                      ),
+
+                      // ── Fotos mini ────────────────────────────────
                       if (fotos.isNotEmpty) ...[
                         const SizedBox(height: 10),
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: fotos.asMap().entries.map((e) {
-                              final idx = e.key + 1;
-                              final url = e.value;
-                              return _fotoMini(
-                                  url, '${operador}_incidente_$idx');
-                            }).toList(),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text('EVIDENCIA',
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    color: _primary.withOpacity(0.45),
+                                    letterSpacing: 0.6)),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: fotos.asMap().entries.map((e) {
+                                final idx = e.key + 1;
+                                return _fotoMini(
+                                    e.value, '${operador}_incidente_$idx');
+                              }).toList(),
+                            ),
                           ),
                         ),
                       ],
 
                       const SizedBox(height: 10),
 
-                      // ── Botón visto (compacto) ────────────────────
-                      SizedBox(
-                        width: double.infinity,
-                        height: 34,
-                        child: visto
-                            ? OutlinedButton.icon(
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: _slate,
-                                  side: const BorderSide(color: _border),
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8)),
-                                  padding: EdgeInsets.zero,
-                                ),
-                                onPressed: () => _marcarVisto(docId, false),
-                                icon: const Icon(
-                                    Icons.remove_circle_outline_rounded,
-                                    size: 14),
-                                label: const Text('Marcar no visto',
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600)),
-                              )
-                            : ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: _success,
-                                  foregroundColor: Colors.white,
-                                  elevation: 0,
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8)),
-                                  padding: EdgeInsets.zero,
-                                ),
-                                onPressed: () => _marcarVisto(docId, true),
-                                icon: const Icon(Icons.check_circle_rounded,
-                                    size: 14),
-                                label: const Text('Marcar como visto',
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700)),
-                              ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 12),
+                        child: Divider(height: 1, color: Color(0xFFE2E8F0)),
                       ),
+                      const SizedBox(height: 10),
+
+                      // ── Botón visto ───────────────────────────────
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: 36,
+                          child: visto
+                              ? OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: _slate,
+                                    side: const BorderSide(color: _border),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(9)),
+                                    padding: EdgeInsets.zero,
+                                  ),
+                                  onPressed: () => _marcarVisto(docId, false),
+                                  icon: const Icon(
+                                      Icons.remove_circle_outline_rounded,
+                                      size: 14),
+                                  label: const Text('Marcar no visto',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600)),
+                                )
+                              : ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: _success,
+                                    foregroundColor: Colors.white,
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(9)),
+                                    padding: EdgeInsets.zero,
+                                  ),
+                                  onPressed: () => _marcarVisto(docId, true),
+                                  icon: const Icon(
+                                      Icons.check_circle_rounded,
+                                      size: 14),
+                                  label: const Text('Marcar como visto',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700)),
+                                ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
                     ],
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  // ── Mini tag (operador / camión / placas) ─────────────────────────────────
   Widget _miniTag(IconData icon, String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.07),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.15)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 11, color: color),
-          const SizedBox(width: 4),
-          Text(
-            label,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 11, color: color),
+        const SizedBox(width: 3),
+        Text(label,
             style: TextStyle(
                 fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: color == _slate ? _primary : color),
-          ),
-        ],
-      ),
+                fontWeight: FontWeight.w600,
+                color: color)),
+      ],
     );
   }
 
-  // ── Foto mini ─────────────────────────────────────────────────────────────
   Widget _fotoMini(String url, String nombre) {
     return GestureDetector(
       onTap: () => _verFoto(url, nombre),
@@ -864,20 +967,22 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: Image.network(url,
-                width: 72, height: 72, fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
-                  width: 72, height: 72,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(Icons.broken_image_rounded,
-                      color: Colors.grey[400], size: 24),
-                ),
-              ),
+                  width: 72,
+                  height: 72,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(8)),
+                    child: Icon(Icons.broken_image_rounded,
+                        color: Colors.grey[400], size: 24),
+                  )),
             ),
             Positioned(
-              bottom: 4, right: 4,
+              bottom: 4,
+              right: 4,
               child: GestureDetector(
                 onTap: () => _descargarImagen(url, nombre),
                 child: Container(
@@ -900,8 +1005,8 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
 
 // ── Bottom sheet de operadores ────────────────────────────────────────────────
 class _OperadorSheet extends StatelessWidget {
-  final List<String>  operadores;
-  final String?       seleccionado;
+  final List<String>          operadores;
+  final String?               seleccionado;
   final ValueChanged<String?> onSelect;
 
   static const Color _primary = Color(0xFF0F172A);
@@ -931,18 +1036,20 @@ class _OperadorSheet extends StatelessWidget {
             margin: const EdgeInsets.only(top: 12),
             width: 36, height: 4,
             decoration: BoxDecoration(
-              color: Colors.grey[300],
-              borderRadius: BorderRadius.circular(4),
-            ),
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(4)),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
             child: Row(
               children: [
-                const Icon(Icons.person_search_rounded, color: _accent, size: 18),
+                const Icon(Icons.person_search_rounded,
+                    color: _accent, size: 20),
                 const SizedBox(width: 8),
                 const Text('Seleccionar operador',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800,
+                    style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
                         color: _primary)),
                 const Spacer(),
                 if (seleccionado != null)
@@ -957,7 +1064,9 @@ class _OperadorSheet extends StatelessWidget {
                         border: Border.all(color: _danger.withOpacity(0.2)),
                       ),
                       child: const Text('Ver todos',
-                          style: TextStyle(fontSize: 11, color: _danger,
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: _danger,
                               fontWeight: FontWeight.w600)),
                     ),
                   ),
@@ -978,13 +1087,13 @@ class _OperadorSheet extends StatelessWidget {
                 return ListTile(
                   dense: true,
                   leading: CircleAvatar(
-                    radius: 16,
+                    radius: 17,
                     backgroundColor:
                         sel ? _primary : _accent.withOpacity(0.1),
                     child: Text(
                       op.isNotEmpty ? op[0].toUpperCase() : '?',
                       style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 13,
                           fontWeight: FontWeight.w800,
                           color: sel ? Colors.white : _accent),
                     ),
@@ -999,10 +1108,7 @@ class _OperadorSheet extends StatelessWidget {
                       ? const Icon(Icons.check_circle_rounded,
                           color: _success, size: 18)
                       : null,
-                  onTap: () {
-                    onSelect(op);
-                    Navigator.pop(context);
-                  },
+                  onTap: () { onSelect(op); Navigator.pop(context); },
                 );
               },
             ),

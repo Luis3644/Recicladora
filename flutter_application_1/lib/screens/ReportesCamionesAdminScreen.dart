@@ -1,16 +1,15 @@
-import 'dart:typed_data';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
-
-// ignore: avoid_web_libraries_in_flutter
-
-import 'package:universal_html/html.dart' as html;
-import 'dart:io' as io;
 import 'package:path_provider/path_provider.dart';
 import 'package:open_file/open_file.dart';
+import 'package:gal/gal.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+
+// ignore: avoid_web_libraries_in_flutter
+import 'package:universal_html/html.dart' as html;
 
 class ReportesCamionesAdminScreen extends StatefulWidget {
   const ReportesCamionesAdminScreen({super.key});
@@ -23,7 +22,6 @@ class ReportesCamionesAdminScreen extends StatefulWidget {
 class _ReportesCamionesAdminScreenState
     extends State<ReportesCamionesAdminScreen>
     with SingleTickerProviderStateMixin {
-  // ── Colores ───────────────────────────────────────────────────────────────
   static const Color _primary = Color(0xFF0F172A);
   static const Color _accent  = Color(0xFF06B6D4);
   static const Color _success = Color(0xFF10B981);
@@ -34,7 +32,6 @@ class _ReportesCamionesAdminScreenState
   static const Color _slate   = Color(0xFF64748B);
   static const Color _border  = Color(0xFFE2E8F0);
 
-  // ── Filtros ───────────────────────────────────────────────────────────────
   String    _filtroPeriodo = 'hoy';
   String?   _filtroCamion;
   DateTime? _filtroFecha;
@@ -61,7 +58,6 @@ class _ReportesCamionesAdminScreenState
 
   void _refresh() { _fadeCtrl..reset()..forward(); setState(() {}); }
 
-  // ── Carga camiones ────────────────────────────────────────────────────────
   Future<void> _cargarCamiones() async {
     try {
       final snap = await FirebaseFirestore.instance
@@ -81,7 +77,6 @@ class _ReportesCamionesAdminScreenState
     }
   }
 
-  // ── Calendario ────────────────────────────────────────────────────────────
   Future<void> _abrirCalendario() async {
     final picked = await showDatePicker(
       context: context,
@@ -107,7 +102,6 @@ class _ReportesCamionesAdminScreenState
     }
   }
 
-  // ── Query ─────────────────────────────────────────────────────────────────
   Query<Map<String, dynamic>> _buildQuery() {
     Query<Map<String, dynamic>> q = FirebaseFirestore.instance
         .collection('reportes_camiones')
@@ -149,7 +143,6 @@ class _ReportesCamionesAdminScreenState
         .toList();
   }
 
-  // ── Eliminar reporte ──────────────────────────────────────────────────────
   Future<void> _eliminar(String docId) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -164,8 +157,7 @@ class _ReportesCamionesAdminScreenState
                 color: _danger.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.delete_outline_rounded,
-                  color: _danger, size: 22),
+              child: const Icon(Icons.delete_outline_rounded, color: _danger, size: 22),
             ),
             const SizedBox(width: 12),
             const Expanded(
@@ -184,26 +176,22 @@ class _ReportesCamionesAdminScreenState
             style: OutlinedButton.styleFrom(
               foregroundColor: _slate,
               side: const BorderSide(color: _border),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 11),
             ),
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar',
-                style: TextStyle(fontWeight: FontWeight.w600)),
+            child: const Text('Cancelar', style: TextStyle(fontWeight: FontWeight.w600)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: _danger,
               foregroundColor: Colors.white,
               elevation: 0,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 11),
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Sí, eliminar',
-                style: TextStyle(fontWeight: FontWeight.w700)),
+            child: const Text('Sí, eliminar', style: TextStyle(fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -232,31 +220,49 @@ class _ReportesCamionesAdminScreenState
     ));
   }
 
-  // ── Descarga imagen ───────────────────────────────────────────────────────
+  // ── Descarga y guarda en galería — igual que lista_incidentes ─────────────
   Future<void> _descargarImagen(String url, String nombre) async {
     try {
+      _snack('Guardando en galeria...', _accent);
+
       final response = await http.get(Uri.parse(url));
+      if (response.statusCode != 200) {
+        _snack('No se pudo obtener la imagen (${response.statusCode})', _danger);
+        return;
+      }
       final bytes = response.bodyBytes;
+      final nombreArchivo = '${nombre}_${DateTime.now().millisecondsSinceEpoch}';
+
       if (kIsWeb) {
-        final blob = html.Blob([bytes]);
+        final blob    = html.Blob([bytes]);
         final blobUrl = html.Url.createObjectUrlFromBlob(blob);
-        final anchor = html.AnchorElement(href: blobUrl)
-          ..setAttribute('download', '$nombre.jpg')
+        html.AnchorElement(href: blobUrl)
+          ..setAttribute('download', '$nombreArchivo.jpg')
           ..click();
         html.Url.revokeObjectUrl(blobUrl);
+        _snack('Imagen descargada', _success);
+
+      } else if (Platform.isAndroid || Platform.isIOS) {
+        // gal: guarda en galeria/Fotos sin permisos en Android 10+
+        final dir  = await getTemporaryDirectory();
+        final file = File('${dir.path}/$nombreArchivo.jpg');
+        await file.writeAsBytes(bytes);
+        await Gal.putImage(file.path);
+        _snack('Imagen guardada en galeria', _success);
+
       } else {
-        final dir = await getTemporaryDirectory();
-        final file = io.File('${dir.path}/$nombre.jpg');
+        final dir  = await getDownloadsDirectory() ??
+            await getApplicationDocumentsDirectory();
+        final file = File('${dir.path}/$nombreArchivo.jpg');
         await file.writeAsBytes(bytes);
         await OpenFile.open(file.path);
+        _snack('Imagen guardada', _success);
       }
-      _snack('Imagen descargada correctamente', _success);
     } catch (e) {
-      _snack('Error al descargar: $e', _danger);
+      _snack('Error al guardar: $e', _danger);
     }
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -274,7 +280,6 @@ class _ReportesCamionesAdminScreenState
     );
   }
 
-  // ── AppBar ────────────────────────────────────────────────────────────────
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       title: const Text('Reportes de Camiones',
@@ -294,7 +299,6 @@ class _ReportesCamionesAdminScreenState
     );
   }
 
-  // ── Barra de filtros oscura ───────────────────────────────────────────────
   Widget _buildFiltros() {
     final hayActivo = _filtroCamion != null ||
         _filtroPeriodo != 'hoy' ||
@@ -306,36 +310,31 @@ class _ReportesCamionesAdminScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // ── Fila 1: chips período + calendario ────────────────────
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _chip('hoy',    'Hoy',       Icons.today_rounded),
-                _chip('semana', 'Semana',    Icons.date_range_rounded),
-                _chip('mes',    'Mes',       Icons.calendar_month_rounded),
-                _chip('año',    'Año',       Icons.calendar_today_rounded),
-                _chip('todo',   'Todo',      Icons.all_inclusive_rounded),
+                _chip('hoy',    'Hoy',    Icons.today_rounded),
+                _chip('semana', 'Semana', Icons.date_range_rounded),
+                _chip('mes',    'Mes',    Icons.calendar_month_rounded),
+                _chip('año',    'Año',    Icons.calendar_today_rounded),
+                _chip('todo',   'Todo',   Icons.all_inclusive_rounded),
                 const SizedBox(width: 8),
                 Container(width: 1, height: 24, color: Colors.white12),
                 const SizedBox(width: 8),
-                // Botón calendario
                 GestureDetector(
                   onTap: _abrirCalendario,
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 9),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                     decoration: BoxDecoration(
                       color: (_filtroPeriodo == 'fecha' && _filtroFecha != null)
-                          ? Colors.amber
-                          : Colors.white12,
+                          ? Colors.amber : Colors.white12,
                       borderRadius: BorderRadius.circular(22),
                       border: Border.all(
                         color: (_filtroPeriodo == 'fecha' && _filtroFecha != null)
-                            ? Colors.amber
-                            : Colors.white24,
+                            ? Colors.amber : Colors.white24,
                       ),
                     ),
                     child: Row(
@@ -347,11 +346,9 @@ class _ReportesCamionesAdminScreenState
                         const SizedBox(width: 6),
                         Text(
                           (_filtroPeriodo == 'fecha' && _filtroFecha != null)
-                              ? DateFormat('dd/MM/yy').format(_filtroFecha!)
-                              : 'Fecha',
+                              ? DateFormat('dd/MM/yy').format(_filtroFecha!) : 'Fecha',
                           style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
+                            fontSize: 13, fontWeight: FontWeight.w700,
                             color: (_filtroPeriodo == 'fecha' && _filtroFecha != null)
                                 ? _primary : Colors.white70,
                           ),
@@ -363,23 +360,17 @@ class _ReportesCamionesAdminScreenState
               ],
             ),
           ),
-
           const SizedBox(height: 10),
-
-          // ── Fila 2: camiones (centrado) + limpiar ─────────────────
           Row(
             children: [
               Expanded(
                 child: _cargandoCamiones
-                    ? const SizedBox(
-                        height: 38,
+                    ? const SizedBox(height: 38,
                         child: Center(child: CircularProgressIndicator(
                             color: Colors.white38, strokeWidth: 2)))
                     : _camiones.isEmpty
-                        ? const Center(
-                            child: Text('Sin datos de camiones',
-                                style: TextStyle(
-                                    fontSize: 12, color: Colors.white38)))
+                        ? const Center(child: Text('Sin datos de camiones',
+                              style: TextStyle(fontSize: 12, color: Colors.white38)))
                         : SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
                             child: Row(
@@ -403,8 +394,7 @@ class _ReportesCamionesAdminScreenState
                     _refresh();
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 9),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                     decoration: BoxDecoration(
                       color: _danger.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(22),
@@ -413,14 +403,11 @@ class _ReportesCamionesAdminScreenState
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.close_rounded,
-                            size: 13, color: Colors.redAccent),
+                        Icon(Icons.close_rounded, size: 13, color: Colors.redAccent),
                         SizedBox(width: 5),
-                        Text('Limpiar',
-                            style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.redAccent)),
+                        Text('Limpiar', style: TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w700,
+                            color: Colors.redAccent)),
                       ],
                     ),
                   ),
@@ -452,14 +439,11 @@ class _ReportesCamionesAdminScreenState
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 13,
-                color: sel ? Colors.white : Colors.white60),
+            Icon(icon, size: 13, color: sel ? Colors.white : Colors.white60),
             const SizedBox(width: 5),
-            Text(label,
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: sel ? Colors.white : Colors.white60)),
+            Text(label, style: TextStyle(
+                fontSize: 13, fontWeight: FontWeight.w700,
+                color: sel ? Colors.white : Colors.white60)),
           ],
         ),
       ),
@@ -469,10 +453,7 @@ class _ReportesCamionesAdminScreenState
   Widget _chipCamion(String? valor, String label) {
     final sel = _filtroCamion == valor;
     return GestureDetector(
-      onTap: () {
-        setState(() => _filtroCamion = valor);
-        _refresh();
-      },
+      onTap: () { setState(() => _filtroCamion = valor); _refresh(); },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         margin: const EdgeInsets.only(right: 7),
@@ -487,22 +468,17 @@ class _ReportesCamionesAdminScreenState
           children: [
             Icon(
               sel ? Icons.directions_bus_rounded : Icons.directions_bus_outlined,
-              size: 13,
-              color: sel ? _primary : Colors.white60,
-            ),
+              size: 13, color: sel ? _primary : Colors.white60),
             const SizedBox(width: 5),
-            Text(label,
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: sel ? _primary : Colors.white60)),
+            Text(label, style: TextStyle(
+                fontSize: 13, fontWeight: FontWeight.w700,
+                color: sel ? _primary : Colors.white60)),
           ],
         ),
       ),
     );
   }
 
-  // ── Lista ─────────────────────────────────────────────────────────────────
   Widget _buildLista() {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: _buildQuery().snapshots(),
@@ -529,8 +505,7 @@ class _ReportesCamionesAdminScreenState
     );
   }
 
-  Widget _estadoVacio(
-      IconData icon, Color color, String titulo, String subtitulo) {
+  Widget _estadoVacio(IconData icon, Color color, String titulo, String subtitulo) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -542,16 +517,13 @@ class _ReportesCamionesAdminScreenState
             child: Icon(icon, size: 48, color: color.withOpacity(0.5)),
           ),
           const SizedBox(height: 16),
-          Text(titulo,
-              style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: _primary.withOpacity(0.6))),
+          Text(titulo, style: TextStyle(
+              fontSize: 16, fontWeight: FontWeight.w700,
+              color: _primary.withOpacity(0.6))),
           const SizedBox(height: 6),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 40),
-            child: Text(subtitulo,
-                textAlign: TextAlign.center,
+            child: Text(subtitulo, textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 13, color: Colors.grey[400])),
           ),
         ],
@@ -559,7 +531,6 @@ class _ReportesCamionesAdminScreenState
     );
   }
 
-  // ── Tarjeta COMPACTA ──────────────────────────────────────────────────────
   Widget _buildCard(Map<String, dynamic> data, String docId) {
     final fecha  = (data['fecha'] as Timestamp?)?.toDate();
     final fotos  = List<String>.from(data['fotos'] ?? []);
@@ -570,18 +541,13 @@ class _ReportesCamionesAdminScreenState
     String   estadoLabel;
     switch (estado) {
       case 'resuelto':
-        estadoColor = _success;
-        estadoIcon  = Icons.check_circle_rounded;
-        estadoLabel = 'RESUELTO';
-        break;
+        estadoColor = _success; estadoIcon = Icons.check_circle_rounded;
+        estadoLabel = 'RESUELTO'; break;
       case 'en proceso':
-        estadoColor = _warning;
-        estadoIcon  = Icons.timelapse_rounded;
-        estadoLabel = 'EN PROCESO';
-        break;
+        estadoColor = _warning; estadoIcon = Icons.timelapse_rounded;
+        estadoLabel = 'EN PROCESO'; break;
       default:
-        estadoColor = _danger;
-        estadoIcon  = Icons.error_rounded;
+        estadoColor = _danger; estadoIcon = Icons.error_rounded;
         estadoLabel = 'PENDIENTE';
     }
 
@@ -591,13 +557,9 @@ class _ReportesCamionesAdminScreenState
         color: _surface,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: _border),
-        boxShadow: [
-          BoxShadow(
+        boxShadow: [BoxShadow(
             color: _primary.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
+            blurRadius: 10, offset: const Offset(0, 3))],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(14),
@@ -605,16 +567,13 @@ class _ReportesCamionesAdminScreenState
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Barra lateral de color según estado
               Container(width: 4, color: estadoColor),
-
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.all(12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // ── Fila superior: estado + fecha + eliminar ──
                       Row(
                         children: [
                           Container(
@@ -627,30 +586,23 @@ class _ReportesCamionesAdminScreenState
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(estadoIcon,
-                                    size: 10, color: estadoColor),
+                                Icon(estadoIcon, size: 10, color: estadoColor),
                                 const SizedBox(width: 4),
-                                Text(estadoLabel,
-                                    style: TextStyle(
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.w800,
-                                        color: estadoColor,
-                                        letterSpacing: 0.5)),
+                                Text(estadoLabel, style: TextStyle(
+                                    fontSize: 9, fontWeight: FontWeight.w800,
+                                    color: estadoColor, letterSpacing: 0.5)),
                               ],
                             ),
                           ),
                           const Spacer(),
                           Text(
                             fecha != null
-                                ? DateFormat('dd/MM/yy · HH:mm').format(fecha)
-                                : '—',
+                                ? DateFormat('dd/MM/yy · HH:mm').format(fecha) : '—',
                             style: const TextStyle(
-                                fontSize: 10,
-                                color: _slate,
+                                fontSize: 10, color: _slate,
                                 fontWeight: FontWeight.w500),
                           ),
                           const SizedBox(width: 8),
-                          // Botón eliminar
                           GestureDetector(
                             onTap: () => _eliminar(docId),
                             child: Container(
@@ -658,24 +610,17 @@ class _ReportesCamionesAdminScreenState
                               decoration: BoxDecoration(
                                 color: _danger.withOpacity(0.08),
                                 borderRadius: BorderRadius.circular(9),
-                                border: Border.all(
-                                    color: _danger.withOpacity(0.2)),
+                                border: Border.all(color: _danger.withOpacity(0.2)),
                               ),
-                              child: const Icon(
-                                  Icons.delete_outline_rounded,
-                                  size: 18,
-                                  color: _danger),
+                              child: const Icon(Icons.delete_outline_rounded,
+                                  size: 18, color: _danger),
                             ),
                           ),
                         ],
                       ),
-
                       const SizedBox(height: 10),
-
-                      // ── Fila info: camión + modelo + placas + operador ─
                       Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
+                        spacing: 6, runSpacing: 6,
                         children: [
                           _miniTag(Icons.directions_bus_rounded,
                               data['tipo'] ?? '—', _accent),
@@ -687,23 +632,15 @@ class _ReportesCamionesAdminScreenState
                               data['operador'] ?? '—', _warning),
                         ],
                       ),
-
                       const SizedBox(height: 10),
-
-                      // ── Descripción (2 líneas) ─────────────────────
                       Text(
                         data['descripcion'] ?? 'Sin descripción',
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 13,
-                          color: _primary,
-                          fontWeight: FontWeight.w500,
-                          height: 1.4,
-                        ),
+                            fontSize: 13, color: _primary,
+                            fontWeight: FontWeight.w500, height: 1.4),
                       ),
-
-                      // ── Fotos mini ────────────────────────────────
                       if (fotos.isNotEmpty) ...[
                         const SizedBox(height: 10),
                         SingleChildScrollView(
@@ -711,8 +648,7 @@ class _ReportesCamionesAdminScreenState
                           child: Row(
                             children: fotos.asMap().entries.map((e) {
                               final idx = e.key + 1;
-                              final url = e.value;
-                              return _fotoMini(url,
+                              return _fotoMini(e.value,
                                   '${data['tipo'] ?? 'camion'}_reporte_$idx');
                             }).toList(),
                           ),
@@ -742,17 +678,14 @@ class _ReportesCamionesAdminScreenState
         children: [
           Icon(icon, size: 11, color: color),
           const SizedBox(width: 4),
-          Text(label,
-              style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: color == _slate ? _primary : color)),
+          Text(label, style: TextStyle(
+              fontSize: 11, fontWeight: FontWeight.w700,
+              color: color == _slate ? _primary : color)),
         ],
       ),
     );
   }
 
-  // ── Foto mini ─────────────────────────────────────────────────────────────
   Widget _fotoMini(String url, String nombre) {
     return GestureDetector(
       onTap: () => _verFotoDialog(url, nombre),
@@ -763,25 +696,20 @@ class _ReportesCamionesAdminScreenState
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: Image.network(url,
-                  width: 72,
-                  height: 72,
-                  fit: BoxFit.cover,
+                  width: 72, height: 72, fit: BoxFit.cover,
                   loadingBuilder: (_, child, prog) {
                     if (prog == null) return child;
                     return Container(
-                      width: 72,
-                      height: 72,
+                      width: 72, height: 72,
                       decoration: BoxDecoration(
                           color: Colors.grey[100],
                           borderRadius: BorderRadius.circular(8)),
-                      child: const Center(
-                          child: CircularProgressIndicator(
-                              color: _accent, strokeWidth: 2)),
+                      child: const Center(child: CircularProgressIndicator(
+                          color: _accent, strokeWidth: 2)),
                     );
                   },
                   errorBuilder: (_, __, ___) => Container(
-                    width: 72,
-                    height: 72,
+                    width: 72, height: 72,
                     decoration: BoxDecoration(
                         color: Colors.grey[100],
                         borderRadius: BorderRadius.circular(8)),
@@ -790,8 +718,7 @@ class _ReportesCamionesAdminScreenState
                   )),
             ),
             Positioned(
-              bottom: 4,
-              right: 4,
+              bottom: 4, right: 4,
               child: GestureDetector(
                 onTap: () => _descargarImagen(url, nombre),
                 child: Container(
@@ -811,7 +738,6 @@ class _ReportesCamionesAdminScreenState
     );
   }
 
-  // ── Ver foto en diálogo ───────────────────────────────────────────────────
   void _verFotoDialog(String url, String nombre) {
     showDialog(
       context: context,
