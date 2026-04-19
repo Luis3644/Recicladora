@@ -855,236 +855,175 @@ class _JornadaScreenState extends State<JornadaScreen> {
     );
   }
 
-  @override
+ @override
   Widget build(BuildContext context) {
-    return ConnectionWrapper(
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF0F9FF),
-        endDrawer: NotificacionesDrawer(
-          rolUsuario: 'operador',
-          nombreUsuario: widget.operador,
-        ),
-        appBar: AppBar(
-          elevation: 0,
-          foregroundColor: Colors.white,
-          title: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Jornada activa',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.3,
+    // 1. Iniciamos con PopScope usando la lógica !didPop
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          SystemNavigator.pop(); // Minimiza la app si intentan ir atrás
+        }
+      },
+      child: ConnectionWrapper(
+        child: Scaffold(
+          backgroundColor: const Color(0xFFF0F9FF),
+          endDrawer: NotificacionesDrawer(
+            rolUsuario: 'operador',
+            nombreUsuario: widget.operador,
+          ),
+          appBar: AppBar(
+            elevation: 0,
+            foregroundColor: Colors.white,
+            title: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Jornada activa',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.asset(
+                    'assets/logo circular.jpeg',
+                    height: 36,
+                    width: 36,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.transparent,
+            flexibleSpace: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [_primary, Color(0xFF1E293B)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
               ),
-              const SizedBox(width: 10),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: Image.asset(
-                  'assets/logo circular.jpeg',
-                  height: 36,
-                  width: 36,
-                  fit: BoxFit.cover,
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(
+                  Icons.warning_rounded,
+                  color: Colors.orangeAccent,
+                ),
+                tooltip: 'Reportar problema',
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ReporteScreen(
+                        nombreUsuario: widget.operador,
+                        camion: widget.camion,
+                        placas: widget.placas,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              Builder(
+                builder: (context) => NotificacionesBellButton(
+                  rolUsuario: 'operador',
+                  nombreUsuario: widget.operador,
+                  onPressed: () => Scaffold.of(context).openEndDrawer(),
                 ),
               ),
             ],
           ),
-          backgroundColor: Colors.transparent,
-          flexibleSpace: Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [_primary, Color(0xFF1E293B)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
+          drawer: MenuLateral(
+            nombreUsuario: widget.operador,
+            camion: widget.camion,
+            placas: widget.placas,
+            mostrarCerrarSesion: false,
           ),
-          actions: [
-            IconButton(
-              icon: const Icon(
-                Icons.warning_rounded,
-                color: Colors.orangeAccent,
-              ),
-              tooltip: 'Reportar problema',
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => ReporteScreen(
-                      nombreUsuario: widget.operador,
-                      camion: widget.camion,
-                      placas: widget.placas,
-                    ),
+          body: Stack(
+            children: [
+              Positioned(
+                top: -120,
+                right: -80,
+                child: Container(
+                  width: 280,
+                  height: 280,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _accent.withValues(alpha: 0.08),
                   ),
-                );
-              },
-            ),
-            Builder(
-              builder: (context) => NotificacionesBellButton(
-                rolUsuario: 'operador',
-                nombreUsuario: widget.operador,
-                onPressed: () => Scaffold.of(context).openEndDrawer(),
-              ),
-            ),
-          ],
-        ),
-        drawer: MenuLateral(
-          nombreUsuario: widget.operador,
-          camion: widget.camion,
-          placas: widget.placas,
-          mostrarCerrarSesion: false,
-        ),
-        body: Stack(
-          children: [
-            Positioned(
-              top: -120,
-              right: -80,
-              child: Container(
-                width: 280,
-                height: 280,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _accent.withValues(alpha: 0.08),
                 ),
               ),
-            ),
-            Positioned(
-              bottom: -90,
-              left: -70,
-              child: Container(
-                width: 220,
-                height: 220,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _success.withValues(alpha: 0.08),
+              Positioned(
+                bottom: -90,
+                left: -70,
+                child: Container(
+                  width: 220,
+                  height: 220,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _success.withValues(alpha: 0.08),
+                  ),
                 ),
               ),
-            ),
-            AnimatedOpacity(
-              duration: const Duration(milliseconds: 550),
-              opacity: _contentVisible ? 1 : 0,
-              child: AnimatedSlide(
+              AnimatedOpacity(
                 duration: const Duration(milliseconds: 550),
-                offset: _contentVisible ? Offset.zero : const Offset(0, 0.05),
-                curve: Curves.easeOutCubic,
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(20),
-                          gradient: LinearGradient(
-                            colors: [
-                              _accent.withValues(alpha: 0.16),
-                              _success.withValues(alpha: 0.08),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          border: Border.all(
-                            color: _accent.withValues(alpha: 0.24),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: _primary.withValues(alpha: 0.08),
-                              blurRadius: 20,
-                              offset: const Offset(0, 8),
+                opacity: _contentVisible ? 1 : 0,
+                child: AnimatedSlide(
+                  duration: const Duration(milliseconds: 550),
+                  offset: _contentVisible ? Offset.zero : const Offset(0, 0.05),
+                  curve: Curves.easeOutCubic,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(18),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(20),
+                            gradient: LinearGradient(
+                              colors: [
+                                _accent.withValues(alpha: 0.16),
+                                _success.withValues(alpha: 0.08),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
                             ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.55),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: const Icon(
-                                    Icons.route_rounded,
-                                    color: _primary,
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                const Expanded(
-                                  child: Text(
-                                    "Datos de Jornada",
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w700,
+                            border: Border.all(
+                              color: _accent.withValues(alpha: 0.24),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: _primary.withValues(alpha: 0.08),
+                                blurRadius: 20,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withValues(alpha: 0.55),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: const Icon(
+                                      Icons.route_rounded,
                                       color: _primary,
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 14),
-                            Text(
-                              "Operador: ${widget.operador}",
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                color: _primary,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              "Camión: ${widget.camion}",
-                              style: const TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w600,
-                                color: _primary,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              "Placas: ${widget.placas}",
-                              style: TextStyle(
-                                fontSize: 15,
-                                color: Colors.blueGrey[800],
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 10,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _compartiendoUbicacionActiva
-                                    ? _success.withValues(alpha: 0.14)
-                                    : _danger.withValues(alpha: 0.10),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: _compartiendoUbicacionActiva
-                                      ? _success.withValues(alpha: 0.35)
-                                      : _danger.withValues(alpha: 0.35),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    _compartiendoUbicacionActiva
-                                        ? Icons.gps_fixed_rounded
-                                        : Icons.gps_off_rounded,
-                                    color: _compartiendoUbicacionActiva
-                                        ? _success
-                                        : _danger,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
+                                  const SizedBox(width: 10),
+                                  const Expanded(
                                     child: Text(
-                                      _compartiendoUbicacionActiva
-                                          ? 'Compartiendo ubicación activa'
-                                          : _estadoUbicacion,
-                                      style: const TextStyle(
-                                        fontSize: 13.2,
+                                      "Datos de Jornada",
+                                      style: TextStyle(
+                                        fontSize: 18,
                                         fontWeight: FontWeight.w700,
                                         color: _primary,
                                       ),
@@ -1092,184 +1031,253 @@ class _JornadaScreenState extends State<JornadaScreen> {
                                   ),
                                 ],
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            SwitchListTile.adaptive(
-                              contentPadding: EdgeInsets.zero,
-                              value: _compartirUbicacion,
-                              onChanged: (value) async {
-                                setState(() => _compartirUbicacion = value);
-                                if (value) {
-                                  await _iniciarMonitoreoUbicacion();
-                                } else {
-                                  await _detenerMonitoreoUbicacion(
-                                    motivo:
-                                        'Compartición manualmente desactivada',
-                                  );
-                                }
-                              },
-                              title: const Text(
-                                'Compartir ubicación con administración',
+                              const SizedBox(height: 14),
+                              Text(
+                                "Operador: ${widget.operador}",
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: _primary,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                "Camión: ${widget.camion}",
+                                style: const TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w600,
+                                  color: _primary,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                "Placas: ${widget.placas}",
                                 style: TextStyle(
-                                  fontSize: 13,
+                                  fontSize: 15,
+                                  color: Colors.blueGrey[800],
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _compartiendoUbicacionActiva
+                                      ? _success.withValues(alpha: 0.14)
+                                      : _danger.withValues(alpha: 0.10),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: _compartiendoUbicacionActiva
+                                        ? _success.withValues(alpha: 0.35)
+                                        : _danger.withValues(alpha: 0.35),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      _compartiendoUbicacionActiva
+                                          ? Icons.gps_fixed_rounded
+                                          : Icons.gps_off_rounded,
+                                      color: _compartiendoUbicacionActiva
+                                          ? _success
+                                          : _danger,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        _compartiendoUbicacionActiva
+                                            ? 'Compartiendo ubicación activa'
+                                            : _estadoUbicacion,
+                                        style: const TextStyle(
+                                          fontSize: 13.2,
+                                          fontWeight: FontWeight.w700,
+                                          color: _primary,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              SwitchListTile.adaptive(
+                                contentPadding: EdgeInsets.zero,
+                                value: _compartirUbicacion,
+                                onChanged: (value) async {
+                                  setState(() => _compartirUbicacion = value);
+                                  if (value) {
+                                    await _iniciarMonitoreoUbicacion();
+                                  } else {
+                                    await _detenerMonitoreoUbicacion(
+                                      motivo: 'Compartición manualmente desactivada',
+                                    );
+                                  }
+                                },
+                                title: const Text(
+                                  'Compartir ubicación con administración',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: _primary,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  !_servicioUbicacionActivo
+                                      ? 'Ubicación del dispositivo apagada'
+                                      : (!_permisoUbicacionOtorgado
+                                          ? 'Permiso de ubicación pendiente'
+                                          : 'Monitoreo en tiempo real habilitado'),
+                                  style: TextStyle(
+                                    color: _primary.withValues(alpha: 0.72),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 22),
+                        Container(
+                          padding: const EdgeInsets.all(18),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(
+                              color: _primary.withValues(alpha: 0.08),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: _primary.withValues(alpha: 0.06),
+                                blurRadius: 14,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const Text(
+                                'Registros de Jornada',
+                                style: TextStyle(
+                                  fontSize: 16,
                                   fontWeight: FontWeight.w700,
                                   color: _primary,
                                 ),
                               ),
-                              subtitle: Text(
-                                !_servicioUbicacionActivo
-                                    ? 'Ubicación del dispositivo apagada'
-                                    : (!_permisoUbicacionOtorgado
-                                          ? 'Permiso de ubicación pendiente'
-                                          : 'Monitoreo en tiempo real habilitado'),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Selecciona el tipo de registro que quieres capturar.',
                                 style: TextStyle(
-                                  color: _primary.withValues(alpha: 0.72),
-                                  fontSize: 12,
+                                  fontSize: 12.5,
+                                  color: _primary.withValues(alpha: 0.7),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 22),
-                      Container(
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(
-                            color: _primary.withValues(alpha: 0.08),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: _primary.withValues(alpha: 0.06),
-                              blurRadius: 14,
-                              offset: const Offset(0, 6),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            const Text(
-                              'Registros de Jornada',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: _primary,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              'Selecciona el tipo de registro que quieres capturar.',
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                color: _primary.withValues(alpha: 0.7),
-                              ),
-                            ),
-                            const SizedBox(height: 14),
-                            FilledButton.icon(
-                              onPressed: _abrirRegistroGasolina,
-                              style: FilledButton.styleFrom(
-                                backgroundColor: _success,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 13,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                              icon: const Icon(Icons.local_gas_station_rounded),
-                              label: const Text('Registro de Gasolina'),
-                            ),
-                            const SizedBox(height: 10),
-                            OutlinedButton.icon(
-                              onPressed: _abrirRegistroToneladas,
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: _primary,
-                                side: BorderSide(
-                                  color: _primary.withValues(alpha: 0.28),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 13,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                              icon: const Icon(Icons.scale_rounded),
-                              label: const Text('Entrada de material'),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 22),
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(
-                            color: _danger.withValues(alpha: 0.25),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: _danger.withValues(alpha: 0.08),
-                              blurRadius: 16,
-                              offset: const Offset(0, 6),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            const Row(
-                              children: [
-                                Icon(Icons.logout_rounded, color: _danger),
-                                SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    'Desliza para finalizar jornada',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                      color: _primary,
-                                    ),
+                              const SizedBox(height: 14),
+                              FilledButton.icon(
+                                onPressed: _abrirRegistroGasolina,
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: _success,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 13,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
                                   ),
                                 ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              _finalizandoJornada
-                                  ? 'Finalizando...'
-                                  : 'Desliza de izquierda a derecha para confirmar',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: _primary.withValues(alpha: 0.68),
+                                icon: const Icon(Icons.local_gas_station_rounded),
+                                label: const Text('Registro de Gasolina'),
                               ),
-                            ),
-                            const SizedBox(height: 10),
-                            _SwipeToConfirmButton(
-                              text: _finalizandoJornada
-                                  ? 'Finalizando jornada...'
-                                  : 'Desliza para finalizar jornada',
-                              enabled: !_finalizandoJornada,
-                              onCompleted: _finalizarPorSwipe,
-                            ),
-                          ],
+                              const SizedBox(height: 10),
+                              OutlinedButton.icon(
+                                onPressed: _abrirRegistroToneladas,
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: _primary,
+                                  side: BorderSide(
+                                    color: _primary.withValues(alpha: 0.28),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 13,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.scale_rounded),
+                                label: const Text('Entrada de material'),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 22),
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(
+                              color: _danger.withValues(alpha: 0.25),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: _danger.withValues(alpha: 0.08),
+                                blurRadius: 16,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const Row(
+                                children: [
+                                  Icon(Icons.logout_rounded, color: _danger),
+                                  SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Desliza para finalizar jornada',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                        color: _primary,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                _finalizandoJornada
+                                    ? 'Finalizando...'
+                                    : 'Desliza de izquierda a derecha para confirmar',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: _primary.withValues(alpha: 0.68),
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              _SwipeToConfirmButton(
+                                text: _finalizandoJornada
+                                    ? 'Finalizando jornada...'
+                                    : 'Desliza para finalizar jornada',
+                                enabled: !_finalizandoJornada,
+                                onCompleted: _finalizarPorSwipe,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
+            ],
+          ),
+        ), // Cierre de Scaffold
+      ), // Cierre de ConnectionWrapper
+    ); // Cierre de PopScope
   }
 }
 
