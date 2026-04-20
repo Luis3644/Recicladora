@@ -21,6 +21,10 @@ class ReporteGasolinaCamionesScreen extends StatefulWidget {
 
 class _ReporteGasolinaCamionesScreenState
     extends State<ReporteGasolinaCamionesScreen> {
+  static const Color _greenPrimary = Color(0xFF0F766E);
+  static const Color _greenSecondary = Color(0xFF10B981);
+  static const Color _bg = Color(0xFFF1FBF7);
+
   _FiltroPeriodo _filtro = _FiltroPeriodo.todos;
   bool _exportando = false;
 
@@ -213,17 +217,40 @@ class _ReporteGasolinaCamionesScreenState
     }
   }
 
+  IconData _iconoFiltro(_FiltroPeriodo filtro) {
+    switch (filtro) {
+      case _FiltroPeriodo.semana:
+        return Icons.date_range_rounded;
+      case _FiltroPeriodo.mensual:
+        return Icons.calendar_month_rounded;
+      case _FiltroPeriodo.anual:
+        return Icons.event_repeat_rounded;
+      case _FiltroPeriodo.todos:
+        return Icons.all_inclusive_rounded;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F7FB),
+      backgroundColor: _bg,
       appBar: AppBar(
         title: const Text(
-          'Reporte de Gasolina de Camiones',
+          'Reporte de Gasolina',
           style: TextStyle(fontWeight: FontWeight.w700),
         ),
-        backgroundColor: const Color(0xFF1E3A8A),
+        backgroundColor: _greenPrimary,
         foregroundColor: Colors.white,
+        elevation: 0,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [_greenPrimary, _greenSecondary],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
       ),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: FirebaseFirestore.instance
@@ -243,40 +270,156 @@ class _ReporteGasolinaCamionesScreenState
           final filtrados = _filtrarRegistros(docs);
 
           return Padding(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
             child: Column(
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: _FiltroPeriodo.values.map((f) {
-                          final selected = _filtro == f;
-                          return ChoiceChip(
-                            label: Text(_labelFiltro(f)),
-                            selected: selected,
-                            onSelected: (_) => setState(() => _filtro = f),
-                          );
-                        }).toList(),
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: 1),
+                  duration: const Duration(milliseconds: 420),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, value, child) {
+                    return Transform.translate(
+                      offset: Offset(0, 18 * (1 - value)),
+                      child: Opacity(opacity: value, child: child),
+                    );
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [_greenPrimary, _greenSecondary],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _greenPrimary.withValues(alpha: 0.24),
+                          blurRadius: 18,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    FilledButton.icon(
-                      onPressed: _exportando
-                          ? null
-                          : () => _exportarExcel(filtrados),
-                      icon: _exportando
-                          ? const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.download_rounded),
-                      label: Text(_exportando ? 'Exportando' : 'Excel'),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(11),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.local_gas_station_rounded,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Control Administrativo de Gasolina',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Registros visibles: ${filtrados.length}',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 12.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFBAE6D3)),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x14000000),
+                        blurRadius: 12,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _FiltroPeriodo.values.map((f) {
+                            final selected = _filtro == f;
+                            return ChoiceChip(
+                              avatar: Icon(
+                                _iconoFiltro(f),
+                                size: 14,
+                                color: selected ? Colors.white : _greenPrimary,
+                              ),
+                              label: Text(_labelFiltro(f)),
+                              selected: selected,
+                              selectedColor: _greenPrimary,
+                              labelStyle: TextStyle(
+                                color: selected ? Colors.white : _greenPrimary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                              side: BorderSide(
+                                color: _greenPrimary.withValues(alpha: 0.24),
+                              ),
+                              onSelected: (_) => setState(() => _filtro = f),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: _greenPrimary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: _exportando
+                            ? null
+                            : () => _exportarExcel(filtrados),
+                        icon: _exportando
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.download_rounded),
+                        label: Text(_exportando ? 'Exportando' : 'Excel'),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Align(
@@ -290,21 +433,20 @@ class _ReporteGasolinaCamionesScreenState
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Registros: ${filtrados.length}',
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                ),
                 const SizedBox(height: 10),
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFCBD5E1)),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFCDEBDD)),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x12000000),
+                          blurRadius: 12,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
                     ),
                     child: filtrados.isEmpty
                         ? const Center(
@@ -317,7 +459,7 @@ class _ReporteGasolinaCamionesScreenState
                             child: SingleChildScrollView(
                               child: DataTable(
                                 headingRowColor: WidgetStateProperty.all(
-                                  const Color(0xFF1E3A8A),
+                                  _greenPrimary,
                                 ),
                                 headingTextStyle: const TextStyle(
                                   color: Colors.white,

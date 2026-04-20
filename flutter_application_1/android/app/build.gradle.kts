@@ -1,3 +1,6 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
@@ -7,6 +10,40 @@ plugins {
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+val keystorePropertiesFile = listOf(
+    project.file("../key.properties"),
+    project.file("key.properties"),
+    rootProject.file("key.properties"),
+    rootProject.projectDir.resolve("key.properties"),
+    rootProject.projectDir.parentFile?.resolve("android/key.properties"),
+    rootProject.projectDir.parentFile?.resolve("key.properties"),
+).filterNotNull().firstOrNull { it.exists() }
+val keystoreProperties = Properties()
+
+if (keystorePropertiesFile != null && keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+}
+
+val hasReleaseSigning =
+    keystorePropertiesFile != null &&
+        keystorePropertiesFile.exists() &&
+        !keystoreProperties.getProperty("storeFile").isNullOrBlank() &&
+        !keystoreProperties.getProperty("storePassword").isNullOrBlank() &&
+        !keystoreProperties.getProperty("keyAlias").isNullOrBlank() &&
+        !keystoreProperties.getProperty("keyPassword").isNullOrBlank()
+
+val isReleaseTaskRequested =
+    gradle.startParameter.taskNames.any { task ->
+        task.contains("release", ignoreCase = true) ||
+            task.contains("signingreport", ignoreCase = true)
+    }
+
+if (isReleaseTaskRequested && !hasReleaseSigning) {
+    throw GradleException(
+        "No se encontro firma release. Crea android/key.properties con storeFile, storePassword, keyAlias y keyPassword antes de generar APK release.",
+    )
 }
 
 android {
@@ -35,11 +72,21 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            if (hasReleaseSigning) {
+                val storeFilePath = keystoreProperties.getProperty("storeFile")
+                storeFile = keystorePropertiesFile!!.parentFile.resolve(storeFilePath)
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }

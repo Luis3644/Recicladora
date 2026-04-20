@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -14,20 +16,34 @@ class MapaGeneralOperadoresScreen extends StatefulWidget {
 class _MapaGeneralOperadoresScreenState
     extends State<MapaGeneralOperadoresScreen>
     with TickerProviderStateMixin {
-  static const Color _primary = Color(0xFF0F172A);
-  static const Color _accent = Color(0xFF06B6D4);
-  static const Color _success = Color(0xFF10B981);
-  static const Color _bg = Color(0xFFF0F9FF);
+  static const Color _primary = Color(0xFF0B0F14);
+  static const Color _accent = Color(0xFF94A3B8);
+  static const Color _success = Color(0xFF60A5FA);
+  static const Color _bg = Color(0xFF070A0F);
+  static const Color _surface = Color(0xFF111827);
+  static const Color _surfaceSoft = Color(0xFF1F2937);
+  static const Color _textPrimary = Color(0xFFE5E7EB);
+  static const Color _textMuted = Color(0xFF9CA3AF);
   static const LatLng _fallbackCenter = LatLng(18.7451879, -98.9083418);
 
   final MapController _mapController = MapController();
   final Map<String, _OperadorAnimacion> _operadorAnimaciones = {};
+  late final AnimationController _cameraController;
+  VoidCallback? _cameraListener;
   bool _contentVisible = false;
+  bool _seguirOperador = false;
+  String? _operadorSeleccionadoId;
+  LatLng? _ultimaPosicionSeguida;
+  double _ultimoZoom = 14.6;
   String _ultimaFirmaSnapshot = '';
 
   @override
   void initState() {
     super.initState();
+    _cameraController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 820),
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       setState(() => _contentVisible = true);
@@ -36,22 +52,29 @@ class _MapaGeneralOperadoresScreenState
 
   @override
   void dispose() {
+    if (_cameraListener != null) {
+      _cameraController.removeListener(_cameraListener!);
+    }
+    _cameraController.dispose();
     for (final animacion in _operadorAnimaciones.values) {
       animacion.controller.dispose();
     }
     super.dispose();
   }
 
+    String get _tileUrl =>
+      'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+
   Color _colorOperador(String operadorId) {
     const palette = [
+      Color(0xFF60A5FA),
+      Color(0xFF818CF8),
+      Color(0xFF94A3B8),
+      Color(0xFF64748B),
+      Color(0xFF38BDF8),
+      Color(0xFF6B7280),
       Color(0xFF0EA5E9),
-      Color(0xFF10B981),
-      Color(0xFFF59E0B),
-      Color(0xFFEF4444),
-      Color(0xFF6366F1),
-      Color(0xFF14B8A6),
-      Color(0xFFF97316),
-      Color(0xFF8B5CF6),
+      Color(0xFF475569),
     ];
     return palette[operadorId.hashCode.abs() % palette.length];
   }
@@ -62,22 +85,48 @@ class _MapaGeneralOperadoresScreenState
         (a.longitude - b.longitude).abs() < epsilon;
   }
 
+  double _bearingDegrees(LatLng from, LatLng to) {
+    final lat1 = from.latitude * (math.pi / 180);
+    final lat2 = to.latitude * (math.pi / 180);
+    final dLon = (to.longitude - from.longitude) * (math.pi / 180);
+
+    final y = math.sin(dLon) * math.cos(lat2);
+    final x =
+        math.cos(lat1) * math.sin(lat2) -
+        math.sin(lat1) * math.cos(lat2) * math.cos(dLon);
+    final brng = (180 / math.pi) * math.atan2(y, x);
+    return (brng + 360) % 360;
+  }
+
   void _sincronizarAnimacionOperador(String operadorId, LatLng nuevaPosicion) {
     final existente = _operadorAnimaciones[operadorId];
     if (existente == null) {
       final controller = AnimationController(
-        duration: const Duration(milliseconds: 600),
+        duration: const Duration(milliseconds: 1050),
         vsync: this,
       );
       _operadorAnimaciones[operadorId] = _OperadorAnimacion(
         controller: controller,
         posicionActual: nuevaPosicion,
         objetivo: nuevaPosicion,
+        trail: [nuevaPosicion],
       );
       return;
     }
 
     if (_mismaPosicion(existente.objetivo, nuevaPosicion)) return;
+
+    existente.version += 1;
+    final versionActual = existente.version;
+    existente.enMovimiento = true;
+    existente.bearing = _bearingDegrees(
+      existente.posicionActual,
+      nuevaPosicion,
+    );
+    existente.trail.add(existente.posicionActual);
+    if (existente.trail.length > 10) {
+      existente.trail.removeAt(0);
+    }
 
     existente.objetivo = nuevaPosicion;
     final animation =
@@ -87,7 +136,7 @@ class _MapaGeneralOperadoresScreenState
         ).animate(
           CurvedAnimation(
             parent: existente.controller,
-            curve: Curves.easeInOut,
+            curve: Curves.easeInOutCubic,
           ),
         );
 
@@ -106,7 +155,18 @@ class _MapaGeneralOperadoresScreenState
     existente.controller
       ..stop()
       ..addListener(listener)
-      ..forward(from: 0);
+      ..forward(from: 0).whenCompleteOrCancel(() {
+        if (!mounted) return;
+        if (versionActual != existente.version) return;
+        setState(() {
+          existente.enMovimiento = false;
+          existente.posicionActual = nuevaPosicion;
+          existente.trail.add(nuevaPosicion);
+          if (existente.trail.length > 10) {
+            existente.trail.removeAt(0);
+          }
+        });
+      });
   }
 
   void _eliminarOperadoresInactivos(Set<String> activos) {
@@ -121,8 +181,56 @@ class _MapaGeneralOperadoresScreenState
   void _centrarMapa(LatLng centro, {required bool hayOperadores}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _mapController.move(centro, hayOperadores ? 13.2 : 14.6);
+      _animarCamara(centro, zoom: hayOperadores ? 13.2 : 14.6);
     });
+  }
+
+  void _animarCamara(LatLng destino, {double? zoom}) {
+    final inicio = _mapController.camera.center;
+    final zoomInicio = _mapController.camera.zoom;
+    final zoomFinal = zoom ?? zoomInicio;
+
+    final posAnim = _LatLngTween(begin: inicio, end: destino).animate(
+      CurvedAnimation(parent: _cameraController, curve: Curves.easeOutCubic),
+    );
+    final zoomAnim = Tween<double>(begin: zoomInicio, end: zoomFinal).animate(
+      CurvedAnimation(parent: _cameraController, curve: Curves.easeOutCubic),
+    );
+
+    if (_cameraListener != null) {
+      _cameraController.removeListener(_cameraListener!);
+    }
+
+    void listener() {
+      if (!mounted) return;
+      _mapController.move(posAnim.value, zoomAnim.value);
+      _ultimoZoom = zoomAnim.value;
+    }
+
+    _cameraListener = listener;
+    _cameraController
+      ..stop()
+      ..addListener(listener)
+      ..forward(from: 0);
+  }
+
+  void _actualizarSeguimiento(List<_OperadorActivo> operadores) {
+    if (!_seguirOperador || operadores.isEmpty) return;
+
+    _operadorSeleccionadoId ??= operadores.first.id;
+    final seleccionado = operadores
+        .where((o) => o.id == _operadorSeleccionadoId)
+        .cast<_OperadorActivo?>()
+        .firstWhere((o) => o != null, orElse: () => null);
+
+    final objetivo = seleccionado?.posicion ?? operadores.first.posicion;
+    if (_ultimaPosicionSeguida != null &&
+        _mismaPosicion(_ultimaPosicionSeguida!, objetivo)) {
+      return;
+    }
+
+    _ultimaPosicionSeguida = objetivo;
+    _animarCamara(objetivo, zoom: (_ultimoZoom < 15.2 ? 15.2 : _ultimoZoom));
   }
 
   String _firmaOperadores(List<_OperadorActivo> operadores) {
@@ -177,7 +285,7 @@ class _MapaGeneralOperadoresScreenState
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [_primary, Color(0xFF1E293B)],
+              colors: [_primary, _surface],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -193,27 +301,14 @@ class _MapaGeneralOperadoresScreenState
       ),
       body: Stack(
         children: [
-          Positioned(
-            top: -90,
-            right: -70,
-            child: Container(
-              width: 260,
-              height: 260,
+          Positioned.fill(
+            child: DecoratedBox(
               decoration: BoxDecoration(
-                color: _accent.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -100,
-            left: -70,
-            child: Container(
-              width: 240,
-              height: 240,
-              decoration: BoxDecoration(
-                color: _success.withOpacity(0.08),
-                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: [const Color(0xFF0B1020), const Color(0xFF121A2C)],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
               ),
             ),
           ),
@@ -251,6 +346,7 @@ class _MapaGeneralOperadoresScreenState
                 final direccion = data['direccion']?.toString().trim() ?? '';
 
                 tracked.add({
+                  'id': doc.id,
                   'nombre': nombre,
                   'camion': camion.isEmpty ? 'Sin camión asignado' : camion,
                   'direccion': direccion.isEmpty
@@ -279,18 +375,38 @@ class _MapaGeneralOperadoresScreenState
                     final posicionAnimada =
                         _operadorAnimaciones[operador.id]?.posicionActual ??
                         operador.posicion;
+                    final estado = _operadorAnimaciones[operador.id];
                     return Marker(
                       point: posicionAnimada,
-                      width: 128,
-                      height: 82,
+                      width: 146,
+                      height: 96,
                       alignment: Alignment.topCenter,
                       child: AnimatedTruckMarker(
                         operadorNombre: operador.nombre,
-                        posicion: posicionAnimada,
                         color: operador.color,
+                        bearing: estado?.bearing ?? 0,
+                        enMovimiento: estado?.enMovimiento ?? false,
                       ),
                     );
                   })
+                  .toList(growable: false);
+
+              final trailPolylines = operadores
+                  .map((operador) {
+                    final estado = _operadorAnimaciones[operador.id];
+                    final trail = <LatLng>[...?estado?.trail];
+                    final current = estado?.posicionActual ?? operador.posicion;
+                    if (trail.isEmpty || !_mismaPosicion(trail.last, current)) {
+                      trail.add(current);
+                    }
+                    if (trail.length < 2) return null;
+                    return Polyline(
+                      points: trail,
+                      strokeWidth: 5,
+                      color: operador.color.withValues(alpha: 0.42),
+                    );
+                  })
+                  .whereType<Polyline>()
                   .toList(growable: false);
 
               LatLng center = _fallbackCenter;
@@ -311,8 +427,12 @@ class _MapaGeneralOperadoresScreenState
               final firma = _firmaOperadores(operadores);
               if (firma != _ultimaFirmaSnapshot) {
                 _ultimaFirmaSnapshot = firma;
-                _centrarMapa(center, hayOperadores: operadores.isNotEmpty);
+                if (!_seguirOperador) {
+                  _centrarMapa(center, hayOperadores: operadores.isNotEmpty);
+                }
               }
+
+              _actualizarSeguimiento(operadores);
 
               return Column(
                 children: [
@@ -324,12 +444,12 @@ class _MapaGeneralOperadoresScreenState
                       child: Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.92),
+                          color: _surface.withOpacity(0.82),
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: _accent.withOpacity(0.2)),
+                          border: Border.all(color: _accent.withOpacity(0.28)),
                           boxShadow: [
                             BoxShadow(
-                              color: _primary.withOpacity(0.06),
+                              color: Colors.black.withOpacity(0.22),
                               blurRadius: 12,
                               offset: const Offset(0, 4),
                             ),
@@ -345,7 +465,7 @@ class _MapaGeneralOperadoresScreenState
                               ),
                               child: const Icon(
                                 Icons.near_me_rounded,
-                                color: _accent,
+                                color: Color(0xFFCBD5E1),
                                 size: 20,
                               ),
                             ),
@@ -354,11 +474,36 @@ class _MapaGeneralOperadoresScreenState
                               child: Text(
                                 'Seguimiento en tiempo real • ${markers.length} operadores con GPS activo',
                                 style: const TextStyle(
-                                  color: _primary,
+                                  color: _textPrimary,
                                   fontWeight: FontWeight.w700,
                                   fontSize: 12.5,
                                 ),
                               ),
+                            ),
+                            IconButton(
+                              onPressed: () {
+                                setState(() {
+                                  _seguirOperador = !_seguirOperador;
+                                  if (_seguirOperador &&
+                                      _operadorSeleccionadoId == null &&
+                                      operadores.isNotEmpty) {
+                                    _operadorSeleccionadoId =
+                                        operadores.first.id;
+                                  }
+                                  if (!_seguirOperador) {
+                                    _ultimaPosicionSeguida = null;
+                                  }
+                                });
+                              },
+                              icon: Icon(
+                                _seguirOperador
+                                    ? Icons.location_searching_rounded
+                                    : Icons.location_disabled_rounded,
+                              ),
+                              color: _seguirOperador ? _success : _textPrimary,
+                              tooltip: _seguirOperador
+                                  ? 'Desactivar seguimiento'
+                                  : 'Seguir operador seleccionado',
                             ),
                             IconButton(
                               onPressed: () => _centrarMapa(
@@ -368,7 +513,7 @@ class _MapaGeneralOperadoresScreenState
                               icon: const Icon(
                                 Icons.center_focus_strong_rounded,
                               ),
-                              color: _primary,
+                              color: _textPrimary,
                               tooltip: 'Centrar mapa',
                             ),
                           ],
@@ -384,14 +529,14 @@ class _MapaGeneralOperadoresScreenState
                         child: DecoratedBox(
                           decoration: BoxDecoration(
                             border: Border.all(
-                              color: _accent.withOpacity(0.25),
-                              width: 1.5,
+                              color: const Color(0xFF374151),
+                              width: 1,
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: _primary.withOpacity(0.08),
-                                blurRadius: 18,
-                                offset: const Offset(0, 7),
+                                color: Colors.black.withOpacity(0.22),
+                                blurRadius: 10,
+                                offset: const Offset(0, 3),
                               ),
                             ],
                           ),
@@ -402,15 +547,24 @@ class _MapaGeneralOperadoresScreenState
                               initialZoom: 14.6,
                               minZoom: 5,
                               maxZoom: 18,
+                              onPositionChanged: (position, hasGesture) {
+                                final z = position.zoom;
+                                if (z != null) {
+                                  _ultimoZoom = z;
+                                }
+                              },
                             ),
                             children: [
                               TileLayer(
-                                urlTemplate:
-                                    'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+                                urlTemplate: _tileUrl,
                                 userAgentPackageName:
                                     'com.recicladora.guadalajara',
                                 subdomains: const ['a', 'b', 'c', 'd'],
+                                tileDisplay: const TileDisplay.fadeIn(
+                                  duration: Duration(milliseconds: 180),
+                                ),
                               ),
+                              PolylineLayer(polylines: trailPolylines),
                               RichAttributionWidget(
                                 attributions: [
                                   TextSourceAttribution(
@@ -435,54 +589,108 @@ class _MapaGeneralOperadoresScreenState
                       separatorBuilder: (_, __) => const SizedBox(width: 10),
                       itemBuilder: (context, index) {
                         final item = tracked[index];
+                        final itemId = item['id'];
+                        final seleccionado = itemId == _operadorSeleccionadoId;
                         return Container(
                           width: 270,
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
-                              colors: [Colors.white, _accent.withOpacity(0.05)],
+                              colors: [_surface, _surfaceSoft],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
-                              color: _accent.withOpacity(0.22),
+                              color: seleccionado
+                                  ? _success.withOpacity(0.75)
+                                  : const Color(0xFF374151),
+                              width: seleccionado ? 1.8 : 1,
                             ),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                item['nombre'] ?? 'Sin nombre',
-                                style: const TextStyle(
-                                  color: _primary,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 13.5,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () {
+                              setState(() {
+                                _operadorSeleccionadoId = itemId;
+                                _seguirOperador = true;
+                                _ultimaPosicionSeguida = null;
+                              });
+                            },
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        item['nombre'] ?? 'Sin nombre',
+                                        style: const TextStyle(
+                                          color: _textPrimary,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 13.5,
+                                        ),
+                                      ),
+                                    ),
+                                    if (seleccionado)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 3,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: _success.withOpacity(0.18),
+                                          borderRadius: BorderRadius.circular(
+                                            999,
+                                          ),
+                                        ),
+                                        child: const Text(
+                                          'Siguiendo',
+                                          style: TextStyle(
+                                            color: _success,
+                                            fontSize: 10.5,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
                                 ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                item['camion'] ?? 'Sin camión asignado',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: _success.withOpacity(0.95),
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 12,
+                                const SizedBox(height: 6),
+                                Text(
+                                  item['camion'] ?? 'Sin camión asignado',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: _textPrimary,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 12,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                item['direccion'] ?? 'Ubicación no disponible',
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: _primary.withOpacity(0.65),
-                                  fontSize: 11.5,
-                                  height: 1.2,
+                                const SizedBox(height: 6),
+                                const Text(
+                                  'Toca para seguir en tiempo real',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: _textMuted,
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 4),
+                                Text(
+                                  item['direccion'] ??
+                                      'Ubicación no disponible',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: _textMuted,
+                                    fontSize: 11.5,
+                                    height: 1.2,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         );
                       },
@@ -500,14 +708,16 @@ class _MapaGeneralOperadoresScreenState
 
 class AnimatedTruckMarker extends StatelessWidget {
   final String operadorNombre;
-  final LatLng posicion;
   final Color color;
+  final double bearing;
+  final bool enMovimiento;
 
   const AnimatedTruckMarker({
     super.key,
     required this.operadorNombre,
-    required this.posicion,
     required this.color,
+    required this.bearing,
+    required this.enMovimiento,
   });
 
   @override
@@ -515,15 +725,19 @@ class AnimatedTruckMarker extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(Icons.local_shipping, size: 36, color: color),
+        _PulseTruckIcon(
+          color: color,
+          bearing: bearing,
+          enMovimiento: enMovimiento,
+        ),
         const SizedBox(height: 2),
         Container(
           constraints: const BoxConstraints(maxWidth: 120),
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.78),
+            color: const Color(0xFF111827).withValues(alpha: 0.9),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: color.withValues(alpha: 0.28)),
+            border: Border.all(color: const Color(0xFF475569)),
           ),
           child: Text(
             operadorNombre,
@@ -533,7 +747,7 @@ class AnimatedTruckMarker extends StatelessWidget {
             style: const TextStyle(
               fontSize: 10.5,
               fontWeight: FontWeight.w700,
-              color: _MapaGeneralOperadoresScreenState._primary,
+              color: Color(0xFFE5E7EB),
             ),
           ),
         ),
@@ -560,13 +774,106 @@ class _OperadorAnimacion {
   final AnimationController controller;
   LatLng posicionActual;
   LatLng objetivo;
+  List<LatLng> trail;
   VoidCallback? listener;
+  bool enMovimiento;
+  double bearing;
+  int version;
 
   _OperadorAnimacion({
     required this.controller,
     required this.posicionActual,
     required this.objetivo,
+    required this.trail,
+    this.enMovimiento = false,
+    this.bearing = 0,
+    this.version = 0,
   });
+}
+
+class _PulseTruckIcon extends StatefulWidget {
+  final Color color;
+  final double bearing;
+  final bool enMovimiento;
+
+  const _PulseTruckIcon({
+    required this.color,
+    required this.bearing,
+    required this.enMovimiento,
+  });
+
+  @override
+  State<_PulseTruckIcon> createState() => _PulseTruckIconState();
+}
+
+class _PulseTruckIconState extends State<_PulseTruckIcon>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulseController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _pulseController,
+      builder: (context, _) {
+        final t = _pulseController.value;
+        final pulse = widget.enMovimiento ? (0.78 + (t * 0.48)) : 0.82;
+        final opacity = widget.enMovimiento ? (0.24 * (1 - t)) : 0.1;
+
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            Container(
+              width: 36 * pulse,
+              height: 36 * pulse,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: widget.color.withValues(alpha: opacity),
+              ),
+            ),
+            Container(
+              width: 35,
+              height: 35,
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F172A),
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFF94A3B8), width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.35),
+                    blurRadius: 12,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Transform.rotate(
+                angle: widget.bearing * (3.141592653589793 / 180),
+                child: Icon(
+                  Icons.local_shipping_rounded,
+                  size: 18,
+                  color: const Color(0xFFE5E7EB),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
 }
 
 class _LatLngTween extends Tween<LatLng> {

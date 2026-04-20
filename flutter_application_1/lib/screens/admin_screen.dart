@@ -77,10 +77,10 @@ class _AnimatedOptionCardState extends State<_AnimatedOptionCard>
 
   @override
   Widget build(BuildContext context) {
-    final iconBaseSize = widget.compact ? 28.0 : 42.0;
-    final iconHoverSize = widget.compact ? 32.0 : 50.0;
-    final titleFontSize = widget.compact ? 13.0 : 15.0;
-    final descriptionFontSize = widget.compact ? 11.5 : 13.0;
+    final iconBaseSize = widget.compact ? 21.0 : 42.0;
+    final iconHoverSize = widget.compact ? 24.0 : 50.0;
+    final titleFontSize = widget.compact ? 11.5 : 15.0;
+    final descriptionFontSize = widget.compact ? 10.0 : 13.0;
 
     return MouseRegion(
       onEnter: (_) => _onHover(true),
@@ -125,13 +125,13 @@ class _AnimatedOptionCardState extends State<_AnimatedOptionCard>
                 ],
               ),
               child: Padding(
-                padding: EdgeInsets.all(widget.compact ? 10 : 14),
+                padding: EdgeInsets.all(widget.compact ? 6 : 14),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     AnimatedContainer(
                       duration: const Duration(milliseconds: 300),
-                      padding: EdgeInsets.all(widget.compact ? 7 : 10),
+                      padding: EdgeInsets.all(widget.compact ? 5 : 10),
                       decoration: BoxDecoration(
                         color: _isHovered
                             ? widget.color.withValues(alpha: 0.25)
@@ -144,7 +144,7 @@ class _AnimatedOptionCardState extends State<_AnimatedOptionCard>
                         color: widget.color,
                       ),
                     ),
-                    SizedBox(height: widget.compact ? 6 : 10),
+                    SizedBox(height: widget.compact ? 4 : 10),
                     Text(
                       widget.title,
                       textAlign: TextAlign.center,
@@ -154,10 +154,10 @@ class _AnimatedOptionCardState extends State<_AnimatedOptionCard>
                         color: const Color(0xFF0F2B66),
                         height: 1.2,
                       ),
-                      maxLines: 2,
+                      maxLines: widget.compact ? 1 : 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    SizedBox(height: widget.compact ? 4 : 6),
+                    SizedBox(height: widget.compact ? 2 : 6),
                     Text(
                       widget.description,
                       textAlign: TextAlign.center,
@@ -166,9 +166,44 @@ class _AnimatedOptionCardState extends State<_AnimatedOptionCard>
                         color: const Color(0xFF5A6B8C),
                         height: 1.2,
                       ),
-                      maxLines: 2,
+                      maxLines: widget.compact ? 1 : 2,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    if (!widget.compact) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: widget.color.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(30),
+                          border: Border.all(
+                            color: widget.color.withValues(alpha: 0.2),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Abrir',
+                              style: TextStyle(
+                                color: widget.color,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            SizedBox(width: 4),
+                            Icon(
+                              Icons.arrow_forward_rounded,
+                              size: 14,
+                              color: widget.color,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -377,7 +412,7 @@ class _AdminScreenState extends State<AdminScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth >= 600 && screenWidth < 1024;
     final gridColumns = screenWidth >= 1300 ? 4 : (screenWidth >= 900 ? 3 : 2);
-    final optionCardAspectRatio = isMobile ? 1.22 : (isTablet ? 1.12 : 1.05);
+    final optionCardAspectRatio = isMobile ? 1.28 : (isTablet ? 1.12 : 1.03);
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -557,23 +592,27 @@ class _AdminScreenState extends State<AdminScreen> {
                         },
                         child: SizedBox(
                           width: double.infinity,
-                          child: ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: primaryColor,
-                              foregroundColor: Colors.white,
-                              elevation: 3,
-                              minimumSize: const Size(double.infinity, 50),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
+                          child: Tooltip(
+                            message:
+                                'Resumen de usuarios, altas, bajas y estado general del personal.',
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: primaryColor,
+                                foregroundColor: Colors.white,
+                                elevation: 3,
+                                minimumSize: const Size(double.infinity, 50),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
                               ),
-                            ),
-                            onPressed: _abrirPanelGeneralUsuarios,
-                            icon: const Icon(Icons.groups_2_rounded),
-                            label: const Text(
-                              'Panel General de Usuarios',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.2,
+                              onPressed: _abrirPanelGeneralUsuarios,
+                              icon: const Icon(Icons.groups_2_rounded),
+                              label: const Text(
+                                'Panel General de Usuarios',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.2,
+                                ),
                               ),
                             ),
                           ),
@@ -592,23 +631,27 @@ class _AdminScreenState extends State<AdminScreen> {
                         },
                         child: SizedBox(
                           width: double.infinity,
-                          child: ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: successColor,
-                              foregroundColor: Colors.white,
-                              elevation: 3,
-                              minimumSize: const Size(double.infinity, 50),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
+                          child: Tooltip(
+                            message:
+                                'Ubicacion en tiempo real de operadores activos y su ruta actual.',
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: successColor,
+                                foregroundColor: Colors.white,
+                                elevation: 3,
+                                minimumSize: const Size(double.infinity, 50),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
                               ),
-                            ),
-                            onPressed: _abrirMapaGeneralOperadores,
-                            icon: const Icon(Icons.map_rounded),
-                            label: const Text(
-                              'Mapa General de Operadores',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.2,
+                              onPressed: _abrirMapaGeneralOperadores,
+                              icon: const Icon(Icons.map_rounded),
+                              label: const Text(
+                                'Mapa General de Operadores',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.2,
+                                ),
                               ),
                             ),
                           ),
@@ -627,25 +670,29 @@ class _AdminScreenState extends State<AdminScreen> {
                         },
                         child: SizedBox(
                           width: double.infinity,
-                          child: ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: warningColor,
-                              foregroundColor: Colors.white,
-                              elevation: 3,
-                              minimumSize: const Size(double.infinity, 50),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
+                          child: Tooltip(
+                            message:
+                                'Envia avisos generales o alertas urgentes a los operadores.',
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: warningColor,
+                                foregroundColor: Colors.white,
+                                elevation: 3,
+                                minimumSize: const Size(double.infinity, 50),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
                               ),
-                            ),
-                            onPressed: _abrirNotificacionesAdmin,
-                            icon: const Icon(
-                              Icons.notifications_active_rounded,
-                            ),
-                            label: const Text(
-                              'Enviar Notificaciones',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.2,
+                              onPressed: _abrirNotificacionesAdmin,
+                              icon: const Icon(
+                                Icons.notifications_active_rounded,
+                              ),
+                              label: const Text(
+                                'Enviar Notificaciones',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.2,
+                                ),
                               ),
                             ),
                           ),
@@ -851,7 +898,7 @@ class _AdminScreenState extends State<AdminScreen> {
   void _abrirReporteToneladas() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) =>  ReporteToneladasAdminScreen()),
+      MaterialPageRoute(builder: (_) => ReporteToneladasAdminScreen()),
     );
   }
 
@@ -903,6 +950,28 @@ class _AdminScreenState extends State<AdminScreen> {
         .collection('usuarios')
         .where('jornada_activa', isEqualTo: true)
         .snapshots();
+  }
+
+  Stream<int> _streamReportesEquipoPendientes() {
+    return FirebaseFirestore.instance
+        .collection('checklist')
+        .where('equipo_completo', isEqualTo: false)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.length);
+  }
+
+  Stream<int> _streamIncidentesOperadores() {
+    return FirebaseFirestore.instance
+        .collection('reportes')
+        .snapshots()
+        .map((snapshot) => snapshot.docs.length);
+  }
+
+  Stream<int> _streamReportesCamiones() {
+    return FirebaseFirestore.instance
+        .collection('reportes_camiones')
+        .snapshots()
+        .map((snapshot) => snapshot.docs.length);
   }
 
   void _mostrarDetalleUsuariosActivos(
@@ -1150,61 +1219,124 @@ class _AdminScreenState extends State<AdminScreen> {
   Widget _buildSystemStatsSection() {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: _streamUsuariosActivos(),
-      builder: (context, snapshot) {
-        final usuariosActivos = snapshot.data?.docs ?? [];
+      builder: (context, usuariosSnapshot) {
+        final usuariosActivos = usuariosSnapshot.data?.docs ?? [];
         final cantidadActivos = usuariosActivos.length;
 
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            final isMobileStats = constraints.maxWidth < 700;
-            final columnas = isMobileStats ? 2 : 3;
-            final statAspectRatio = isMobileStats ? 1.22 : 1.5;
+        return StreamBuilder<int>(
+          stream: _streamReportesEquipoPendientes(),
+          builder: (context, equipoSnapshot) {
+            return StreamBuilder<int>(
+              stream: _streamIncidentesOperadores(),
+              builder: (context, incidentesSnapshot) {
+                return StreamBuilder<int>(
+                  stream: _streamReportesCamiones(),
+                  builder: (context, camionesSnapshot) {
+                    final reportesEquipo = equipoSnapshot.data ?? 0;
+                    final incidentesOperador = incidentesSnapshot.data ?? 0;
+                    final reportesCamiones = camionesSnapshot.data ?? 0;
+                    final totalReportes =
+                        reportesEquipo + incidentesOperador + reportesCamiones;
 
-            return GridView.count(
-              crossAxisCount: columnas,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: isMobileStats ? 10 : 14,
-              crossAxisSpacing: isMobileStats ? 10 : 14,
-              childAspectRatio: statAspectRatio,
-              children: [
-                _buildStatCard(
-                  icon: Icons.people_outline_rounded,
-                  label: 'Usuarios Activos',
-                  value: snapshot.connectionState == ConnectionState.waiting
-                      ? '...'
-                      : cantidadActivos.toString(),
-                  color: accentColor,
-                  backgroundGradient: [
-                    accentColor.withValues(alpha: 0.12),
-                    accentColor.withValues(alpha: 0.04),
-                  ],
-                  onTap: () => _mostrarDetalleUsuariosActivos(usuariosActivos),
-                  compact: isMobileStats,
-                ),
-                _buildStatCard(
-                  icon: Icons.assignment_rounded,
-                  label: 'Reportes',
-                  value: '8',
-                  color: successColor,
-                  backgroundGradient: [
-                    successColor.withValues(alpha: 0.12),
-                    successColor.withValues(alpha: 0.04),
-                  ],
-                  compact: isMobileStats,
-                ),
-                _buildStatCard(
-                  icon: Icons.warning_rounded,
-                  label: 'Incidentes',
-                  value: '3',
-                  color: warningColor,
-                  backgroundGradient: [
-                    warningColor.withValues(alpha: 0.12),
-                    warningColor.withValues(alpha: 0.04),
-                  ],
-                  compact: isMobileStats,
-                ),
-              ],
+                    return LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isMobileStats = constraints.maxWidth < 700;
+                        final columnas = isMobileStats ? 2 : 3;
+                        final statAspectRatio = isMobileStats ? 1.14 : 1.42;
+
+                        return GridView.count(
+                          crossAxisCount: columnas,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          mainAxisSpacing: isMobileStats ? 10 : 14,
+                          crossAxisSpacing: isMobileStats ? 10 : 14,
+                          childAspectRatio: statAspectRatio,
+                          children: [
+                            _buildStatCard(
+                              icon: Icons.people_outline_rounded,
+                              label: 'Usuarios Activos',
+                              statusText: 'Jornada activa',
+                              value:
+                                  usuariosSnapshot.connectionState ==
+                                      ConnectionState.waiting
+                                  ? '...'
+                                  : cantidadActivos.toString(),
+                              color: accentColor,
+                              backgroundGradient: [
+                                accentColor.withValues(alpha: 0.12),
+                                accentColor.withValues(alpha: 0.04),
+                              ],
+                              onTap: () => _mostrarDetalleUsuariosActivos(
+                                usuariosActivos,
+                              ),
+                              compact: isMobileStats,
+                            ),
+                            _buildStatCard(
+                              icon: Icons.bar_chart_rounded,
+                              label: 'Reportes de Equipo',
+                              statusText: 'Tiempo real',
+                              value: reportesEquipo.toString(),
+                              color: const Color(0xFF3B82F6),
+                              backgroundGradient: [
+                                const Color(0xFF3B82F6).withValues(alpha: 0.12),
+                                const Color(0xFF3B82F6).withValues(alpha: 0.04),
+                              ],
+                              onTap: _abrirReportes,
+                              compact: isMobileStats,
+                            ),
+                            _buildStatCard(
+                              icon: Icons.emergency_share_rounded,
+                              label: 'Incidentes Operadores',
+                              statusText: 'Tiempo real',
+                              value: incidentesOperador.toString(),
+                              color: warningColor,
+                              backgroundGradient: [
+                                warningColor.withValues(alpha: 0.12),
+                                warningColor.withValues(alpha: 0.04),
+                              ],
+                              onTap: _abrirIncidentes,
+                              compact: isMobileStats,
+                            ),
+                            _buildStatCard(
+                              icon: Icons.local_shipping_rounded,
+                              label: 'Reportes Camiones',
+                              statusText: 'Tiempo real',
+                              value: reportesCamiones.toString(),
+                              color: const Color(0xFF0F766E),
+                              backgroundGradient: [
+                                const Color(0xFF0F766E).withValues(alpha: 0.12),
+                                const Color(0xFF0F766E).withValues(alpha: 0.04),
+                              ],
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        const ReportesCamionesAdminScreen(),
+                                  ),
+                                );
+                              },
+                              compact: isMobileStats,
+                            ),
+                            _buildStatCard(
+                              icon: Icons.assignment_rounded,
+                              label: 'Total de Reportes',
+                              statusText: 'Suma de todas las areas',
+                              value: totalReportes.toString(),
+                              color: successColor,
+                              backgroundGradient: [
+                                successColor.withValues(alpha: 0.12),
+                                successColor.withValues(alpha: 0.04),
+                              ],
+                              compact: isMobileStats,
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  },
+                );
+              },
             );
           },
         );
@@ -1218,6 +1350,7 @@ class _AdminScreenState extends State<AdminScreen> {
     required String value,
     required Color color,
     required List<Color> backgroundGradient,
+    String? statusText,
     VoidCallback? onTap,
     bool compact = false,
   }) {
@@ -1225,7 +1358,7 @@ class _AdminScreenState extends State<AdminScreen> {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: Container(
           padding: EdgeInsets.all(compact ? 12 : 16),
           decoration: BoxDecoration(
@@ -1234,8 +1367,15 @@ class _AdminScreenState extends State<AdminScreen> {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(color: color.withValues(alpha: 0.2)),
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(alpha: 0.09),
+                blurRadius: compact ? 10 : 14,
+                offset: const Offset(0, 6),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1280,6 +1420,29 @@ class _AdminScreenState extends State<AdminScreen> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
+              if (statusText != null) ...[
+                SizedBox(height: compact ? 6 : 8),
+                Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: compact ? 8 : 10,
+                    vertical: compact ? 4 : 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.11),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    statusText,
+                    style: TextStyle(
+                      color: color.withValues(alpha: 0.95),
+                      fontSize: compact ? 10 : 10.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -1436,23 +1599,28 @@ class _AdminScreenState extends State<AdminScreen> {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const GestionCamionesScreen()),
+                MaterialPageRoute(
+                  builder: (_) => const GestionCamionesScreen(),
+                ),
               );
             },
           ),
 
-ListTile(
-  leading: const Icon(Icons.warning_amber_rounded, color: Color(0xFFF59E0B)),
-  title: const Text('Reportes de camiones'),
-  onTap: () {
-    Navigator.push(context, MaterialPageRoute(
-      builder: (_) => const ReportesCamionesAdminScreen(),
-    ));
-  },
-),
-
-
-
+          ListTile(
+            leading: const Icon(
+              Icons.warning_amber_rounded,
+              color: Color(0xFFF59E0B),
+            ),
+            title: const Text('Reportes de camiones'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const ReportesCamionesAdminScreen(),
+                ),
+              );
+            },
+          ),
 
           ListTile(
             leading: Icon(Icons.logout_rounded, color: accentColor),

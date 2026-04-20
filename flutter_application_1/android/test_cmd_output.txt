@@ -1,0 +1,26 @@
+ El volumen de la unidad C es SYSTEM
+ El n£mero de serie del volumen es: 04A8-1443
+
+ Directorio de C:\Users\ADR10\Recicladora\flutter_application_1\android
+
+19/04/2026  11:26 p. m.    <DIR>          .
+19/04/2026  11:26 p. m.    <DIR>          ..
+17/02/2026  02:47 p. m.               267 .gitignore
+18/04/2026  10:01 p. m.    <DIR>          .gradle
+18/02/2026  10:48 p. m.    <DIR>          .kotlin
+17/04/2026  10:45 p. m.    <DIR>          app
+30/03/2026  09:48 a. m.    <DIR>          build
+21/03/2026  07:13 p. m.               803 build.gradle.kts
+17/04/2026  11:01 p. m.            44,064 deps_output.txt
+17/02/2026  02:47 p. m.    <DIR>          gradle
+30/03/2026  09:58 a. m.               219 gradle.properties
+18/02/2026  10:36 p. m.             4,971 gradlew
+18/02/2026  10:36 p. m.             2,404 gradlew.bat
+19/04/2026  11:24 p. m.               161 key.properties
+19/04/2026  11:05 p. m.               295 key.properties.example
+19/04/2026  12:45 a. m.               164 local.properties
+23/02/2026  07:14 p. m.             1,022 settings.gradle.kts
+19/04/2026  11:25 p. m.            11,632 signingReport_release_check.txt
+19/04/2026  11:26 p. m.                 0 test_cmd_output.txt
+              12 archivos         66,002 bytes
+               7 dirs  263,548,526,592 bytes libres

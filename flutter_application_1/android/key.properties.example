@@ -1,0 +1,7 @@
+# Copia este archivo como key.properties y completa los valores reales.
+# key.properties esta ignorado por git para no subir credenciales.
+
+storeFile=../keystores/recicladora-internal.jks
+storePassword=CAMBIAR_ESTA_PASSWORD
+keyAlias=recicladora_internal
+keyPassword=CAMBIAR_ESTA_PASSWORD
