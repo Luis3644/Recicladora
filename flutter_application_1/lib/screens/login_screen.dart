@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:io';
+import 'package:http/http.dart' as http;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -11,6 +13,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/session_manager.dart';
+import '../main.dart'; // ← necesario para rolActualNotifier
 import 'Trabajador_screen.dart';
 import 'admin_screen.dart';
 import 'operador_screen.dart';
@@ -53,7 +56,8 @@ class LavaLampPainter extends CustomPainter {
       final offsetX = size.width * (0.25 + 0.2 * sin(animationValue + i));
       final offsetY =
           size.height * (0.3 + 0.25 * cos(animationValue * 0.8 + i * 2));
-      final radius = size.width * (0.12 + 0.05 * sin(animationValue * 1.5 + i));
+      final radius =
+          size.width * (0.12 + 0.05 * sin(animationValue * 1.5 + i));
 
       canvas.drawCircle(Offset(offsetX, offsetY), radius, paint);
     }
@@ -65,8 +69,10 @@ class LavaLampPainter extends CustomPainter {
 
       final offsetX =
           size.width * (0.7 + 0.15 * cos(animationValue * 0.7 + i * 1.5));
-      final offsetY = size.height * (0.6 + 0.2 * sin(animationValue * 0.9 + i));
-      final radius = size.width * (0.15 + 0.08 * cos(animationValue + i * 3));
+      final offsetY =
+          size.height * (0.6 + 0.2 * sin(animationValue * 0.9 + i));
+      final radius =
+          size.width * (0.15 + 0.08 * cos(animationValue + i * 3));
 
       canvas.drawCircle(Offset(offsetX, offsetY), radius, paint);
     }
@@ -135,7 +141,8 @@ class _AnimatedLavaBackgroundState extends State<AnimatedLavaBackground>
             ),
           ),
           child: CustomPaint(
-            painter: LavaLampPainter(animationValue: _controller.value * 6.28),
+            painter:
+                LavaLampPainter(animationValue: _controller.value * 6.28),
             child: widget.child,
           ),
         );
@@ -169,6 +176,7 @@ class _LoginScreenState extends State<LoginScreen> {
   static const Duration _firebaseTimeout = Duration(seconds: 12);
   static const String _googleWebClientId =
       '940984773428-55ivvst2ec661mg3nvuggssr9jvk3166.apps.googleusercontent.com';
+
   String _normalizarCorreo(String value) => value.trim().toLowerCase();
 
   List<String> _obtenerAuthProviders(User? user) {
@@ -179,39 +187,71 @@ class _LoginScreenState extends State<LoginScreen> {
     if (providers.contains('google.com') && providers.contains('password')) {
       return ['google', 'password'];
     }
-
-    if (providers.contains('google.com')) {
-      return ['google'];
-    }
-
-    if (providers.contains('password')) {
-      return ['password'];
-    }
-
+    if (providers.contains('google.com')) return ['google'];
+    if (providers.contains('password')) return ['password'];
     return <String>[];
   }
 
   String _obtenerProveedorAuth(User? user) {
     final providers = _obtenerAuthProviders(user).toSet();
-
     if (providers.contains('google') && providers.contains('password')) {
       return 'password_google';
     }
-
-    if (providers.contains('google')) {
-      return 'google';
-    }
-
-    if (providers.contains('password')) {
-      return 'password';
-    }
-
+    if (providers.contains('google')) return 'google';
+    if (providers.contains('password')) return 'password';
     return 'unknown';
   }
 
+  // ── Verificación de conexión — idéntica a ConnectionWrapper ─────────────
+  // Web (Chrome/Windows): HTTP GET porque Socket TCP está bloqueado
+  // Nativo (Android/iOS): Socket TCP directo — funciona con WiFi y datos móviles
   Future<bool> _tieneConexion() async {
-    final resultados = await Connectivity().checkConnectivity();
-    return !resultados.contains(ConnectivityResult.none);
+    if (kIsWeb) {
+      const urls = [
+        'https://www.google.com/generate_204',
+        'https://connectivitycheck.gstatic.com/generate_204',
+        'https://www.cloudflare.com/cdn-cgi/trace',
+      ];
+      for (final url in urls) {
+        try {
+          final response = await http
+              .get(Uri.parse(url))
+              .timeout(const Duration(seconds: 5));
+          if (response.statusCode > 0) return true;
+        } catch (_) {
+          continue;
+        }
+      }
+      return false;
+    }
+
+    // Nativo: checar interfaz de red primero
+    final connectivity = await Connectivity().checkConnectivity();
+    final sinRed = connectivity.isEmpty ||
+        (connectivity.length == 1 &&
+            connectivity.first == ConnectivityResult.none);
+    if (sinRed) return false;
+
+    // Luego ping TCP real
+    const hosts = [
+      ('google.com',     80),
+      ('cloudflare.com', 80),
+      ('1.1.1.1',        53),
+      ('8.8.8.8',        53),
+    ];
+    for (final (host, port) in hosts) {
+      try {
+        final socket = await Socket.connect(
+          host, port,
+          timeout: const Duration(seconds: 4),
+        );
+        socket.destroy();
+        return true;
+      } catch (_) {
+        continue;
+      }
+    }
+    return false;
   }
 
   Future<String?> _pedirContrasenaParaVincular(String email) async {
@@ -286,9 +326,8 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    final permitido = await _validarYRegistrarSesionUnica(
-      userDoc,
-    ).timeout(_firebaseTimeout);
+    final permitido =
+        await _validarYRegistrarSesionUnica(userDoc).timeout(_firebaseTimeout);
     if (!permitido) return;
 
     await _redirigirSegunRol(userDoc);
@@ -297,35 +336,30 @@ class _LoginScreenState extends State<LoginScreen> {
   String _mensajeDiagnosticoError({required String etapa, Object? error}) {
     if (error is TimeoutException) {
       final etapaNormalizada = etapa.toLowerCase();
-
       if (etapaNormalizada.contains('google play services')) {
-        return 'Fallo en $etapa: Google Play Services no respondió a tiempo. Revisa Play Services, la cuenta Google del teléfono y la conexión del dispositivo.';
+        return 'Fallo en $etapa: Google Play Services no respondió a tiempo.';
       }
-
       if (etapaNormalizada.contains('firebase auth') ||
           etapaNormalizada.contains('inicio de sesión con correo') ||
           etapaNormalizada.contains('inicio de sesión con google') ||
           etapaNormalizada.contains('autenticación con firebase') ||
           etapaNormalizada.contains('intercambio de credencial')) {
-        return 'Fallo en $etapa: Firebase Auth no respondió desde el dispositivo. Revisa internet, DNS, VPN o bloqueo de red en el teléfono.';
+        return 'Fallo en $etapa: Firebase Auth no respondió. Revisa internet.';
       }
-
       if (etapaNormalizada.contains('firestore') ||
           etapaNormalizada.contains('perfil del usuario') ||
           etapaNormalizada.contains('sesión única')) {
-        return 'Fallo en $etapa: Firestore no respondió desde el dispositivo. Revisa internet, DNS, VPN o bloqueo de red en el teléfono.';
+        return 'Fallo en $etapa: Firestore no respondió. Revisa internet.';
       }
-
-      return 'Fallo en $etapa: la respuesta tardó demasiado. Revisa internet o la conexión con Firebase.';
+      return 'Fallo en $etapa: la respuesta tardó demasiado.';
     }
 
     if (error is PlatformException) {
       final mensaje = error.message ?? '';
       if (error.code == 'network_error' ||
           mensaje.contains('ApiException: 7')) {
-        return 'Fallo en $etapa: Google Play Services no pudo completar la autenticación (ApiException 7). Revisa internet, Play Services y la cuenta Google del teléfono.';
+        return 'Fallo en $etapa: Google Play Services no pudo autenticar (ApiException 7).';
       }
-
       return 'Fallo en $etapa: ${error.code}${mensaje.isNotEmpty ? ' - $mensaje' : ''}';
     }
 
@@ -358,7 +392,7 @@ class _LoginScreenState extends State<LoginScreen> {
     super.initState();
     _googleSignIn = GoogleSignIn(
       scopes: const ['email', 'profile'],
-     // serverClientId: _googleWebClientId,//
+      // serverClientId: _googleWebClientId,
     );
   }
 
@@ -377,8 +411,6 @@ class _LoginScreenState extends State<LoginScreen> {
       if (doc.exists) {
         final data = doc.data();
         final emailDoc = data?['email']?.toString().trim().toLowerCase();
-
-        // Usa coincidencia por uid solo si el correo también coincide.
         if (emailNormalizado == null ||
             emailNormalizado.isEmpty ||
             emailDoc == emailNormalizado) {
@@ -470,9 +502,7 @@ class _LoginScreenState extends State<LoginScreen> {
     DocumentSnapshot<Map<String, dynamic>> userDoc,
   ) async {
     final data = userDoc.data();
-    if (data == null) {
-      throw Exception('Usuario sin datos en Firestore');
-    }
+    if (data == null) throw Exception('Usuario sin datos en Firestore');
 
     final rol = data['rol']?.toString() ?? '';
     final nombre = data['nombre']?.toString() ?? '';
@@ -483,12 +513,16 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     if (rol == 'admin') {
+      // Admin y trabajador: desactivar ConnectionWrapper
+      rolActualNotifier.value = null;
+
       await SessionManager.guardarSesion(
         rol: rol,
         nombre: nombre,
         usuarioDocId: usuarioDocId,
         dispositivoId: _dispositivoIdActual,
       );
+      if (!mounted) return;
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const AdminScreen()),
@@ -503,6 +537,14 @@ class _LoginScreenState extends State<LoginScreen> {
         usuarioDocId: usuarioDocId,
         dispositivoId: _dispositivoIdActual,
       );
+
+      // ── CLAVE: activar ConnectionWrapper ANTES de navegar ──────────────
+      // Esto hace que el builder global de main.dart envuelva
+      // TODAS las pantallas del operador con ConnectionWrapper,
+      // incluyendo JornadaScreen, ChecklistScreen, etc.
+      rolActualNotifier.value = 'operador';
+
+      if (!mounted) return;
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -513,12 +555,16 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     if (rol == 'trabajador') {
+      // Trabajador: desactivar ConnectionWrapper
+      rolActualNotifier.value = null;
+
       await SessionManager.guardarSesion(
         rol: rol,
         nombre: nombre,
         usuarioDocId: usuarioDocId,
         dispositivoId: _dispositivoIdActual,
       );
+      if (!mounted) return;
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const TrabajadorScreen()),
@@ -549,18 +595,12 @@ class _LoginScreenState extends State<LoginScreen> {
   String _nombreDispositivoActual() {
     if (kIsWeb) return 'Web';
     switch (defaultTargetPlatform) {
-      case TargetPlatform.android:
-        return 'Android';
-      case TargetPlatform.iOS:
-        return 'iOS';
-      case TargetPlatform.windows:
-        return 'Windows';
-      case TargetPlatform.macOS:
-        return 'macOS';
-      case TargetPlatform.linux:
-        return 'Linux';
-      case TargetPlatform.fuchsia:
-        return 'Fuchsia';
+      case TargetPlatform.android:   return 'Android';
+      case TargetPlatform.iOS:       return 'iOS';
+      case TargetPlatform.windows:   return 'Windows';
+      case TargetPlatform.macOS:     return 'macOS';
+      case TargetPlatform.linux:     return 'Linux';
+      case TargetPlatform.fuchsia:   return 'Fuchsia';
     }
   }
 
@@ -645,7 +685,8 @@ class _LoginScreenState extends State<LoginScreen> {
         .doc(userDoc.id)
         .set({
           if (uidAuth.isNotEmpty &&
-              (data['uid'] == null || data['uid'].toString().trim().isEmpty))
+              (data['uid'] == null ||
+                  data['uid'].toString().trim().isEmpty))
             'uid': uidAuth,
           if (emailAuth.isNotEmpty) 'email': emailAuth,
           'email_normalizado': emailAuth,
@@ -664,20 +705,20 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> loginUsuario() async {
     if (!_formKey.currentState!.validate()) return;
 
+    // Verificación con Socket TCP — igual que ConnectionWrapper
     if (!await _tieneConexion()) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Sin conexión a internet. Revisa tu red e inténtalo.'),
+          content: Text(
+              'Sin conexión a internet. Revisa tu WiFi o datos móviles.'),
           backgroundColor: Colors.red,
         ),
       );
       return;
     }
 
-    setState(() {
-      isLoading = true;
-    });
+    setState(() => isLoading = true);
 
     final email = _normalizarCorreo(emailController.text);
     final password = passwordController.text.trim();
@@ -692,13 +733,11 @@ class _LoginScreenState extends State<LoginScreen> {
       final mensaje = switch (e.code) {
         'user-not-found' => 'El correo no existe en Firebase Authentication.',
         'wrong-password' => 'La contraseña es incorrecta.',
-        'invalid-credential' =>
-          'Correo o contraseña inválidos. El usuario debe existir en Firebase Authentication.',
+        'invalid-credential' ||
         'invalid-login-credentials' =>
-          'Correo o contraseña inválidos. El usuario debe existir en Firebase Authentication.',
+          'Correo o contraseña inválidos.',
         _ => e.message ?? 'Error al iniciar sesión con correo',
       };
-
       _mostrarErrorDiagnostico(
         etapa: 'inicio de sesión con correo',
         error: FirebaseAuthException(code: e.code, message: mensaje),
@@ -711,11 +750,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       _mostrarErrorDiagnostico(etapa: 'inicio de sesión con correo', error: e);
     } finally {
-      if (mounted) {
-        setState(() {
-          isLoading = false;
-        });
-      }
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
@@ -724,16 +759,15 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Sin conexión a internet. Revisa tu red e inténtalo.'),
+          content: Text(
+              'Sin conexión a internet. Revisa tu WiFi o datos móviles.'),
           backgroundColor: Colors.red,
         ),
       );
       return;
     }
 
-    setState(() {
-      isLoading = true;
-    });
+    setState(() => isLoading = true);
 
     try {
       UserCredential userCredential;
@@ -748,13 +782,10 @@ class _LoginScreenState extends State<LoginScreen> {
               .timeout(_firebaseTimeout);
         } on TimeoutException catch (e) {
           _mostrarErrorDiagnostico(
-            etapa: 'inicio de sesión con Google en web',
-            error: e,
-          );
+              etapa: 'inicio de sesión con Google en web', error: e);
           return;
         }
       } else {
-        // Fuerza el selector de cuentas para evitar reingreso automático.
         try {
           await _googleSignIn.disconnect();
         } catch (_) {
@@ -766,14 +797,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
         GoogleSignInAuthentication googleAuth;
         try {
-          googleAuth = await googleUser.authentication.timeout(
-            _firebaseTimeout,
-          );
+          googleAuth =
+              await googleUser.authentication.timeout(_firebaseTimeout);
         } on TimeoutException catch (e) {
           _mostrarErrorDiagnostico(
-            etapa: 'obtención de tokens de Google',
-            error: e,
-          );
+              etapa: 'obtención de tokens de Google', error: e);
           return;
         }
 
@@ -790,10 +818,8 @@ class _LoginScreenState extends State<LoginScreen> {
           final mensaje = e.message ?? '';
           final esPlayServices =
               e.code == 'network_error' || mensaje.contains('ApiException: 7');
-
           if (!esPlayServices) rethrow;
 
-          // Fallback sin GoogleSignIn plugin cuando Play Services falla.
           try {
             final provider = GoogleAuthProvider();
             provider.addScope('email');
@@ -803,16 +829,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 .timeout(_firebaseTimeout);
           } on TimeoutException catch (te) {
             _mostrarErrorDiagnostico(
-              etapa: 'fallback Google con FirebaseAuth provider',
-              error: te,
-            );
+                etapa: 'fallback Google con FirebaseAuth provider', error: te);
             return;
           }
         } on TimeoutException catch (e) {
           _mostrarErrorDiagnostico(
-            etapa: 'intercambio de credencial con Firebase Auth',
-            error: e,
-          );
+              etapa: 'intercambio de credencial con Firebase Auth', error: e);
           return;
         }
       }
@@ -833,7 +855,7 @@ class _LoginScreenState extends State<LoginScreen> {
             error: FirebaseAuthException(
               code: e.code,
               message:
-                  'No se pudo resolver el correo para vincular la cuenta. Intenta con el correo manual primero.',
+                  'No se pudo resolver el correo. Intenta con correo manual primero.',
             ),
           );
           return;
@@ -844,16 +866,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
         try {
           final baseCred = await _auth
-              .signInWithEmailAndPassword(email: emailCuenta, password: pass)
+              .signInWithEmailAndPassword(
+                  email: emailCuenta, password: pass)
               .timeout(_firebaseTimeout);
 
           if (pending != null) {
             try {
               await baseCred.user?.linkWithCredential(pending);
             } on FirebaseAuthException catch (linkError) {
-              if (linkError.code != 'provider-already-linked') {
-                rethrow;
-              }
+              if (linkError.code != 'provider-already-linked') rethrow;
             }
           }
 
@@ -861,26 +882,23 @@ class _LoginScreenState extends State<LoginScreen> {
           return;
         } catch (linkProcessError) {
           _mostrarErrorDiagnostico(
-            etapa: 'vinculación de cuenta con Google',
-            error: linkProcessError,
-          );
+              etapa: 'vinculación de cuenta con Google',
+              error: linkProcessError);
           return;
         }
       }
 
-      _mostrarErrorDiagnostico(etapa: 'autenticación con Firebase', error: e);
+      _mostrarErrorDiagnostico(
+          etapa: 'autenticación con Firebase', error: e);
     } on PlatformException catch (e) {
       _mostrarErrorDiagnostico(etapa: 'Google Play Services', error: e);
     } on FirebaseException catch (e) {
       _mostrarErrorDiagnostico(etapa: 'Firestore/Firebase', error: e);
     } catch (e) {
-      _mostrarErrorDiagnostico(etapa: 'inicio de sesión con Google', error: e);
+      _mostrarErrorDiagnostico(
+          etapa: 'inicio de sesión con Google', error: e);
     } finally {
-      if (mounted) {
-        setState(() {
-          isLoading = false;
-        });
-      }
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
@@ -956,9 +974,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(
-                                color: Color(0xFFE0E0E0),
-                              ),
+                              borderSide:
+                                  const BorderSide(color: Color(0xFFE0E0E0)),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -995,17 +1012,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                     : Icons.visibility_off,
                                 color: const Color(0xFF1E3A8A),
                               ),
-                              onPressed: () {
-                                setState(() {
-                                  isPasswordVisible = !isPasswordVisible;
-                                });
-                              },
+                              onPressed: () => setState(
+                                  () => isPasswordVisible = !isPasswordVisible),
                             ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(
-                                color: Color(0xFFE0E0E0),
-                              ),
+                              borderSide:
+                                  const BorderSide(color: Color(0xFFE0E0E0)),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -1034,8 +1047,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             child: isLoading
                                 ? const CircularProgressIndicator(
-                                    color: Colors.white,
-                                  )
+                                    color: Colors.white)
                                 : const Text(
                                     'Iniciar Sesión',
                                     style: TextStyle(
@@ -1055,7 +1067,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             onPressed: isLoading ? null : loginConGoogle,
                             style: OutlinedButton.styleFrom(
                               backgroundColor: Colors.white,
-                              side: const BorderSide(color: Color(0xFFDADCE0)),
+                              side: const BorderSide(
+                                  color: Color(0xFFDADCE0)),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
@@ -1065,11 +1078,11 @@ class _LoginScreenState extends State<LoginScreen> {
                                     width: 22,
                                     height: 22,
                                     child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
+                                        strokeWidth: 2),
                                   )
                                 : const Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.center,
                                     children: [
                                       _GoogleLogo(),
                                       SizedBox(width: 12),
@@ -1125,7 +1138,6 @@ class _GoogleLogoPainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = strokeWidth
         ..strokeCap = StrokeCap.round;
-
       canvas.drawArc(
         Rect.fromCircle(center: center, radius: radius),
         startAngle,

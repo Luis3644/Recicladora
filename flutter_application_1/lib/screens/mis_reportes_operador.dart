@@ -23,8 +23,9 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
   static const Color _slate   = Color(0xFF64748B);
   static const Color _pending = Color(0xFFF59E0B);
 
-  // ── Filtro de período ─────────────────────────────────────────────────────
-  String _filtroPeriodo = 'todo';
+  // ── Filtros ───────────────────────────────────────────────────────────────
+  String    _filtroPeriodo = 'hoy'; // ← siempre inicia en Hoy
+  DateTime? _filtroFecha;           // fecha exacta del calendario
 
   // ── Etiquetas dinámicas ───────────────────────────────────────────────────
   String get _labelMes {
@@ -52,6 +53,33 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
 
   void _refresh() { _fadeCtrl..reset()..forward(); setState(() {}); }
 
+  // ── Calendario ────────────────────────────────────────────────────────────
+  Future<void> _abrirCalendario() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _filtroFecha ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      locale: const Locale('es', 'MX'),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: _primary,
+            onPrimary: Colors.white,
+            surface: _surface,
+            onSurface: _primary,
+          ),
+          dialogBackgroundColor: _surface,
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      setState(() { _filtroFecha = picked; _filtroPeriodo = 'fecha'; });
+      _refresh();
+    }
+  }
+
   // ── Query ─────────────────────────────────────────────────────────────────
   Query<Map<String, dynamic>> _buildQuery() {
     Query<Map<String, dynamic>> q = FirebaseFirestore.instance
@@ -61,25 +89,36 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
 
     final now = DateTime.now();
     DateTime? desde;
-    switch (_filtroPeriodo) {
-      case 'hoy':
-        desde = DateTime(now.year, now.month, now.day);
-        break;
-      case 'semana':
-        desde = now.subtract(const Duration(days: 7));
-        break;
-      case 'mes':
-        desde = DateTime(now.year, now.month, 1);
-        break;
-      case 'año':
-        desde = DateTime(now.year, 1, 1);
-        break;
-      case 'todo':
-        desde = null;
-        break;
+    DateTime? hasta;
+
+    if (_filtroPeriodo == 'fecha' && _filtroFecha != null) {
+      desde = DateTime(_filtroFecha!.year, _filtroFecha!.month, _filtroFecha!.day);
+      hasta = desde.add(const Duration(days: 1));
+    } else {
+      switch (_filtroPeriodo) {
+        case 'hoy':
+          desde = DateTime(now.year, now.month, now.day);
+          break;
+        case 'semana':
+          desde = now.subtract(const Duration(days: 7));
+          break;
+        case 'mes':
+          desde = DateTime(now.year, now.month, 1);
+          break;
+        case 'año':
+          desde = DateTime(now.year, 1, 1);
+          break;
+        case 'todo':
+          desde = null;
+          break;
+      }
     }
+
     if (desde != null) {
       q = q.where('fecha', isGreaterThanOrEqualTo: Timestamp.fromDate(desde));
+    }
+    if (hasta != null) {
+      q = q.where('fecha', isLessThan: Timestamp.fromDate(hasta));
     }
     return q;
   }
@@ -146,7 +185,7 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
     );
   }
 
-  // ── Filtros — fondo oscuro, mes y año dinámicos ───────────────────────────
+  // ── Filtros — chips + calendario ──────────────────────────────────────────
   Widget _buildFiltros() {
     return Container(
       color: _primary,
@@ -154,13 +193,61 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             _chip('hoy',    'Hoy',      Icons.today_rounded),
             _chip('semana', '7 días',   Icons.date_range_rounded),
             _chip('mes',    _labelMes,  Icons.calendar_month_rounded),
             _chip('año',    _labelAno,  Icons.calendar_today_rounded),
             _chip('todo',   'Todos',    Icons.all_inclusive_rounded),
+            const SizedBox(width: 8),
+            // Separador visual
+            Container(width: 1, height: 24, color: Colors.white12),
+            const SizedBox(width: 8),
+            // Botón de calendario
+            GestureDetector(
+              onTap: _abrirCalendario,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 9),
+                decoration: BoxDecoration(
+                  color: (_filtroPeriodo == 'fecha' && _filtroFecha != null)
+                      ? Colors.amber
+                      : Colors.white12,
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(
+                    color: (_filtroPeriodo == 'fecha' && _filtroFecha != null)
+                        ? Colors.amber
+                        : Colors.white24,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.event_rounded,
+                      size: 14,
+                      color: (_filtroPeriodo == 'fecha' && _filtroFecha != null)
+                          ? _primary
+                          : Colors.white70,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      (_filtroPeriodo == 'fecha' && _filtroFecha != null)
+                          ? DateFormat('dd/MM/yy').format(_filtroFecha!)
+                          : 'Fecha',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: (_filtroPeriodo == 'fecha' && _filtroFecha != null)
+                            ? _primary
+                            : Colors.white70,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -171,7 +258,7 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
     final sel = _filtroPeriodo == valor;
     return GestureDetector(
       onTap: () {
-        setState(() => _filtroPeriodo = valor);
+        setState(() { _filtroPeriodo = valor; _filtroFecha = null; });
         _refresh();
       },
       child: AnimatedContainer(
@@ -225,7 +312,9 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
             icon: Icons.inbox_rounded,
             color: _slate,
             titulo: 'Sin reportes',
-            subtitulo: 'Aún no has enviado reportes en este período',
+            subtitulo: _filtroPeriodo == 'hoy'
+                ? 'No has enviado reportes hoy'
+                : 'Sin reportes en este período',
           );
         }
 
@@ -277,9 +366,9 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
 
   // ── Tarjeta ───────────────────────────────────────────────────────────────
   Widget _buildCard(Map<String, dynamic> data, int index) {
-    final fecha  = (data['fecha'] as Timestamp?)?.toDate();
-    final fotos  = List<String>.from(data['fotosUrl'] ?? []);
-    final visto  = data['visto'] == true;
+    final fecha = (data['fecha'] as Timestamp?)?.toDate();
+    final fotos = List<String>.from(data['fotosUrl'] ?? []);
+    final visto = data['visto'] == true;
 
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
@@ -333,7 +422,6 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
                 ),
                 child: Row(
                   children: [
-                    // Ícono grande
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
@@ -386,8 +474,7 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
 
               // ── Fecha ────────────────────────────────────────────────
               Padding(
-                padding:
-                    const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                 child: Row(
                   children: [
                     Icon(Icons.access_time_rounded,
@@ -413,7 +500,7 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
               ),
               const SizedBox(height: 14),
 
-              // ── DESCRIPCIÓN — texto más grande para adultos mayores ──
+              // ── DESCRIPCIÓN ──────────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
                 child: Text(
@@ -438,7 +525,6 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
                   ),
                   child: Text(
                     data['mensaje'] ?? 'Sin descripción',
-                    // ↓ Más grande para adultos mayores
                     style: const TextStyle(
                       fontSize: 17,
                       color: _primary,
@@ -449,7 +535,7 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
                 ),
               ),
 
-              // ── FOTOS — botón "Ver fotografía" ───────────────────────
+              // ── FOTOS ────────────────────────────────────────────────
               if (fotos.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 const Padding(
@@ -469,7 +555,6 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
                   ),
                 ),
                 const SizedBox(height: 10),
-                // Un botón por cada foto
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
                   child: Column(
@@ -487,7 +572,8 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
                                   color: _accent.withOpacity(0.4)),
                               backgroundColor: _accent.withOpacity(0.05),
                               shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12)),
+                                  borderRadius:
+                                      BorderRadius.circular(12)),
                               padding: const EdgeInsets.symmetric(
                                   vertical: 14),
                             ),
@@ -517,7 +603,7 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
     );
   }
 
-  // ── Ver foto pantalla completa (solo lectura, sin descarga) ───────────────
+  // ── Ver foto pantalla completa ────────────────────────────────────────────
   void _verFoto(String url) {
     showGeneralDialog(
       context: context,
