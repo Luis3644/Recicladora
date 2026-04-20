@@ -1,8 +1,6 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-// 1. IMPORTANTE: Agregamos esta línea para las localizaciones
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
@@ -16,6 +14,7 @@ import 'screens/Trabajador_screen.dart';
 import 'screens/admin_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/operador_screen.dart';
+import 'screens/jornada_screen.dart';
 
 void main() async {
   // 1. Asegurar que Flutter esté listo
@@ -143,51 +142,71 @@ class SessionBootstrapScreen extends StatelessWidget {
   Future<Widget> _resolverPantallaInicial() async {
     try {
       final sesionGuardada = await SessionManager.obtenerSesion();
+      String? rol;
+      String? nombre;
+
       if (sesionGuardada != null) {
         if (!_rolValido(sesionGuardada.rol)) {
           await SessionManager.limpiarSesion();
         } else {
-          return _pantallaPorRol(sesionGuardada.rol, sesionGuardada.nombre);
+          rol = sesionGuardada.rol;
+          nombre = sesionGuardada.nombre;
         }
       }
 
-      final currentUser = FirebaseAuth.instance.currentUser;
-      if (currentUser == null) {
-        return const LoginScreen();
+      if (rol == null) {
+        final currentUser = FirebaseAuth.instance.currentUser;
+        if (currentUser == null) return const LoginScreen();
+
+        final userDoc = await _obtenerPerfilUsuarioFirebase(currentUser);
+        final data = userDoc?.data();
+        rol = data?['rol']?.toString();
+        nombre = data?['nombre']?.toString() ?? '';
+
+        if (rol == null || rol.isEmpty) {
+          await FirebaseAuth.instance.signOut();
+          return const LoginScreen();
+        }
+
+        await SessionManager.guardarSesion(
+          rol: rol,
+          nombre: nombre,
+          usuarioDocId: userDoc!.id,
+          dispositivoId: data?['sesion_dispositivo_id'] ?? 'bootstrap-device',
+        );
       }
 
-      final userDoc = await _obtenerPerfilUsuarioFirebase(currentUser);
-      final data = userDoc?.data();
-      final rol = data?['rol']?.toString();
-      final nombre = data?['nombre']?.toString() ?? '';
+      // --- Lógica de redirección por Rol (Ahora dentro del flujo async) ---
+      if (rol == 'admin') return const AdminScreen();
+      if (rol == 'trabajador') return const TrabajadorScreen();
 
-      if (rol == null || rol.isEmpty) {
-        await FirebaseAuth.instance.signOut();
-        return const LoginScreen();
+      if (rol == 'operador') {
+        // Ahora aquí el await sí es válido
+        final jornadaDoc = await FirebaseFirestore.instance
+            .collection('usuarios')
+            .doc(nombre)
+            .get()
+            .timeout(_firebaseTimeout);
+
+        final data = jornadaDoc.data();
+        if (data?['jornada_activa'] == true) {
+          return JornadaScreen(
+            operador: nombre!,
+            camion: data?['camion_actual'] ?? '',
+            placas: data?['placas_actuales'] ?? 'S/P',
+          );
+        }
+        return OperadorScreen(nombreUsuario: nombre!);
       }
 
-      final usuarioDocId = userDoc!.id;
-      final dispositivoId =
-          data?['sesion_dispositivo_id']?.toString().trim().isNotEmpty == true
-          ? data!['sesion_dispositivo_id'].toString().trim()
-          : 'bootstrap-device';
-
-      await SessionManager.guardarSesion(
-        rol: rol,
-        nombre: nombre,
-        usuarioDocId: usuarioDocId,
-        dispositivoId: dispositivoId,
-      );
-      return _pantallaPorRol(rol, nombre);
-    } on TimeoutException {
-      return const LoginScreen();
-    } on FirebaseException {
       return const LoginScreen();
     } catch (_) {
       return const LoginScreen();
     }
   }
 
+  // Eliminamos _pantallaPorRol porque la lógica ya está arriba
+  
   Future<DocumentSnapshot<Map<String, dynamic>>?> _obtenerPerfilUsuarioFirebase(
     User currentUser,
   ) async {
@@ -214,13 +233,6 @@ class SessionBootstrapScreen extends StatelessWidget {
     return porEmail.docs.first;
   }
 
-  Widget _pantallaPorRol(String rol, String nombre) {
-    if (rol == 'admin') return const AdminScreen();
-    if (rol == 'operador') return OperadorScreen(nombreUsuario: nombre);
-    if (rol == 'trabajador') return const TrabajadorScreen();
-    return const LoginScreen();
-  }
-
   bool _rolValido(String rol) {
     return rol == 'admin' || rol == 'operador' || rol == 'trabajador';
   }
@@ -235,7 +247,6 @@ class SessionBootstrapScreen extends StatelessWidget {
             body: Center(child: CircularProgressIndicator()),
           );
         }
-
         return snapshot.data ?? const LoginScreen();
       },
     );

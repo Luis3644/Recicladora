@@ -147,18 +147,19 @@ class _OperadorScreenState extends State<OperadorScreen> {
       String placas = doc.data()?["placas_actuales"] ?? "S/P";
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => JornadaScreen(
-              operador: widget.nombreUsuario,
-              camion: camion,
-              placas: placas,
-            ),
-          ),
-        );
-      });
+  if (!mounted) return;
+  Navigator.pushAndRemoveUntil(
+    context,
+    MaterialPageRoute(
+      builder: (_) => JornadaScreen(
+        operador: widget.nombreUsuario,
+        camion: camion,
+        placas: placas,
+      ),
+    ),
+    (route) => false, // elimina TODO el historial
+  );
+});
 
       return true;
     }

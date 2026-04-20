@@ -13,7 +13,7 @@ class MisReportesOperador extends StatefulWidget {
 
 class _MisReportesOperadorState extends State<MisReportesOperador>
     with SingleTickerProviderStateMixin {
-  // ── Colores (idénticos al admin) ──────────────────────────────────────────
+  // ── Colores ───────────────────────────────────────────────────────────────
   static const Color _primary = Color(0xFF0F172A);
   static const Color _accent  = Color(0xFF06B6D4);
   static const Color _success = Color(0xFF10B981);
@@ -26,7 +26,13 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
   // ── Filtro de período ─────────────────────────────────────────────────────
   String _filtroPeriodo = 'todo';
 
-  // ── Animación ─────────────────────────────────────────────────────────────
+  // ── Etiquetas dinámicas ───────────────────────────────────────────────────
+  String get _labelMes {
+    final raw = DateFormat('MMMM', 'es_MX').format(DateTime.now());
+    return raw[0].toUpperCase() + raw.substring(1);
+  }
+  String get _labelAno => DateFormat('yyyy').format(DateTime.now());
+
   late AnimationController _fadeCtrl;
 
   @override
@@ -44,7 +50,9 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
     super.dispose();
   }
 
-  // ── Query filtrada por período ─────────────────────────────────────────────
+  void _refresh() { _fadeCtrl..reset()..forward(); setState(() {}); }
+
+  // ── Query ─────────────────────────────────────────────────────────────────
   Query<Map<String, dynamic>> _buildQuery() {
     Query<Map<String, dynamic>> q = FirebaseFirestore.instance
         .collection('reportes')
@@ -87,7 +95,6 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
         child: Column(
           children: [
             _buildFiltros(),
-            const SizedBox(height: 4),
             Expanded(child: _buildLista()),
           ],
         ),
@@ -139,126 +146,61 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
     );
   }
 
-  // ── Filtros de período ────────────────────────────────────────────────────
+  // ── Filtros — fondo oscuro, mes y año dinámicos ───────────────────────────
   Widget _buildFiltros() {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      decoration: BoxDecoration(
-        color: _surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: _primary.withOpacity(0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          // Encabezado
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: const BoxDecoration(
-              color: Color(0xFFF8FAFC),
-              borderRadius:
-                  BorderRadius.vertical(top: Radius.circular(16)),
-              border: Border(
-                  bottom: BorderSide(color: Color(0xFFE2E8F0))),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: _accent.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.filter_list_rounded,
-                      color: _accent, size: 16),
-                ),
-                const SizedBox(width: 10),
-                const Text('Filtrar por período',
-                    style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: _primary,
-                        letterSpacing: 0.2)),
-              ],
-            ),
-          ),
-          // Chips
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _chipPeriodo(
-                      'hoy', 'Hoy', Icons.today_rounded),
-                  _chipPeriodo(
-                      'semana', 'Semana', Icons.date_range_rounded),
-                  _chipPeriodo(
-                      'mes', 'Este mes', Icons.calendar_month_rounded),
-                  _chipPeriodo(
-                      'año', 'Este año', Icons.calendar_today_rounded),
-                  _chipPeriodo(
-                      'todo', 'Todos', Icons.all_inclusive_rounded),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _chipPeriodo(String valor, String label, IconData icon) {
-    final sel = _filtroPeriodo == valor;
-    return GestureDetector(
-      onTap: () {
-        setState(() => _filtroPeriodo = valor);
-        _fadeCtrl..reset()..forward();
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-        margin: const EdgeInsets.only(right: 8),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: sel ? _accent : const Color(0xFFF1F5F9),
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: sel
-              ? [
-                  BoxShadow(
-                      color: _accent.withOpacity(0.35),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3))
-                ]
-              : [],
-        ),
+      color: _primary,
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
         child: Row(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon,
-                size: 13,
-                color: sel ? Colors.white : Colors.grey[500]),
-            const SizedBox(width: 5),
-            Text(label,
-                style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: sel ? Colors.white : Colors.grey[600])),
+            _chip('hoy',    'Hoy',      Icons.today_rounded),
+            _chip('semana', '7 días',   Icons.date_range_rounded),
+            _chip('mes',    _labelMes,  Icons.calendar_month_rounded),
+            _chip('año',    _labelAno,  Icons.calendar_today_rounded),
+            _chip('todo',   'Todos',    Icons.all_inclusive_rounded),
           ],
         ),
       ),
     );
   }
 
-  // ── Lista de reportes ─────────────────────────────────────────────────────
+  Widget _chip(String valor, String label, IconData icon) {
+    final sel = _filtroPeriodo == valor;
+    return GestureDetector(
+      onTap: () {
+        setState(() => _filtroPeriodo = valor);
+        _refresh();
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        margin: const EdgeInsets.only(right: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: sel ? _accent : Colors.white10,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: sel ? _accent : Colors.white24),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13,
+                color: sel ? Colors.white : Colors.white60),
+            const SizedBox(width: 6),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: sel ? Colors.white : Colors.white60)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Lista ─────────────────────────────────────────────────────────────────
   Widget _buildLista() {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: _buildQuery().snapshots(),
@@ -283,87 +225,18 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
             icon: Icons.inbox_rounded,
             color: _slate,
             titulo: 'Sin reportes',
-            subtitulo:
-                'Aún no has enviado reportes en este período',
+            subtitulo: 'Aún no has enviado reportes en este período',
           );
         }
 
-        // ── Resumen rápido ─────────────────────────────────────────────
-        final vistos =
-            docs.where((d) => d.data()['visto'] == true).length;
-        final pendientes = docs.length - vistos;
-
-        return Column(
-          children: [
-            // Banner de resumen
-            _buildResumen(docs.length, vistos, pendientes),
-            // Lista
-            Expanded(
-              child: ListView.builder(
-                padding:
-                    const EdgeInsets.fromLTRB(16, 4, 16, 28),
-                itemCount: docs.length,
-                itemBuilder: (_, i) =>
-                    _buildCard(docs[i].data()),
-              ),
-            ),
-          ],
+        return ListView.builder(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+          itemCount: docs.length,
+          itemBuilder: (_, i) => _buildCard(docs[i].data(), i),
         );
       },
     );
   }
-
-  // ── Banner de resumen ─────────────────────────────────────────────────────
-  Widget _buildResumen(int total, int vistos, int pendientes) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: _surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: _primary.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          )
-        ],
-      ),
-      child: Row(
-        children: [
-          _statItem(total.toString(), 'Total', _accent),
-          _dividerStat(),
-          _statItem(vistos.toString(), 'Revisados', _success),
-          _dividerStat(),
-          _statItem(pendientes.toString(), 'Pendientes', _pending),
-        ],
-      ),
-    );
-  }
-
-  Widget _statItem(String valor, String label, Color color) {
-    return Expanded(
-      child: Column(
-        children: [
-          Text(valor,
-              style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                  color: color)),
-          const SizedBox(height: 2),
-          Text(label,
-              style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  color: _slate)),
-        ],
-      ),
-    );
-  }
-
-  Widget _dividerStat() => Container(
-      width: 1, height: 32, color: const Color(0xFFE2E8F0));
 
   // ── Estado vacío ──────────────────────────────────────────────────────────
   Widget _estadoVacio({
@@ -382,8 +255,7 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
               color: color.withOpacity(0.08),
               shape: BoxShape.circle,
             ),
-            child:
-                Icon(icon, size: 48, color: color.withOpacity(0.5)),
+            child: Icon(icon, size: 48, color: color.withOpacity(0.5)),
           ),
           const SizedBox(height: 16),
           Text(titulo,
@@ -396,280 +268,256 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
             padding: const EdgeInsets.symmetric(horizontal: 40),
             child: Text(subtitulo,
                 textAlign: TextAlign.center,
-                style:
-                    TextStyle(fontSize: 13, color: Colors.grey[400])),
+                style: TextStyle(fontSize: 13, color: Colors.grey[400])),
           ),
         ],
       ),
     );
   }
 
-  // ── Tarjeta de reporte ────────────────────────────────────────────────────
-  Widget _buildCard(Map<String, dynamic> data) {
+  // ── Tarjeta ───────────────────────────────────────────────────────────────
+  Widget _buildCard(Map<String, dynamic> data, int index) {
     final fecha  = (data['fecha'] as Timestamp?)?.toDate();
     final fotos  = List<String>.from(data['fotosUrl'] ?? []);
     final visto  = data['visto'] == true;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: _surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: visto
-              ? _success.withOpacity(0.25)
-              : _pending.withOpacity(0.35),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: _primary.withOpacity(visto ? 0.05 : 0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 5),
-          ),
-        ],
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: 280 + (index * 50)),
+      curve: Curves.easeOutCubic,
+      builder: (context, val, child) => Transform.translate(
+        offset: Offset(0, 16 * (1 - val)),
+        child: Opacity(opacity: val, child: child),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Encabezado con estado ────────────────────────────────
-            Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 16, vertical: 11),
-              decoration: BoxDecoration(
-                color: visto
-                    ? _success.withOpacity(0.05)
-                    : _pending.withOpacity(0.05),
-                border: Border(
-                  bottom: const BorderSide(color: Color(0xFFE2E8F0)),
-                  left: BorderSide(
-                      color: visto ? _success : _pending, width: 4),
-                ),
-              ),
-              child: Row(
-                children: [
-                  // Ícono de estado
-                  Icon(
-                    visto
-                        ? Icons.check_circle_rounded
-                        : Icons.watch_later_rounded,
-                    color: visto ? _success : _pending,
-                    size: 15,
-                  ),
-                  const SizedBox(width: 6),
-                  // Texto de estado
-                  Text(
-                    visto
-                        ? 'ADMIN YA REVISÓ TU REPORTE'
-                        : 'AÚN NO LO HA VISTO EL ADMIN',
-                    style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        color: visto ? _success : _pending,
-                        letterSpacing: 0.8),
-                  ),
-                  const Spacer(),
-                  Icon(Icons.access_time_rounded,
-                      size: 12, color: Colors.grey[400]),
-                  const SizedBox(width: 4),
-                  Text(
-                    fecha != null
-                        ? DateFormat('dd/MM/yyyy  HH:mm').format(fecha)
-                        : '—',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey[500],
-                        fontWeight: FontWeight.w500),
-                  ),
-                ],
-              ),
-            ),
-
-            // ── Banner informativo según estado ──────────────────────
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 16, vertical: 8),
-              color: visto
-                  ? _success.withOpacity(0.07)
-                  : _pending.withOpacity(0.07),
-              child: Row(
-                children: [
-                  Icon(
-                    visto
-                        ? Icons.visibility_rounded
-                        : Icons.hourglass_empty_rounded,
-                    size: 13,
-                    color: visto ? _success : _pending,
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      visto
-                          ? 'Tu reporte fue revisado por el administrador.'
-                          : 'Tu reporte está en espera de revisión por el administrador.',
-                      style: TextStyle(
-                          fontSize: 11,
-                          color: visto
-                              ? _success.withOpacity(0.85)
-                              : _pending.withOpacity(0.85),
-                          fontWeight: FontWeight.w500),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // ── Cuerpo ───────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Fila: Camión + Placas
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _datoItem(
-                            Icons.directions_bus_rounded,
-                            'CAMIÓN',
-                            data['camion'] ?? '—',
-                            _accent),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _datoItem(
-                            Icons.pin_rounded,
-                            'PLACAS',
-                            data['placas'] ?? '—',
-                            _success),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 14),
-                  const Divider(color: Color(0xFFE2E8F0), height: 1),
-                  const SizedBox(height: 14),
-
-                  // Descripción
-                  const Text('DESCRIPCIÓN DEL INCIDENTE',
-                      style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          color: _slate,
-                          letterSpacing: 0.8)),
-                  const SizedBox(height: 8),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                          color: const Color(0xFFE2E8F0)),
-                    ),
-                    child: Text(
-                      data['mensaje'] ?? 'Sin descripción',
-                      style: const TextStyle(
-                          fontSize: 14,
-                          color: _primary,
-                          fontWeight: FontWeight.w500,
-                          height: 1.5),
-                    ),
-                  ),
-
-                  // Fotos (solo vista previa, sin descarga)
-                  if (fotos.isNotEmpty) ...[
-                    const SizedBox(height: 14),
-                    const Text('EVIDENCIA FOTOGRÁFICA',
-                        style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            color: _slate,
-                            letterSpacing: 0.8)),
-                    const SizedBox(height: 8),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: fotos.map((url) {
-                          return GestureDetector(
-                            onTap: () => _verFoto(url),
-                            child: Container(
-                              margin: const EdgeInsets.only(right: 12),
-                              child: ClipRRect(
-                                borderRadius:
-                                    BorderRadius.circular(12),
-                                child: Image.network(
-                                  url,
-                                  width: 110,
-                                  height: 110,
-                                  fit: BoxFit.cover,
-                                  loadingBuilder: (_, child, prog) {
-                                    if (prog == null) return child;
-                                    return Container(
-                                      width: 110,
-                                      height: 110,
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey[100],
-                                        borderRadius:
-                                            BorderRadius.circular(12),
-                                      ),
-                                      child:
-                                          const Center(
-                                        child:
-                                            CircularProgressIndicator(
-                                                color: _accent,
-                                                strokeWidth: 2),
-                                      ),
-                                    );
-                                  },
-                                  errorBuilder: (_, __, ___) =>
-                                      Container(
-                                    width: 110,
-                                    height: 110,
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey[100],
-                                      borderRadius:
-                                          BorderRadius.circular(12),
-                                    ),
-                                    child: Icon(
-                                        Icons.broken_image_rounded,
-                                        color: Colors.grey[400],
-                                        size: 32),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  ] else ...[
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Icon(Icons.image_not_supported_rounded,
-                            size: 14, color: Colors.grey[400]),
-                        const SizedBox(width: 6),
-                        Text('Sin evidencia fotográfica',
-                            style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[400],
-                                fontStyle: FontStyle.italic)),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          color: _surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: visto
+                ? _success.withOpacity(0.3)
+                : _pending.withOpacity(0.4),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: _primary.withOpacity(0.06),
+              blurRadius: 16,
+              offset: const Offset(0, 5),
             ),
           ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+
+              // ── ALERTA GRANDE DE ESTADO ──────────────────────────────
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 20, vertical: 18),
+                decoration: BoxDecoration(
+                  color: visto
+                      ? _success.withOpacity(0.10)
+                      : _pending.withOpacity(0.10),
+                  border: Border(
+                    left: BorderSide(
+                        color: visto ? _success : _pending, width: 6),
+                    bottom: BorderSide(
+                        color: (visto ? _success : _pending)
+                            .withOpacity(0.2)),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    // Ícono grande
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: (visto ? _success : _pending)
+                            .withOpacity(0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        visto
+                            ? Icons.check_circle_rounded
+                            : Icons.watch_later_rounded,
+                        color: visto ? _success : _pending,
+                        size: 32,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            visto
+                                ? '✅ El admin ya revisó tu reporte'
+                                : '⏳ Aún no lo ha visto el admin',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
+                              color: visto ? _success : _pending,
+                              height: 1.3,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            visto
+                                ? 'Tu reporte fue revisado por el administrador.'
+                                : 'Tu reporte está en espera de revisión.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: (visto ? _success : _pending)
+                                  .withOpacity(0.8),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // ── Fecha ────────────────────────────────────────────────
+              Padding(
+                padding:
+                    const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: Row(
+                  children: [
+                    Icon(Icons.access_time_rounded,
+                        size: 14, color: Colors.grey[400]),
+                    const SizedBox(width: 5),
+                    Text(
+                      fecha != null
+                          ? DateFormat('dd/MM/yyyy  HH:mm').format(fecha)
+                          : '—',
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[500],
+                          fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 14),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: Divider(color: Color(0xFFE2E8F0), height: 1),
+              ),
+              const SizedBox(height: 14),
+
+              // ── DESCRIPCIÓN — texto más grande para adultos mayores ──
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                child: Text(
+                  'DESCRIPCIÓN DEL INCIDENTE',
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: _slate,
+                      letterSpacing: 0.8),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Text(
+                    data['mensaje'] ?? 'Sin descripción',
+                    // ↓ Más grande para adultos mayores
+                    style: const TextStyle(
+                      fontSize: 17,
+                      color: _primary,
+                      fontWeight: FontWeight.w500,
+                      height: 1.6,
+                    ),
+                  ),
+                ),
+              ),
+
+              // ── FOTOS — botón "Ver fotografía" ───────────────────────
+              if (fotos.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: Divider(color: Color(0xFFE2E8F0), height: 1),
+                ),
+                const SizedBox(height: 14),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                  child: Text(
+                    'EVIDENCIA FOTOGRÁFICA',
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: _slate,
+                        letterSpacing: 0.8),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                // Un botón por cada foto
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                  child: Column(
+                    children: fotos.asMap().entries.map((e) {
+                      final idx = e.key + 1;
+                      final url = e.value;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: _accent,
+                              side: BorderSide(
+                                  color: _accent.withOpacity(0.4)),
+                              backgroundColor: _accent.withOpacity(0.05),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 14),
+                            ),
+                            onPressed: () => _verFoto(url),
+                            icon: const Icon(Icons.photo_rounded, size: 20),
+                            label: Text(
+                              fotos.length == 1
+                                  ? 'Ver fotografía'
+                                  : 'Ver fotografía $idx',
+                              style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 16),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // ── Ver foto en pantalla completa (solo lectura) ───────────────────────────
+  // ── Ver foto pantalla completa (solo lectura, sin descarga) ───────────────
   void _verFoto(String url) {
     showGeneralDialog(
       context: context,
@@ -712,45 +560,6 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  // ── Dato individual ───────────────────────────────────────────────────────
-  Widget _datoItem(
-      IconData icon, String label, String valor, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.15)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label,
-                    style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        color: color.withOpacity(0.7),
-                        letterSpacing: 0.5)),
-                const SizedBox(height: 2),
-                Text(valor,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: color == _slate ? _primary : color)),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
