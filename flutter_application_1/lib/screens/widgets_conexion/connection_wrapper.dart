@@ -1,7 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
-import 'pantalla_sin_conexion.dart'; // Importamos la pantalla que creamos arriba
+import 'pantalla_sin_conexion.dart';
 
 class ConnectionWrapper extends StatefulWidget {
   final Widget child;
@@ -12,35 +13,43 @@ class ConnectionWrapper extends StatefulWidget {
 }
 
 class _ConnectionWrapperState extends State<ConnectionWrapper> {
-  // Variable para guardar el estado del internet
-  bool _tieneInternet = true;
-  late StreamSubscription<List<ConnectivityResult>> _subscription;
+  bool? _tieneInternet; // null = verificando
+  late StreamSubscription<List<ConnectivityResult>> _sub;
 
   @override
   void initState() {
     super.initState();
-    // Empezamos a escuchar cambios en el internet
-    _subscription = Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> result) {
-      setState(() {
-        // Si la lista contiene 'none', es que no hay nada de internet
-        _tieneInternet = !result.contains(ConnectivityResult.none);
-      });
-    });
+    _verificar();
+    _sub = Connectivity().onConnectivityChanged.listen((_) => _verificar());
   }
 
   @override
   void dispose() {
-    _subscription.cancel(); // Cerramos el vigilante cuando no se necesite
+    _sub.cancel();
     super.dispose();
+  }
+
+  Future<void> _verificar() async {
+    try {
+      final result = await InternetAddress.lookup('8.8.8.8')
+          .timeout(const Duration(seconds: 4));
+      if (mounted) {
+        setState(() =>
+            _tieneInternet = result.isNotEmpty && result[0].rawAddress.isNotEmpty);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _tieneInternet = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // SI NO HAY INTERNET: Muestra la pantalla roja de error
-    if (!_tieneInternet) {
-      return const PantallaSinConexion();
+    if (_tieneInternet == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    // SI HAY INTERNET: Muestra la pantalla normal (Trabajador u Operador)
+    if (!_tieneInternet!) {
+      return PantallaSinConexion(onReintentar: _verificar);
+    }
     return widget.child;
   }
 }

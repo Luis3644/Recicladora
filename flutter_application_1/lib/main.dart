@@ -15,35 +15,28 @@ import 'screens/admin_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/operador_screen.dart';
 import 'screens/jornada_screen.dart';
+import 'screens/widgets_conexion/connection_wrapper.dart';
 
 void main() async {
-  // 1. Asegurar que Flutter esté listo
   WidgetsFlutterBinding.ensureInitialized();
-
-  // 2. Inicializar Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-
-  // 3. Configuración de Firestore (Persistencia)
   FirebaseFirestore.instance.settings = const Settings(
     persistenceEnabled: true,
     cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
   );
-
-  // 4. Configuración de Crashlytics
   FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
-
-  // 5. Configuración de Analytics y evento de prueba
   final FirebaseAnalytics analytics = FirebaseAnalytics.instance;
   await analytics.logEvent(
     name: "super_prueba",
     parameters: {"timestamp": DateTime.now().toIso8601String()},
   );
-
-  // 6. Inicializar fechas en español y lanzar la App
   await initializeDateFormatting('es_ES', null);
-
   runApp(const MyApp());
 }
+
+// ── Estado global del rol — lo necesitamos para saber si es operador ─────────
+// Usamos un ValueNotifier para que el builder de MaterialApp lo escuche.
+final ValueNotifier<String?> rolActualNotifier = ValueNotifier<String?>(null);
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -53,25 +46,37 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Recicladora App',
-
-      // --- CONFIGURACIÓN DE IDIOMA PARA CALENDARIOS Y WIDGETS ---
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
       supportedLocales: const [
-        Locale('es', 'ES'), // Español
-        Locale('en', 'US'), // Inglés por si acaso
+        Locale('es', 'ES'),
+        Locale('en', 'US'),
       ],
-      locale: const Locale('es', 'ES'), // Forzamos la app a español
-      // ---------------------------------------------------------
+      locale: const Locale('es', 'ES'),
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color.fromARGB(255, 249, 8, 124),
         ),
         useMaterial3: true,
       ),
+      // ── CLAVE: builder se ejecuta en CADA pantalla de toda la app ──────────
+      // Si el rol es 'operador', envolvemos con ConnectionWrapper.
+      // Esto cubre TODAS las pantallas sin importar cuántas navegaciones haya.
+      // Admin y trabajador nunca ven la pantalla de sin conexión.
+      builder: (context, child) {
+        return ValueListenableBuilder<String?>(
+          valueListenable: rolActualNotifier,
+          builder: (context, rol, _) {
+            if (rol == 'operador') {
+              return ConnectionWrapper(child: child!);
+            }
+            return child!;
+          },
+        );
+      },
       home: const AppSplashScreen(child: SessionBootstrapScreen()),
     );
   }
@@ -79,7 +84,6 @@ class MyApp extends StatelessWidget {
 
 class AppSplashScreen extends StatefulWidget {
   const AppSplashScreen({super.key, required this.child});
-
   final Widget child;
 
   @override
@@ -114,14 +118,12 @@ class _AppSplashScreenState extends State<AppSplashScreen> {
   @override
   Widget build(BuildContext context) {
     if (_showChild) return widget.child;
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final usarPc = _usarSplashPc(constraints);
         final imagePath = usarPc
             ? 'assets/splash screen pc.jpeg'
             : 'assets/imagen splassh screen movil.jpeg';
-
         return Scaffold(
           body: SizedBox.expand(
             child: Image.asset(imagePath, fit: BoxFit.cover),
@@ -176,12 +178,14 @@ class SessionBootstrapScreen extends StatelessWidget {
         );
       }
 
-      // --- Lógica de redirección por Rol (Ahora dentro del flujo async) ---
-      if (rol == 'admin') return const AdminScreen();
+      // ── Notificar el rol al builder global ──────────────────────────────
+      // Esto activa/desactiva ConnectionWrapper en toda la app
+      rolActualNotifier.value = rol;
+
+      if (rol == 'admin')      return const AdminScreen();
       if (rol == 'trabajador') return const TrabajadorScreen();
 
       if (rol == 'operador') {
-        // Ahora aquí el await sí es válido
         final jornadaDoc = await FirebaseFirestore.instance
             .collection('usuarios')
             .doc(nombre)
@@ -205,8 +209,6 @@ class SessionBootstrapScreen extends StatelessWidget {
     }
   }
 
-  // Eliminamos _pantallaPorRol porque la lógica ya está arriba
-  
   Future<DocumentSnapshot<Map<String, dynamic>>?> _obtenerPerfilUsuarioFirebase(
     User currentUser,
   ) async {
@@ -220,11 +222,10 @@ class SessionBootstrapScreen extends StatelessWidget {
 
     final email = currentUser.email;
     if (email == null || email.isEmpty) return null;
-    final emailNormalizado = _normalizarCorreo(email);
 
     final porEmail = await FirebaseFirestore.instance
         .collection('usuarios')
-        .where('email', isEqualTo: emailNormalizado)
+        .where('email', isEqualTo: _normalizarCorreo(email))
         .limit(1)
         .get()
         .timeout(_firebaseTimeout);
@@ -233,9 +234,8 @@ class SessionBootstrapScreen extends StatelessWidget {
     return porEmail.docs.first;
   }
 
-  bool _rolValido(String rol) {
-    return rol == 'admin' || rol == 'operador' || rol == 'trabajador';
-  }
+  bool _rolValido(String rol) =>
+      rol == 'admin' || rol == 'operador' || rol == 'trabajador';
 
   @override
   Widget build(BuildContext context) {
