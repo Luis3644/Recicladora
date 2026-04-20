@@ -1,4 +1,4 @@
-qimport 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../config/session_manager.dart';
 import '../login_screen.dart';
