@@ -273,6 +273,135 @@ class _AdminScreenState extends State<AdminScreen>
     _camionesExpanded ? _drawerAnimCtrl.forward() : _drawerAnimCtrl.reverse();
   }
 
+  Future<void> obtenerNombre() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        if (!mounted) return;
+        setState(() {
+          nombreUsuario = 'Administrador';
+          isLoading = false;
+        });
+        return;
+      }
+
+      final doc = await FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(user.uid)
+          .get();
+      final data = doc.data();
+      if (!mounted) return;
+
+      setState(() {
+        nombreUsuario =
+            data?['nombre']?.toString().trim().isNotEmpty == true
+                ? data!['nombre'].toString().trim()
+                : user.displayName?.trim().isNotEmpty == true
+                    ? user.displayName!.trim()
+                    : 'Administrador';
+        isLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        nombreUsuario = 'Administrador';
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _recargarPanelAdmin() async {
+    await obtenerNombre();
+  }
+
+  Future<void> _cerrarSesion() async {
+    try {
+      await SessionManager.limpiarSesionRemota();
+      await FirebaseAuth.instance.signOut();
+      await SessionManager.limpiarSesion();
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al cerrar sesión: $e')),
+      );
+    }
+  }
+
+  Future<void> _confirmarYCerrarSesion() async {
+    final confirmar =
+            await showDialog<bool>(
+              context: context,
+              builder: (_) => AlertDialog(
+                title: const Text('Cerrar sesión'),
+                content: const Text('¿Estás seguro de salir de la sesión?'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('Cancelar'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    child: const Text('Sí, salir'),
+                  ),
+                ],
+              ),
+            ) ??
+        false;
+    if (!confirmar) return;
+    await _cerrarSesion();
+  }
+
+  void _abrirUsuarios() => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const UsuariosScreen()),
+      );
+
+  void _abrirReportes() => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const ReportesEquipoScreen()),
+      );
+
+  void _abrirIncidentes() => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const ListaIncidentesAdmin()),
+      );
+
+  void _abrirReporteGasolina() => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const ReporteGasolinaCamionesScreen(),
+        ),
+      );
+
+  void _abrirReporteToneladas() => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const ReporteToneladasAdminScreen(),
+        ),
+      );
+
+  void _abrirPanelGeneralUsuarios() => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const PanelGeneralUsuariosScreen()),
+      );
+
+  void _abrirMapaGeneralOperadores() => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const MapaGeneralOperadoresScreen()),
+      );
+
+  void _abrirNotificacionesAdmin() => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AdminNotificacionesScreen(adminNombre: nombreUsuario),
+        ),
+      );
+
   // ── Precauciones ──────────────────────────────────────────────────────────
   Future<void> _inicializarAvisoPrecauciones() async {
     if (_avisoPrecaucionMostrado) return;
@@ -303,36 +432,43 @@ class _AdminScreenState extends State<AdminScreen>
       final iosImpl = _notificaciones
           .resolvePlatformSpecificImplementation<
               IOSFlutterLocalNotificationsPlugin>();
-      await iosImpl?.requestPermissions(alert: true, badge: true, sound: true);
+      await iosImpl?.requestPermissions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
 
-      const androidDetails = AndroidNotificationDetails(
-        'epp_recomendaciones',
-        'Recomendaciones de seguridad',
-        channelDescription: 'Avisos de uso de equipo de protección personal',
-        importance: Importance.high,
-        priority: Priority.high,
-      );
-      await _notificaciones.show(
-        2001,
-        'Seguridad en planta',
-        'Recordatorio: Usa cubrebocas, guantes y el uniforme',
-        const NotificationDetails(
-          android: androidDetails,
-          iOS: DarwinNotificationDetails(),
+      const details = NotificationDetails(
+        android: AndroidNotificationDetails(
+          'precauciones_admin',
+          'Precauciones de administración',
+          channelDescription: 'Avisos preventivos para administración',
+          importance: Importance.max,
+          priority: Priority.high,
         ),
+        iOS: DarwinNotificationDetails(),
       );
-    } catch (e) {
-      debugPrint('No se pudo mostrar la notificación en admin: $e');
+
+      await _notificaciones.show(
+        1,
+        'Precauciones de seguridad',
+        'Revisa los procedimientos antes de comenzar tus tareas.',
+        details,
+      );
+    } catch (_) {
+      // Aviso informativo: no bloquea la pantalla si falla.
     }
   }
 
   Future<void> _mostrarDialogoPrecaucionesTrabajo() async {
+    if (!mounted) return;
     await showDialog<void>(
       context: context,
-      builder: (_) => AlertDialog(
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
         title: const Row(
           children: [
-            Icon(Icons.health_and_safety_rounded, color: Color(0xFF1D4ED8)),
+            Icon(Icons.health_and_safety_rounded, color: Color(0xFF0B1F3A)),
             SizedBox(width: 8),
             Expanded(child: Text('Precauciones de trabajo')),
           ],
@@ -377,138 +513,6 @@ class _AdminScreenState extends State<AdminScreen>
       ),
     );
   }
-
-  // ── Perfil ────────────────────────────────────────────────────────────────
-  Future<DocumentSnapshot<Map<String, dynamic>>?> _obtenerPerfilUsuario() async {
-    final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) return null;
-
-    final doc = await FirebaseFirestore.instance
-        .collection('usuarios')
-        .doc(currentUser.uid)
-        .get();
-    if (doc.exists) return doc;
-
-    final email = currentUser.email;
-    if (email == null || email.isEmpty) return null;
-
-    final query = await FirebaseFirestore.instance
-        .collection('usuarios')
-        .where('email', isEqualTo: email)
-        .limit(1)
-        .get();
-    if (query.docs.isEmpty) return null;
-    return query.docs.first;
-  }
-
-  Future<void> obtenerNombre() async {
-    try {
-      final doc = await _obtenerPerfilUsuario();
-      if (!mounted) return;
-      setState(() {
-        nombreUsuario =
-            doc?.data()?['nombre']?.toString() ?? 'Administrador';
-        isLoading = false;
-      });
-    } catch (e) {
-      debugPrint('Error obteniendo nombre: $e');
-      if (!mounted) return;
-      setState(() => isLoading = false);
-    }
-  }
-
-  Future<void> _recargarPanelAdmin() async => obtenerNombre();
-
-  // ── Cerrar sesión ─────────────────────────────────────────────────────────
-  Future<void> _cerrarSesion() async {
-    try {
-      await SessionManager.limpiarSesionRemota();
-      await FirebaseAuth.instance.signOut();
-      await SessionManager.limpiarSesion();
-      if (!mounted) return;
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-        (route) => false,
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error al cerrar sesión: $e')));
-    }
-  }
-
-  Future<void> _confirmarYCerrarSesion() async {
-    final confirmar = await showDialog<bool>(
-          context: context,
-          builder: (_) => AlertDialog(
-            title: const Text('Cerrar sesión'),
-            content: const Text('¿Estás seguro de salir de la sesión?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancelar'),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Sí, salir'),
-              ),
-            ],
-          ),
-        ) ??
-        false;
-    if (!confirmar) return;
-    await _cerrarSesion();
-  }
-
-  // ── Navegación ────────────────────────────────────────────────────────────
-  void _abrirUsuarios() => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const UsuariosScreen()),
-      );
-
-  void _abrirReportes() => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const ReportesEquipoScreen()),
-      );
-
-  void _abrirIncidentes() => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const ListaIncidentesAdmin()),
-      );
-
-  void _abrirMonitoreoUbicacion() => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const MonitoreoUbicacionScreen()),
-      );
-
-  void _abrirPanelGeneralUsuarios() => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const PanelGeneralUsuariosScreen()),
-      );
-
-  void _abrirMapaGeneralOperadores() => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const MapaGeneralOperadoresScreen()),
-      );
-
-  void _abrirNotificacionesAdmin() => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) =>
-              AdminNotificacionesScreen(adminNombre: nombreUsuario),
-        ),
-      );
-
-  void _abrirReporteGasolina() => Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (_) => const ReporteGasolinaCamionesScreen()),
-      );
-
-  void _abrirReporteToneladas() => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => ReporteToneladasAdminScreen()),
-      );
 
   // ── Drawer ────────────────────────────────────────────────────────────────
   Widget _buildAdminDrawer(BuildContext context) {
@@ -950,15 +954,6 @@ class _AdminScreenState extends State<AdminScreen>
                                 'Tráfico, averías y retrasos en ruta',
                             onTap: _abrirIncidentes,
                             color: const Color(0xFF60A5FA),
-                            compact: isMobile,
-                          ),
-                          _AnimatedOptionCard(
-                            icon: Icons.location_on_rounded,
-                            title: 'Monitoreo de Ubicación',
-                            description:
-                                'Seguimiento en tiempo real de operadores',
-                            onTap: _abrirMonitoreoUbicacion,
-                            color: const Color(0xFF10B981),
                             compact: isMobile,
                           ),
                           _AnimatedOptionCard(
@@ -1653,207 +1648,6 @@ class _RecomendacionItemAdmin extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(child: Text(texto, style: const TextStyle(fontSize: 14))),
       ],
-    );
-  }
-}
-
-// --- PANTALLA DE MONITOREO DE UBICACIÓN ---
-class MonitoreoUbicacionScreen extends StatefulWidget {
-  const MonitoreoUbicacionScreen({super.key});
-
-  @override
-  State<MonitoreoUbicacionScreen> createState() =>
-      _MonitoreoUbicacionScreenState();
-}
-
-class _MonitoreoUbicacionScreenState extends State<MonitoreoUbicacionScreen> {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FB),
-      appBar: AppBar(
-        title: const Text(
-          "Monitoreo de Ubicación",
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-            letterSpacing: 0.5,
-          ),
-        ),
-        backgroundColor: const Color(0xFF10B981),
-        foregroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: false,
-      ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection("usuarios")
-            .where("rol", isEqualTo: "operador")
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return const Center(
-              child: CircularProgressIndicator(color: Color(0xFF10B981)),
-            );
-          }
-
-          final operadores = snapshot.data!.docs;
-          if (operadores.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.location_off, size: 80, color: Colors.grey[300]),
-                  const SizedBox(height: 16),
-                  Text(
-                    "No hay operadores registrados",
-                    style: TextStyle(
-                      color: Colors.grey[500],
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: operadores.length,
-            itemBuilder: (context, index) {
-              final doc = operadores[index];
-              final data = doc.data() as Map<String, dynamic>;
-
-              String nombre =
-                  (data["nombre"]?.toString().trim().isNotEmpty ?? false)
-                  ? data["nombre"]!.toString().trim()
-                  : "Sin nombre";
-              String apellido =
-                  (data["apellido_paterno"]?.toString().trim().isNotEmpty ??
-                      false)
-                  ? data["apellido_paterno"]!.toString().trim()
-                  : "";
-              String inicial = nombre.isNotEmpty
-                  ? nombre[0].toUpperCase()
-                  : "?";
-              String telefono = data["telefono"]?.toString().trim() ?? "S/T";
-              String direccion =
-                  data["direccion"]?.toString().trim() ??
-                  "Ubicación no disponible";
-
-              return Card(
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(color: Colors.grey.withValues(alpha: 0.12)),
-                ),
-                margin: const EdgeInsets.only(bottom: 12),
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Colors.white,
-                        Colors.grey.withValues(alpha: 0.02),
-                      ],
-                    ),
-                  ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    leading: CircleAvatar(
-                      radius: 28,
-                      backgroundColor: const Color(
-                        0xFF10B981,
-                      ).withValues(alpha: 0.1),
-                      child: Text(
-                        inicial,
-                        style: const TextStyle(
-                          color: Color(0xFF10B981),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                    title: Text(
-                      apellido.isNotEmpty ? "$nombre $apellido" : nombre,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.phone,
-                              size: 14,
-                              color: Color(0xFF10B981),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              telefono,
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.location_on,
-                              size: 14,
-                              color: Color(0xFF10B981),
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                direccion,
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 12,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    trailing: Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF10B981).withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Padding(
-                        padding: EdgeInsets.all(8.0),
-                        child: Icon(
-                          Icons.location_on_rounded,
-                          color: Color(0xFF10B981),
-                          size: 22,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
-          );
-        },
-      ),
     );
   }
 }

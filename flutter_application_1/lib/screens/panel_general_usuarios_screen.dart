@@ -12,14 +12,15 @@ class PanelGeneralUsuariosScreen extends StatefulWidget {
 
 class _PanelGeneralUsuariosScreenState extends State<PanelGeneralUsuariosScreen>
     with SingleTickerProviderStateMixin {
-  static const Color _primary = Color(0xFF0B1F3A);
-  static const Color _secondary = Color(0xFF1E3A8A);
-  static const Color _accent = Color(0xFF0F766E);
-  static const Color _success = Color(0xFF15803D);
-  static const Color _warning = Color(0xFFB45309);
-  static const Color _danger = Color(0xFFB91C1C);
-  static const Color _bg = Color(0xFFF3F6FB);
+  static const Color _primary = Color(0xFF0D1B2A);
+  static const Color _secondary = Color(0xFF1D4ED8);
+  static const Color _accent = Color(0xFF06B6D4);
+  static const Color _success = Color(0xFF059669);
+  static const Color _warning = Color(0xFFD97706);
+  static const Color _danger = Color(0xFFDC2626);
+  static const Color _bg = Color(0xFFF8FAFC);
   static const Color _surface = Colors.white;
+  static const Color _whatsapp = Color(0xFF25D366);
 
   bool _contentVisible = false;
   late AnimationController _controller;
@@ -44,8 +45,32 @@ class _PanelGeneralUsuariosScreenState extends State<PanelGeneralUsuariosScreen>
     super.dispose();
   }
 
-  Future<void> _llamarTelefono(String telefonoCrudo) async {
-    final telefono = telefonoCrudo.trim().replaceAll(RegExp(r'[^0-9+]'), '');
+  String _soloDigitos(String texto) {
+    return texto.trim().replaceAll(RegExp(r'[^0-9]'), '');
+  }
+
+  String _telefonoParaLlanta(String telefonoCrudo) {
+    final texto = telefonoCrudo.trim().replaceAll(RegExp(r'[^0-9+]'), '');
+    return texto;
+  }
+
+  String _telefonoParaWhatsApp(String telefonoCrudo) {
+    final telefono = _soloDigitos(telefonoCrudo);
+    if (telefono.isEmpty) return '';
+
+    if (telefono.startsWith('52') && telefono.length >= 12) {
+      return telefono;
+    }
+
+    if (telefono.length == 10) {
+      return '52$telefono';
+    }
+
+    return telefono;
+  }
+
+  Future<void> _abrirWhatsApp(String telefonoCrudo, String nombre) async {
+    final telefono = _telefonoParaWhatsApp(telefonoCrudo);
     if (telefono.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -54,15 +79,31 @@ class _PanelGeneralUsuariosScreenState extends State<PanelGeneralUsuariosScreen>
       return;
     }
 
-    final uri = Uri(scheme: 'tel', path: telefono);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
+    final mensaje = Uri.encodeComponent(
+      'Hola ${nombre.trim().isEmpty ? 'usuario' : nombre}, te contacto desde administración.',
+    );
+
+    // Intenta abrir web.whatsapp.com (funciona mejor que URI scheme)
+    try {
+      final webUri = Uri.parse('https://wa.me/$telefono?text=$mensaje');
+      await launchUrl(webUri, mode: LaunchMode.externalApplication);
       return;
-    }
+    } catch (_) {}
+
+    // Fallback: Intenta la app nativa
+    try {
+      final appUri = Uri.parse('whatsapp://send?phone=$telefono&text=$mensaje');
+      if (await canLaunchUrl(appUri)) {
+        await launchUrl(appUri, mode: LaunchMode.externalApplication);
+        return;
+      }
+    } catch (_) {}
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('No se pudo abrir la app de teléfono')),
+      const SnackBar(
+        content: Text('Abre WhatsApp manualmente e ingresa el número del usuario.'),
+      ),
     );
   }
 
@@ -213,14 +254,19 @@ class _PanelGeneralUsuariosScreenState extends State<PanelGeneralUsuariosScreen>
                     child: Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(9),
+                          padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: _secondary.withOpacity(0.14),
-                            borderRadius: BorderRadius.circular(10),
+                            gradient: LinearGradient(
+                              colors: [
+                                _secondary.withOpacity(0.18),
+                                _accent.withOpacity(0.14),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Icon(
                             Icons.groups_rounded,
-                            color: _secondary,
+                            color: _primary,
                             size: 22,
                           ),
                         ),
@@ -230,8 +276,8 @@ class _PanelGeneralUsuariosScreenState extends State<PanelGeneralUsuariosScreen>
                             'Vista general de trabajadores, operadores y administradores',
                             style: TextStyle(
                               color: _primary,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ),
@@ -312,6 +358,7 @@ class _PanelGeneralUsuariosScreenState extends State<PanelGeneralUsuariosScreen>
                             data['telefono']?.toString().trim() ?? '';
                         final camion =
                             data['camion_actual']?.toString().trim() ?? '';
+                        final email = data['email']?.toString().trim() ?? '';
                         final nombreCompleto = apellido.isNotEmpty
                             ? '$nombre $apellido'
                             : nombre;
@@ -333,16 +380,20 @@ class _PanelGeneralUsuariosScreenState extends State<PanelGeneralUsuariosScreen>
                             );
                           },
                           child: Container(
-                            padding: const EdgeInsets.all(14),
+                            padding: const EdgeInsets.all(15),
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
-                                colors: [_surface, rolColor.withOpacity(0.06)],
+                                colors: [
+                                  _surface,
+                                  rolColor.withOpacity(0.05),
+                                  _accent.withOpacity(0.03),
+                                ],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ),
                               borderRadius: BorderRadius.circular(14),
                               border: Border.all(
-                                color: rolColor.withOpacity(0.25),
+                                color: rolColor.withOpacity(0.22),
                               ),
                               boxShadow: [
                                 BoxShadow(
@@ -354,14 +405,30 @@ class _PanelGeneralUsuariosScreenState extends State<PanelGeneralUsuariosScreen>
                             ),
                             child: Row(
                               children: [
-                                CircleAvatar(
-                                  radius: 22,
-                                  backgroundColor: rolColor.withOpacity(0.16),
+                                Container(
+                                  width: 48,
+                                  height: 48,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        rolColor.withOpacity(0.20),
+                                        rolColor.withOpacity(0.10),
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    border: Border.all(
+                                      color: rolColor.withOpacity(0.18),
+                                    ),
+                                  ),
+                                  alignment: Alignment.center,
                                   child: Text(
                                     inicial.toUpperCase(),
                                     style: TextStyle(
                                       color: rolColor,
-                                      fontWeight: FontWeight.w800,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 17,
                                     ),
                                   ),
                                 ),
@@ -375,12 +442,16 @@ class _PanelGeneralUsuariosScreenState extends State<PanelGeneralUsuariosScreen>
                                         nombreCompleto,
                                         style: const TextStyle(
                                           fontWeight: FontWeight.w700,
-                                          fontSize: 14,
+                                          fontSize: 15,
                                           color: _primary,
                                         ),
                                       ),
                                       const SizedBox(height: 4),
-                                      Row(
+                                      Wrap(
+                                        spacing: 6,
+                                        runSpacing: 6,
+                                        crossAxisAlignment:
+                                            WrapCrossAlignment.center,
                                         children: [
                                           Container(
                                             padding: const EdgeInsets.symmetric(
@@ -401,33 +472,78 @@ class _PanelGeneralUsuariosScreenState extends State<PanelGeneralUsuariosScreen>
                                               ),
                                             ),
                                           ),
-                                          if (camion.isNotEmpty) ...[
-                                            const SizedBox(width: 6),
-                                            Expanded(
+                                          if (camion.isNotEmpty)
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 8,
+                                                vertical: 4,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: _accent.withOpacity(0.10),
+                                                borderRadius:
+                                                    BorderRadius.circular(30),
+                                              ),
                                               child: Text(
                                                 'Camión: $camion',
                                                 style: TextStyle(
-                                                  color: _primary.withOpacity(
-                                                    0.72,
-                                                  ),
+                                                  color: _accent,
+                                                  fontWeight: FontWeight.w700,
                                                   fontSize: 11,
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            Icons.phone_rounded,
+                                            size: 14,
+                                            color: _primary.withOpacity(0.5),
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Expanded(
+                                            child: Text(
+                                              telefono.isNotEmpty
+                                                  ? telefono
+                                                  : 'Sin teléfono',
+                                              style: TextStyle(
+                                                color: _primary.withOpacity(
+                                                  0.62,
+                                                ),
+                                                fontSize: 12,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      if (email.isNotEmpty) ...[
+                                        const SizedBox(height: 4),
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              Icons.email_outlined,
+                                              size: 14,
+                                              color: _primary.withOpacity(0.5),
+                                            ),
+                                            const SizedBox(width: 5),
+                                            Expanded(
+                                              child: Text(
+                                                email,
+                                                style: TextStyle(
+                                                  color: _primary.withOpacity(
+                                                    0.62,
+                                                  ),
+                                                  fontSize: 12,
                                                 ),
                                                 overflow: TextOverflow.ellipsis,
                                               ),
                                             ),
                                           ],
-                                        ],
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        telefono.isNotEmpty
-                                            ? telefono
-                                            : 'Sin teléfono',
-                                        style: TextStyle(
-                                          color: _primary.withOpacity(0.58),
-                                          fontSize: 12,
                                         ),
-                                      ),
+                                      ],
                                       const SizedBox(height: 6),
                                       Row(
                                         children: [
@@ -458,19 +574,68 @@ class _PanelGeneralUsuariosScreenState extends State<PanelGeneralUsuariosScreen>
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                IconButton.filled(
-                                  onPressed: telefono.isEmpty
-                                      ? null
-                                      : () => _llamarTelefono(telefono),
-                                  style: IconButton.styleFrom(
-                                    backgroundColor: _secondary,
-                                    disabledBackgroundColor: _secondary
-                                        .withOpacity(0.2),
-                                  ),
-                                  icon: const Icon(Icons.call_rounded),
-                                  color: Colors.white,
-                                  tooltip: 'Llamar',
-                                ),
+                                if (telefono.isNotEmpty)
+                                  Container(
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [
+                                          Color(0xFF25D366),
+                                          Color(0xFF20BA61),
+                                        ],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                      borderRadius: BorderRadius.circular(10),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFF25D366)
+                                              .withOpacity(0.3),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Material(
+                                      color: Colors.transparent,
+                                      child: InkWell(
+                                        onTap: () => _abrirWhatsApp(
+                                          telefono,
+                                          nombreCompleto,
+                                        ),
+                                        borderRadius: BorderRadius.circular(10),
+                                        splashColor:
+                                            Colors.white.withOpacity(0.2),
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 6,
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(
+                                                Icons.chat_bubble_outline_rounded,
+                                                color: Colors.white,
+                                                size: 18,
+                                              ),
+                                              const SizedBox(width: 6),
+                                              const Text(
+                                                'WhatsApp',
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.w700,
+                                                  fontSize: 12.5,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  const SizedBox.shrink(),
                               ],
                             ),
                           ),
