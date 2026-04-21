@@ -24,8 +24,8 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
   static const Color _pending = Color(0xFFF59E0B);
 
   // ── Filtros ───────────────────────────────────────────────────────────────
-  String    _filtroPeriodo = 'hoy'; // ← siempre inicia en Hoy
-  DateTime? _filtroFecha;           // fecha exacta del calendario
+  String    _filtroPeriodo = 'hoy';
+  DateTime? _filtroFecha;
 
   // ── Etiquetas dinámicas ───────────────────────────────────────────────────
   String get _labelMes {
@@ -36,13 +36,35 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
 
   late AnimationController _fadeCtrl;
 
+  // ──────────────────────────────────────────────────────────────────────────
+  // FIX: guardamos el nombre del operador activo para detectar cambios
+  // ──────────────────────────────────────────────────────────────────────────
+  late String _operadorActivo;
+
   @override
   void initState() {
     super.initState();
+    _operadorActivo = widget.nombreOperador;          // ← guardamos al inicio
     _fadeCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 400),
     )..forward();
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // FIX: si el widget se reutiliza con otro operador, reiniciamos todo
+  // ──────────────────────────────────────────────────────────────────────────
+  @override
+  void didUpdateWidget(MisReportesOperador oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.nombreOperador != widget.nombreOperador) {
+      setState(() {
+        _operadorActivo = widget.nombreOperador;
+        _filtroPeriodo  = 'hoy';
+        _filtroFecha    = null;
+      });
+      _refresh();
+    }
   }
 
   @override
@@ -82,9 +104,10 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
 
   // ── Query ─────────────────────────────────────────────────────────────────
   Query<Map<String, dynamic>> _buildQuery() {
+    // FIX: usamos _operadorActivo en lugar de widget.nombreOperador
     Query<Map<String, dynamic>> q = FirebaseFirestore.instance
         .collection('reportes')
-        .where('operador', isEqualTo: widget.nombreOperador)
+        .where('operador', isEqualTo: _operadorActivo)
         .orderBy('fecha', descending: true);
 
     final now = DateTime.now();
@@ -155,7 +178,7 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
                 letterSpacing: 0.2),
           ),
           Text(
-            widget.nombreOperador,
+            _operadorActivo,                         // ← usa la variable local
             style: TextStyle(
                 fontSize: 11,
                 color: Colors.white.withOpacity(0.6),
@@ -185,7 +208,7 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
     );
   }
 
-  // ── Filtros — chips + calendario ──────────────────────────────────────────
+  // ── Filtros ───────────────────────────────────────────────────────────────
   Widget _buildFiltros() {
     return Container(
       color: _primary,
@@ -200,16 +223,13 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
             _chip('año',    _labelAno,  Icons.calendar_today_rounded),
             _chip('todo',   'Todos',    Icons.all_inclusive_rounded),
             const SizedBox(width: 8),
-            // Separador visual
             Container(width: 1, height: 24, color: Colors.white12),
             const SizedBox(width: 8),
-            // Botón de calendario
             GestureDetector(
               onTap: _abrirCalendario,
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 9),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                 decoration: BoxDecoration(
                   color: (_filtroPeriodo == 'fecha' && _filtroFecha != null)
                       ? Colors.amber
@@ -273,8 +293,7 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 13,
-                color: sel ? Colors.white : Colors.white60),
+            Icon(icon, size: 13, color: sel ? Colors.white : Colors.white60),
             const SizedBox(width: 6),
             Text(label,
                 style: TextStyle(
@@ -290,11 +309,13 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
   // ── Lista ─────────────────────────────────────────────────────────────────
   Widget _buildLista() {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      // FIX: key obliga a Flutter a destruir y recrear el StreamBuilder
+      //      cada vez que cambia el operador, el filtro o la fecha
+      key: ValueKey('$_operadorActivo-$_filtroPeriodo-$_filtroFecha'),
       stream: _buildQuery().snapshots(),
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
-          return const Center(
-              child: CircularProgressIndicator(color: _accent));
+          return const Center(child: CircularProgressIndicator(color: _accent));
         }
         if (snap.hasError) {
           return _estadoVacio(
@@ -403,11 +424,10 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
 
-              // ── ALERTA GRANDE DE ESTADO ──────────────────────────────
+              // ── ESTADO ───────────────────────────────────────────────
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 20, vertical: 18),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
                 decoration: BoxDecoration(
                   color: visto
                       ? _success.withOpacity(0.10)
@@ -416,8 +436,7 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
                     left: BorderSide(
                         color: visto ? _success : _pending, width: 6),
                     bottom: BorderSide(
-                        color: (visto ? _success : _pending)
-                            .withOpacity(0.2)),
+                        color: (visto ? _success : _pending).withOpacity(0.2)),
                   ),
                 ),
                 child: Row(
@@ -425,8 +444,7 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: (visto ? _success : _pending)
-                            .withOpacity(0.15),
+                        color: (visto ? _success : _pending).withOpacity(0.15),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
@@ -460,8 +478,7 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
                                 : 'Tu reporte está en espera de revisión.',
                             style: TextStyle(
                               fontSize: 13,
-                              color: (visto ? _success : _pending)
-                                  .withOpacity(0.8),
+                              color: (visto ? _success : _pending).withOpacity(0.8),
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -568,14 +585,11 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
                           child: OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
                               foregroundColor: _accent,
-                              side: BorderSide(
-                                  color: _accent.withOpacity(0.4)),
+                              side: BorderSide(color: _accent.withOpacity(0.4)),
                               backgroundColor: _accent.withOpacity(0.05),
                               shape: RoundedRectangleBorder(
-                                  borderRadius:
-                                      BorderRadius.circular(12)),
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 14),
+                                  borderRadius: BorderRadius.circular(12)),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
                             ),
                             onPressed: () => _verFoto(url),
                             icon: const Icon(Icons.photo_rounded, size: 20),
@@ -584,8 +598,7 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
                                   ? 'Ver fotografía'
                                   : 'Ver fotografía $idx',
                               style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700),
+                                  fontSize: 15, fontWeight: FontWeight.w700),
                             ),
                           ),
                         ),
@@ -624,8 +637,7 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
             onPressed: () => Navigator.pop(ctx),
           ),
           title: const Text('Evidencia fotográfica',
-              style: TextStyle(
-                  fontSize: 15, fontWeight: FontWeight.w600)),
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
         ),
         body: Center(
           child: InteractiveViewer(
@@ -636,8 +648,7 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
               fit: BoxFit.contain,
               loadingBuilder: (_, child, prog) {
                 if (prog == null) return child;
-                return const CircularProgressIndicator(
-                    color: Colors.white);
+                return const CircularProgressIndicator(color: Colors.white);
               },
               errorBuilder: (_, __, ___) => const Icon(
                   Icons.broken_image_rounded,

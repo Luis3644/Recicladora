@@ -63,14 +63,15 @@ class _ReportesCamionesAdminScreenState
       final snap = await FirebaseFirestore.instance
           .collection('reportes_camiones')
           .get();
-      final tipos = snap.docs
-          .map((d) => d.data()['tipo']?.toString() ?? '')
-          .where((t) => t.isNotEmpty)
+      // Mostramos PLACAS en los filtros (más fácil para el admin)
+      final placas = snap.docs
+          .map((d) => d.data()['placas']?.toString() ?? '')
+          .where((p) => p.isNotEmpty)
           .toSet()
           .toList()
         ..sort();
       if (mounted) {
-        setState(() { _camiones = tipos; _cargandoCamiones = false; });
+        setState(() { _camiones = placas; _cargandoCamiones = false; });
       }
     } catch (_) {
       if (mounted) setState(() => _cargandoCamiones = false);
@@ -138,8 +139,9 @@ class _ReportesCamionesAdminScreenState
   List<QueryDocumentSnapshot<Map<String, dynamic>>> _filtrarDocs(
       List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) {
     if (_filtroCamion == null) return docs;
+    // Filtramos por placas (mismo valor que mostramos en los chips)
     return docs
-        .where((d) => d.data()['tipo']?.toString() == _filtroCamion)
+        .where((d) => d.data()['placas']?.toString() == _filtroCamion)
         .toList();
   }
 
@@ -467,7 +469,7 @@ class _ReportesCamionesAdminScreenState
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              sel ? Icons.directions_bus_rounded : Icons.directions_bus_outlined,
+              sel ? Icons.pin_rounded : Icons.pin_outlined,
               size: 13, color: sel ? _primary : Colors.white60),
             const SizedBox(width: 5),
             Text(label, style: TextStyle(

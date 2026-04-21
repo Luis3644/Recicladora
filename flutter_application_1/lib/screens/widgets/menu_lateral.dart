@@ -7,19 +7,19 @@ import '../mis_reportes_operador.dart';
 
 class MenuLateral extends StatelessWidget {
   final String nombreUsuario;
-  final String camion; // <--- Agregamos esto
+  final String camion; 
   final String placas;
   final bool mostrarCerrarSesion;
 
   const MenuLateral({
     super.key,
     required this.nombreUsuario,
-    this.camion = "Sin asignar", // Valor por defecto
+    this.camion = "Sin asignar",
     this.placas = "---",
     this.mostrarCerrarSesion = true,
   });
 
-  // Colores que ya estás usando
+  // Colores consistentes con tu interfaz
   static const _primary = Color(0xFF1E3A8A);
   static const _primary2 = Color(0xFF2563EB);
 
@@ -67,32 +67,48 @@ class MenuLateral extends StatelessWidget {
             ),
           ),
 
-
+          // Opción de Mis Reportes
           ListTile(
-  leading: const Icon(Icons.assignment_ind_rounded, color: Color(0xFF06B6D4)), // Color accent que usas
-  title: const Text(
-    'Mis Reportes ',
-    style: TextStyle(fontWeight: FontWeight.w700),
-  ),
-  onTap: () {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const MisReportesOperador(nombreOperador: 'Alberto'), 
-        // Nota: Aquí 'Alberto' debería ser la variable donde guardas el nombre del usuario logueado
-      ),
-    );
-  },
-),
+            leading: const Icon(Icons.assignment_ind_rounded, color: Color(0xFF06B6D4)),
+            title: const Text(
+              'Mis Reportes',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => MisReportesOperador(nombreOperador: nombreUsuario),
+                ),
+              );
+            },
+          ),
 
-         
+          // Botón de Cerrar Sesión (Si está activo)
+          if (mostrarCerrarSesion)
+            ListTile(
+              leading: const Icon(Icons.logout_rounded, color: Colors.redAccent),
+              title: const Text(
+                "Cerrar Sesión",
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              onTap: () async {
+                await FirebaseAuth.instance.signOut();
+                
+                if (context.mounted) {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                    (route) => false,
+                  );
+                }
+              },
+            ),
 
-        
           const Spacer(),
           const Padding(
             padding: EdgeInsets.all(16),
             child: Text(
-              "Recicladora v1.0",
+              "Recicladora ",
               style: TextStyle(color: Color(0xFF94A3B8)),
             ),
           ),

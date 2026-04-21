@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:firebase_messaging/firebase_messaging.dart'; // Agregar esta importación
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 import '../config/session_manager.dart';
 import 'admin_notificaciones_screen.dart';
@@ -10,14 +10,17 @@ import 'login_screen.dart';
 import 'mapa_general_operadores_screen.dart';
 import 'panel_general_usuarios_screen.dart';
 import 'usuarios_screen.dart';
-import 'widgets/lista_incidentes_admin.dart'; // Agregar esta importación
+import 'widgets/lista_incidentes_admin.dart';
 import 'widgets/reporte_gasolina_camiones_screen.dart';
 import 'widgets/notificaciones_drawer.dart';
 import 'widgets/reportes_equipo_screen.dart';
 import 'widgets/reporte_toneladas_camiones_screen.dart';
-import 'gestion_camiones_screen.dart'; // Agregar esta línea
+import 'gestion_camiones_screen.dart';
 import 'ReportesCamionesAdminScreen.dart';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Card animada de opciones
+// ─────────────────────────────────────────────────────────────────────────────
 class _AnimatedOptionCard extends StatefulWidget {
   final IconData icon;
   final String title;
@@ -52,10 +55,9 @@ class _AnimatedOptionCardState extends State<_AnimatedOptionCard>
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 1.05,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
   }
 
   @override
@@ -67,11 +69,7 @@ class _AnimatedOptionCardState extends State<_AnimatedOptionCard>
   void _onHover(bool hovering) {
     setState(() {
       _isHovered = hovering;
-      if (hovering) {
-        _controller.forward();
-      } else {
-        _controller.reverse();
-      }
+      hovering ? _controller.forward() : _controller.reverse();
     });
   }
 
@@ -194,7 +192,7 @@ class _AnimatedOptionCardState extends State<_AnimatedOptionCard>
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
-                            SizedBox(width: 4),
+                            const SizedBox(width: 4),
                             Icon(
                               Icons.arrow_forward_rounded,
                               size: 14,
@@ -215,6 +213,9 @@ class _AnimatedOptionCardState extends State<_AnimatedOptionCard>
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// AdminScreen
+// ─────────────────────────────────────────────────────────────────────────────
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
 
@@ -222,34 +223,61 @@ class AdminScreen extends StatefulWidget {
   State<AdminScreen> createState() => _AdminScreenState();
 }
 
-class _AdminScreenState extends State<AdminScreen> {
+class _AdminScreenState extends State<AdminScreen>
+    with TickerProviderStateMixin {          // ← TickerProviderStateMixin para múltiples controllers
   String nombreUsuario = '';
   bool isLoading = true;
   bool _avisoPrecaucionMostrado = false;
 
+  // ── Submenú Camiones ──────────────────────────────────────────────────────
+  bool _camionesExpanded = false;
+  late AnimationController _drawerAnimCtrl;
+  late Animation<double> _drawerRotateAnim;
+
+  // ── Colores ───────────────────────────────────────────────────────────────
+  final Color primaryColor = const Color(0xFF0f172a);
+  final Color accentColor  = const Color(0xFF06b6d4);
+  final Color successColor = const Color(0xFF10b981);
+  final Color warningColor = const Color(0xFFf59e0b);
+  final Color bgColor      = const Color(0xFFF0F9FF);
+
   final FlutterLocalNotificationsPlugin _notificaciones =
       FlutterLocalNotificationsPlugin();
-
-  // Paleta de colores profesional y moderna
-  final Color primaryColor = const Color(0xFF0f172a); // Azul oscuro profesional
-  final Color accentColor = const Color(0xFF06b6d4); // Cyan/turquesa
-  final Color successColor = const Color(0xFF10b981); // Verde esmeralda
-  final Color warningColor = const Color(0xFFf59e0b); // Ámbar dorado
-  final Color bgColor = const Color(0xFFF0F9FF); // Fondo azul muy claro
 
   @override
   void initState() {
     super.initState();
+
+    // Animación de la flecha del submenú
+    _drawerAnimCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+    );
+    _drawerRotateAnim = Tween<double>(begin: 0, end: 0.5).animate(
+      CurvedAnimation(parent: _drawerAnimCtrl, curve: Curves.easeInOut),
+    );
+
     obtenerNombre();
     _inicializarAvisoPrecauciones();
   }
 
+  @override
+  void dispose() {
+    _drawerAnimCtrl.dispose();
+    super.dispose();
+  }
+
+  // ── Helpers submenú ───────────────────────────────────────────────────────
+  void _toggleCamiones() {
+    setState(() => _camionesExpanded = !_camionesExpanded);
+    _camionesExpanded ? _drawerAnimCtrl.forward() : _drawerAnimCtrl.reverse();
+  }
+
+  // ── Precauciones ──────────────────────────────────────────────────────────
   Future<void> _inicializarAvisoPrecauciones() async {
     if (_avisoPrecaucionMostrado) return;
-
     _avisoPrecaucionMostrado = true;
     await _mostrarNotificacionPrecauciones();
-
     if (!mounted) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -265,24 +293,16 @@ class _AdminScreenState extends State<AdminScreen> {
         requestBadgePermission: false,
         requestSoundPermission: false,
       );
-
-      const settings = InitializationSettings(
-        android: androidInit,
-        iOS: iosInit,
+      await _notificaciones.initialize(
+        const InitializationSettings(android: androidInit, iOS: iosInit),
       );
-
-      await _notificaciones.initialize(settings);
-
       final androidImpl = _notificaciones
           .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin
-          >();
+              AndroidFlutterLocalNotificationsPlugin>();
       await androidImpl?.requestNotificationsPermission();
-
       final iosImpl = _notificaciones
           .resolvePlatformSpecificImplementation<
-            IOSFlutterLocalNotificationsPlugin
-          >();
+              IOSFlutterLocalNotificationsPlugin>();
       await iosImpl?.requestPermissions(alert: true, badge: true, sound: true);
 
       const androidDetails = AndroidNotificationDetails(
@@ -292,17 +312,14 @@ class _AdminScreenState extends State<AdminScreen> {
         importance: Importance.high,
         priority: Priority.high,
       );
-
-      const details = NotificationDetails(
-        android: androidDetails,
-        iOS: DarwinNotificationDetails(),
-      );
-
       await _notificaciones.show(
         2001,
         'Seguridad en planta',
-        'Recordatorio Usa cubrebocas, guantes y el uniforme',
-        details,
+        'Recordatorio: Usa cubrebocas, guantes y el uniforme',
+        const NotificationDetails(
+          android: androidDetails,
+          iOS: DarwinNotificationDetails(),
+        ),
       );
     } catch (e) {
       debugPrint('No se pudo mostrar la notificación en admin: $e');
@@ -361,8 +378,8 @@ class _AdminScreenState extends State<AdminScreen> {
     );
   }
 
-  Future<DocumentSnapshot<Map<String, dynamic>>?>
-  _obtenerPerfilUsuario() async {
+  // ── Perfil ────────────────────────────────────────────────────────────────
+  Future<DocumentSnapshot<Map<String, dynamic>>?> _obtenerPerfilUsuario() async {
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) return null;
 
@@ -370,7 +387,6 @@ class _AdminScreenState extends State<AdminScreen> {
         .collection('usuarios')
         .doc(currentUser.uid)
         .get();
-
     if (doc.exists) return doc;
 
     final email = currentUser.email;
@@ -381,7 +397,6 @@ class _AdminScreenState extends State<AdminScreen> {
         .where('email', isEqualTo: email)
         .limit(1)
         .get();
-
     if (query.docs.isEmpty) return null;
     return query.docs.first;
   }
@@ -390,9 +405,9 @@ class _AdminScreenState extends State<AdminScreen> {
     try {
       final doc = await _obtenerPerfilUsuario();
       if (!mounted) return;
-
       setState(() {
-        nombreUsuario = doc?.data()?['nombre']?.toString() ?? 'Administrador';
+        nombreUsuario =
+            doc?.data()?['nombre']?.toString() ?? 'Administrador';
         isLoading = false;
       });
     } catch (e) {
@@ -402,17 +417,301 @@ class _AdminScreenState extends State<AdminScreen> {
     }
   }
 
-  Future<void> _recargarPanelAdmin() async {
-    await obtenerNombre();
+  Future<void> _recargarPanelAdmin() async => obtenerNombre();
+
+  // ── Cerrar sesión ─────────────────────────────────────────────────────────
+  Future<void> _cerrarSesion() async {
+    try {
+      await SessionManager.limpiarSesionRemota();
+      await FirebaseAuth.instance.signOut();
+      await SessionManager.limpiarSesion();
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error al cerrar sesión: $e')));
+    }
   }
 
+  Future<void> _confirmarYCerrarSesion() async {
+    final confirmar = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Cerrar sesión'),
+            content: const Text('¿Estás seguro de salir de la sesión?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancelar'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Sí, salir'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmar) return;
+    await _cerrarSesion();
+  }
+
+  // ── Navegación ────────────────────────────────────────────────────────────
+  void _abrirUsuarios() => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const UsuariosScreen()),
+      );
+
+  void _abrirReportes() => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const ReportesEquipoScreen()),
+      );
+
+  void _abrirIncidentes() => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const ListaIncidentesAdmin()),
+      );
+
+  void _abrirMonitoreoUbicacion() => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const MonitoreoUbicacionScreen()),
+      );
+
+  void _abrirPanelGeneralUsuarios() => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const PanelGeneralUsuariosScreen()),
+      );
+
+  void _abrirMapaGeneralOperadores() => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const MapaGeneralOperadoresScreen()),
+      );
+
+  void _abrirNotificacionesAdmin() => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) =>
+              AdminNotificacionesScreen(adminNombre: nombreUsuario),
+        ),
+      );
+
+  void _abrirReporteGasolina() => Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (_) => const ReporteGasolinaCamionesScreen()),
+      );
+
+  void _abrirReporteToneladas() => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => ReporteToneladasAdminScreen()),
+      );
+
+  // ── Drawer ────────────────────────────────────────────────────────────────
+  Widget _buildAdminDrawer(BuildContext context) {
+    return Drawer(
+      child: Column(
+        children: [
+          // Encabezado
+          DrawerHeader(
+            margin: EdgeInsets.zero,
+            padding: EdgeInsets.zero,
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [primaryColor, const Color(0xFF1e293b)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: primaryColor.withValues(alpha: 0.4),
+                    blurRadius: 16,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
+              child: Align(
+                alignment: Alignment.bottomLeft,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Menú',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      isLoading ? 'Administrador' : nombreUsuario,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // ── Gestión de Usuarios ──────────────────────────────────────────
+          ListTile(
+            leading: Icon(Icons.people_alt_rounded, color: accentColor),
+            title: const Text(
+              'Gestión de Usuarios',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            onTap: () {
+              Navigator.pop(context);
+              _abrirUsuarios();
+            },
+          ),
+
+          const Divider(height: 1),
+
+          // ── CAMIONES (expandible) ────────────────────────────────────────
+          InkWell(
+            onTap: _toggleCamiones,
+            child: Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
+                children: [
+                  Icon(Icons.local_shipping_rounded, color: accentColor),
+                  const SizedBox(width: 16),
+                  const Expanded(
+                    child: Text(
+                      'Camiones',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700, fontSize: 15),
+                    ),
+                  ),
+                  RotationTransition(
+                    turns: _drawerRotateAnim,
+                    child: const Icon(Icons.keyboard_arrow_down_rounded,
+                        color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Submenú animado
+          AnimatedCrossFade(
+            duration: const Duration(milliseconds: 220),
+            crossFadeState: _camionesExpanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            firstChild: const SizedBox.shrink(),
+            secondChild: Container(
+              decoration: BoxDecoration(
+                color: accentColor.withValues(alpha: 0.05),
+                border: Border(
+                  left: BorderSide(
+                      color: accentColor.withValues(alpha: 0.4), width: 3),
+                ),
+              ),
+              margin: const EdgeInsets.only(left: 24, right: 8, bottom: 4),
+              child: Column(
+                children: [
+                  // → Gestión de Camiones
+                  ListTile(
+                    dense: true,
+                    leading: Icon(Icons.settings_rounded,
+                        color: accentColor, size: 20),
+                    title: const Text(
+                      'Gestión de Camiones',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: const Text('Administrar flota',
+                        style: TextStyle(fontSize: 11)),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const GestionCamionesScreen()),
+                      );
+                    },
+                  ),
+                  // → Reportes de Camiones
+                  ListTile(
+                    dense: true,
+                    leading: const Icon(Icons.warning_amber_rounded,
+                        color: Color(0xFFF59E0B), size: 20),
+                    title: const Text(
+                      'Reportes de Camiones',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: const Text('Incidentes y averías',
+                        style: TextStyle(fontSize: 11)),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) =>
+                                const ReportesCamionesAdminScreen()),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const Divider(height: 1),
+
+          // ── Cerrar Sesión ────────────────────────────────────────────────
+          ListTile(
+            leading: Icon(Icons.logout_rounded, color: accentColor),
+            title: const Text(
+              'Cerrar sesión',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            subtitle: const Text('Volver a la pantalla de inicio'),
+            onTap: () async {
+              Navigator.of(context).pop();
+              await _confirmarYCerrarSesion();
+            },
+          ),
+
+          const Spacer(),
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text(
+              'Recicladora v1.0',
+              style: TextStyle(color: Color(0xFF94A3B8)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Build ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 600;
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth >= 600 && screenWidth < 1024;
     final gridColumns = screenWidth >= 1300 ? 4 : (screenWidth >= 900 ? 3 : 2);
-    final optionCardAspectRatio = isMobile ? 1.28 : (isTablet ? 1.12 : 1.03);
+    final optionCardAspectRatio =
+        isMobile ? 1.28 : (isTablet ? 1.12 : 1.03);
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -497,16 +796,14 @@ class _AdminScreenState extends State<AdminScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Sección de Bienvenida
+                      // Bienvenida
                       TweenAnimationBuilder<double>(
                         tween: Tween(begin: 0, end: 1),
                         duration: const Duration(milliseconds: 800),
-                        builder: (context, value, child) {
-                          return Transform.translate(
-                            offset: Offset(0, 30 * (1 - value)),
-                            child: Opacity(opacity: value, child: child),
-                          );
-                        },
+                        builder: (context, value, child) => Transform.translate(
+                          offset: Offset(0, 30 * (1 - value)),
+                          child: Opacity(opacity: value, child: child),
+                        ),
                         child: Container(
                           padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
@@ -580,155 +877,45 @@ class _AdminScreenState extends State<AdminScreen> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      TweenAnimationBuilder<double>(
-                        tween: Tween(begin: 0, end: 1),
-                        duration: const Duration(milliseconds: 900),
-                        curve: Curves.easeOutCubic,
-                        builder: (context, value, child) {
-                          return Transform.translate(
-                            offset: Offset(0, 12 * (1 - value)),
-                            child: Opacity(opacity: value, child: child),
-                          );
-                        },
-                        child: SizedBox(
-                          width: double.infinity,
-                          child: Tooltip(
-                            message:
-                                'Resumen de usuarios, altas, bajas y estado general del personal.',
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: primaryColor,
-                                foregroundColor: Colors.white,
-                                elevation: 3,
-                                minimumSize: const Size(double.infinity, 50),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                              onPressed: _abrirPanelGeneralUsuarios,
-                              icon: const Icon(Icons.groups_2_rounded),
-                              label: const Text(
-                                'Panel General de Usuarios',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.2,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
+
+                      // Botón Panel General
+                      _animatedButton(
+                        delay: 900,
+                        color: primaryColor,
+                        icon: Icons.groups_2_rounded,
+                        label: 'Panel General de Usuarios',
+                        tooltip:
+                            'Resumen de usuarios, altas, bajas y estado general del personal.',
+                        onPressed: _abrirPanelGeneralUsuarios,
                       ),
                       const SizedBox(height: 10),
-                      TweenAnimationBuilder<double>(
-                        tween: Tween(begin: 0, end: 1),
-                        duration: const Duration(milliseconds: 980),
-                        curve: Curves.easeOutCubic,
-                        builder: (context, value, child) {
-                          return Transform.translate(
-                            offset: Offset(0, 12 * (1 - value)),
-                            child: Opacity(opacity: value, child: child),
-                          );
-                        },
-                        child: SizedBox(
-                          width: double.infinity,
-                          child: Tooltip(
-                            message:
-                                'Ubicacion en tiempo real de operadores activos y su ruta actual.',
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: successColor,
-                                foregroundColor: Colors.white,
-                                elevation: 3,
-                                minimumSize: const Size(double.infinity, 50),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                              onPressed: _abrirMapaGeneralOperadores,
-                              icon: const Icon(Icons.map_rounded),
-                              label: const Text(
-                                'Mapa General de Operadores',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.2,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
+
+                      // Botón Mapa
+                      _animatedButton(
+                        delay: 980,
+                        color: successColor,
+                        icon: Icons.map_rounded,
+                        label: 'Mapa General de Operadores',
+                        tooltip:
+                            'Ubicación en tiempo real de operadores activos y su ruta actual.',
+                        onPressed: _abrirMapaGeneralOperadores,
                       ),
                       const SizedBox(height: 10),
-                      TweenAnimationBuilder<double>(
-                        tween: Tween(begin: 0, end: 1),
-                        duration: const Duration(milliseconds: 1020),
-                        curve: Curves.easeOutCubic,
-                        builder: (context, value, child) {
-                          return Transform.translate(
-                            offset: Offset(0, 12 * (1 - value)),
-                            child: Opacity(opacity: value, child: child),
-                          );
-                        },
-                        child: SizedBox(
-                          width: double.infinity,
-                          child: Tooltip(
-                            message:
-                                'Envia avisos generales o alertas urgentes a los operadores.',
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: warningColor,
-                                foregroundColor: Colors.white,
-                                elevation: 3,
-                                minimumSize: const Size(double.infinity, 50),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                              onPressed: _abrirNotificacionesAdmin,
-                              icon: const Icon(
-                                Icons.notifications_active_rounded,
-                              ),
-                              label: const Text(
-                                'Enviar Notificaciones',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.2,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
+
+                      // Botón Notificaciones
+                      _animatedButton(
+                        delay: 1020,
+                        color: warningColor,
+                        icon: Icons.notifications_active_rounded,
+                        label: 'Enviar Notificaciones',
+                        tooltip:
+                            'Envía avisos generales o alertas urgentes a los operadores.',
+                        onPressed: _abrirNotificacionesAdmin,
                       ),
                       const SizedBox(height: 28),
 
-                      // Sección de Opciones
-                      Padding(
-                        padding: const EdgeInsets.only(left: 4),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Gestiones Principales',
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w700,
-                                color: primaryColor,
-                                letterSpacing: -0.5,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Container(
-                              width: 60,
-                              height: 4,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [accentColor, successColor],
-                                ),
-                                borderRadius: BorderRadius.circular(2),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                      // Gestiones Principales
+                      _sectionHeader('Gestiones Principales'),
                       const SizedBox(height: 16),
                       GridView.count(
                         crossAxisCount: gridColumns,
@@ -750,7 +937,8 @@ class _AdminScreenState extends State<AdminScreen> {
                           _AnimatedOptionCard(
                             icon: Icons.bar_chart_rounded,
                             title: 'Reportes de Equipo',
-                            description: 'Faltantes y asignaciones de equipos',
+                            description:
+                                'Faltantes y asignaciones de equipos',
                             onTap: _abrirReportes,
                             color: const Color(0xFF3B82F6),
                             compact: isMobile,
@@ -758,7 +946,8 @@ class _AdminScreenState extends State<AdminScreen> {
                           _AnimatedOptionCard(
                             icon: Icons.emergency_share,
                             title: 'Reportes de operadores',
-                            description: 'Tráfico, averías y retrasos en ruta',
+                            description:
+                                'Tráfico, averías y retrasos en ruta',
                             onTap: _abrirIncidentes,
                             color: const Color(0xFF60A5FA),
                             compact: isMobile,
@@ -775,7 +964,8 @@ class _AdminScreenState extends State<AdminScreen> {
                           _AnimatedOptionCard(
                             icon: Icons.local_gas_station_rounded,
                             title: 'Reporte de Gasolina',
-                            description: 'Tabla de cargas y descarga en Excel',
+                            description:
+                                'Tabla de cargas y descarga en Excel',
                             onTap: _abrirReporteGasolina,
                             color: const Color(0xFFF59E0B),
                             compact: isMobile,
@@ -793,40 +983,13 @@ class _AdminScreenState extends State<AdminScreen> {
                       ),
                       const SizedBox(height: 32),
 
-                      // Sección de Estadísticas
-                      Padding(
-                        padding: const EdgeInsets.only(left: 4),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Estado del Sistema',
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w700,
-                                color: primaryColor,
-                                letterSpacing: -0.5,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Container(
-                              width: 60,
-                              height: 4,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [accentColor, successColor],
-                                ),
-                                borderRadius: BorderRadius.circular(2),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                      // Estado del Sistema
+                      _sectionHeader('Estado del Sistema'),
                       const SizedBox(height: 16),
                       _buildSystemStatsSection(),
                       const SizedBox(height: 32),
 
-                      // Sección de Información Detallada
+                      // Información detallada
                       _buildDetailedInfoSection(),
                       const SizedBox(height: 20),
                     ],
@@ -837,385 +1000,103 @@ class _AdminScreenState extends State<AdminScreen> {
     );
   }
 
-  void _abrirUsuarios() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const UsuariosScreen()),
-    );
-  }
-
-  void _abrirReportes() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const ReportesEquipoScreen()),
-    );
-  }
-
-  void _abrirIncidentes() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const ListaIncidentesAdmin()),
-    );
-  }
-
-  void _abrirMonitoreoUbicacion() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const MonitoreoUbicacionScreen()),
-    );
-  }
-
-  void _abrirPanelGeneralUsuarios() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const PanelGeneralUsuariosScreen()),
-    );
-  }
-
-  void _abrirMapaGeneralOperadores() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const MapaGeneralOperadoresScreen()),
-    );
-  }
-
-  void _abrirNotificacionesAdmin() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AdminNotificacionesScreen(adminNombre: nombreUsuario),
+  // ── Helpers de UI ─────────────────────────────────────────────────────────
+  Widget _sectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: primaryColor,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Container(
+            width: 60,
+            height: 4,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [accentColor, successColor]),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  void _abrirReporteGasolina() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const ReporteGasolinaCamionesScreen()),
+  Widget _animatedButton({
+    required int delay,
+    required Color color,
+    required IconData icon,
+    required String label,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: delay),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) => Transform.translate(
+        offset: Offset(0, 12 * (1 - value)),
+        child: Opacity(opacity: value, child: child),
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        child: Tooltip(
+          message: tooltip,
+          child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: color,
+              foregroundColor: Colors.white,
+              elevation: 3,
+              minimumSize: const Size(double.infinity, 50),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            onPressed: onPressed,
+            icon: Icon(icon),
+            label: Text(
+              label,
+              style: const TextStyle(
+                  fontWeight: FontWeight.w700, letterSpacing: 0.2),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
-  void _abrirReporteToneladas() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => ReporteToneladasAdminScreen()),
-    );
-  }
+  // ── Streams ───────────────────────────────────────────────────────────────
+  Stream<QuerySnapshot<Map<String, dynamic>>> _streamUsuariosActivos() =>
+      FirebaseFirestore.instance
+          .collection('usuarios')
+          .where('jornada_activa', isEqualTo: true)
+          .snapshots();
 
-  Future<void> _cerrarSesion() async {
-    try {
-      await SessionManager.limpiarSesionRemota();
-      await FirebaseAuth.instance.signOut();
-      await SessionManager.limpiarSesion();
-      if (!mounted) return;
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-        (route) => false,
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error al cerrar sesión: $e')));
-    }
-  }
+  Stream<int> _streamReportesEquipoPendientes() => FirebaseFirestore.instance
+      .collection('checklist')
+      .where('equipo_completo', isEqualTo: false)
+      .snapshots()
+      .map((s) => s.docs.length);
 
-  Future<void> _confirmarYCerrarSesion() async {
-    final confirmar =
-        await showDialog<bool>(
-          context: context,
-          builder: (_) => AlertDialog(
-            title: const Text('Cerrar sesión'),
-            content: const Text('¿Estás seguro de salir de la sesión?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancelar'),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Sí, salir'),
-              ),
-            ],
-          ),
-        ) ??
-        false;
+  Stream<int> _streamIncidentesOperadores() => FirebaseFirestore.instance
+      .collection('reportes')
+      .snapshots()
+      .map((s) => s.docs.length);
 
-    if (!confirmar) return;
-    await _cerrarSesion();
-  }
+  Stream<int> _streamReportesCamiones() => FirebaseFirestore.instance
+      .collection('reportes_camiones')
+      .snapshots()
+      .map((s) => s.docs.length);
 
-  Stream<QuerySnapshot<Map<String, dynamic>>> _streamUsuariosActivos() {
-    return FirebaseFirestore.instance
-        .collection('usuarios')
-        .where('jornada_activa', isEqualTo: true)
-        .snapshots();
-  }
-
-  Stream<int> _streamReportesEquipoPendientes() {
-    return FirebaseFirestore.instance
-        .collection('checklist')
-        .where('equipo_completo', isEqualTo: false)
-        .snapshots()
-        .map((snapshot) => snapshot.docs.length);
-  }
-
-  Stream<int> _streamIncidentesOperadores() {
-    return FirebaseFirestore.instance
-        .collection('reportes')
-        .snapshots()
-        .map((snapshot) => snapshot.docs.length);
-  }
-
-  Stream<int> _streamReportesCamiones() {
-    return FirebaseFirestore.instance
-        .collection('reportes_camiones')
-        .snapshots()
-        .map((snapshot) => snapshot.docs.length);
-  }
-
-  void _mostrarDetalleUsuariosActivos(
-    List<QueryDocumentSnapshot<Map<String, dynamic>>> usuarios,
-  ) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.7,
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            children: [
-              const SizedBox(height: 12),
-              Container(
-                width: 52,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: accentColor.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(Icons.people_alt_rounded, color: accentColor),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Usuarios Activos',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            '${usuarios.length} en línea',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Divider(height: 1),
-              Expanded(
-                child: usuarios.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.person_off_rounded,
-                              size: 44,
-                              color: Colors.grey[350],
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              'No hay usuarios activos en este momento',
-                              style: TextStyle(color: Colors.grey[600]),
-                            ),
-                          ],
-                        ),
-                      )
-                    : ListView.separated(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: usuarios.length,
-                        separatorBuilder: (_, index) =>
-                            const SizedBox(height: 10),
-                        itemBuilder: (context, index) {
-                          final data = usuarios[index].data();
-                          final nombre =
-                              (data['nombre']?.toString().trim().isNotEmpty ??
-                                  false)
-                              ? data['nombre'].toString().trim()
-                              : 'Sin nombre';
-                          final rol = data['rol']?.toString() ?? 'usuario';
-                          final camion =
-                              data['camion_actual']?.toString() ?? '';
-                          final inicial = nombre.isNotEmpty
-                              ? nombre.substring(0, 1).toUpperCase()
-                              : '?';
-
-                          return Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  accentColor.withValues(alpha: 0.12),
-                                  accentColor.withValues(alpha: 0.03),
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                color: accentColor.withValues(alpha: 0.2),
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: accentColor.withValues(alpha: 0.08),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              children: [
-                                CircleAvatar(
-                                  radius: 24,
-                                  backgroundColor: accentColor.withValues(
-                                    alpha: 0.18,
-                                  ),
-                                  child: Text(
-                                    inicial,
-                                    style: TextStyle(
-                                      color: accentColor,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        nombre,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        rol,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey[700],
-                                        ),
-                                      ),
-                                      if (camion.isNotEmpty)
-                                        Padding(
-                                          padding: const EdgeInsets.only(
-                                            top: 6,
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              Icon(
-                                                Icons.local_shipping_rounded,
-                                                size: 14,
-                                                color: successColor,
-                                              ),
-                                              const SizedBox(width: 6),
-                                              Text(
-                                                camion,
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  color: successColor,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        successColor.withValues(alpha: 0.18),
-                                        successColor.withValues(alpha: 0.08),
-                                      ],
-                                    ),
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(
-                                      color: successColor.withValues(
-                                        alpha: 0.3,
-                                      ),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.check_circle_rounded,
-                                        color: successColor,
-                                        size: 14,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        'En jornada',
-                                        style: TextStyle(
-                                          color: successColor,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
+  // ── Stats ─────────────────────────────────────────────────────────────────
   Widget _buildSystemStatsSection() {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: _streamUsuariosActivos(),
@@ -1256,8 +1137,7 @@ class _AdminScreenState extends State<AdminScreen> {
                               icon: Icons.people_outline_rounded,
                               label: 'Usuarios Activos',
                               statusText: 'Jornada activa',
-                              value:
-                                  usuariosSnapshot.connectionState ==
+                              value: usuariosSnapshot.connectionState ==
                                       ConnectionState.waiting
                                   ? '...'
                                   : cantidadActivos.toString(),
@@ -1267,8 +1147,7 @@ class _AdminScreenState extends State<AdminScreen> {
                                 accentColor.withValues(alpha: 0.04),
                               ],
                               onTap: () => _mostrarDetalleUsuariosActivos(
-                                usuariosActivos,
-                              ),
+                                  usuariosActivos),
                               compact: isMobileStats,
                             ),
                             _buildStatCard(
@@ -1307,21 +1186,19 @@ class _AdminScreenState extends State<AdminScreen> {
                                 const Color(0xFF0F766E).withValues(alpha: 0.12),
                                 const Color(0xFF0F766E).withValues(alpha: 0.04),
                               ],
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        const ReportesCamionesAdminScreen(),
-                                  ),
-                                );
-                              },
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      const ReportesCamionesAdminScreen(),
+                                ),
+                              ),
                               compact: isMobileStats,
                             ),
                             _buildStatCard(
                               icon: Icons.assignment_rounded,
                               label: 'Total de Reportes',
-                              statusText: 'Suma de todas las areas',
+                              statusText: 'Suma de todas las áreas',
                               value: totalReportes.toString(),
                               color: successColor,
                               backgroundGradient: [
@@ -1389,7 +1266,8 @@ class _AdminScreenState extends State<AdminScreen> {
                       color: color.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Icon(icon, color: color, size: compact ? 18 : 20),
+                    child:
+                        Icon(icon, color: color, size: compact ? 18 : 20),
                   ),
                   const Spacer(),
                   if (onTap != null)
@@ -1450,6 +1328,225 @@ class _AdminScreenState extends State<AdminScreen> {
     );
   }
 
+  // ── Detalle usuarios activos ──────────────────────────────────────────────
+  void _mostrarDetalleUsuariosActivos(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> usuarios,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.7,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 52,
+              height: 5,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: accentColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child:
+                        Icon(Icons.people_alt_rounded, color: accentColor),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Usuarios Activos',
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          '${usuarios.length} en línea',
+                          style: TextStyle(
+                              color: Colors.grey[600], fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Divider(height: 1),
+            Expanded(
+              child: usuarios.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.person_off_rounded,
+                              size: 44, color: Colors.grey[350]),
+                          const SizedBox(height: 10),
+                          Text(
+                            'No hay usuarios activos en este momento',
+                            style: TextStyle(color: Colors.grey[600]),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: usuarios.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        final data = usuarios[index].data();
+                        final nombre =
+                            (data['nombre']?.toString().trim().isNotEmpty ??
+                                    false)
+                                ? data['nombre'].toString().trim()
+                                : 'Sin nombre';
+                        final rol = data['rol']?.toString() ?? 'usuario';
+                        final camion =
+                            data['camion_actual']?.toString() ?? '';
+                        final inicial = nombre.isNotEmpty
+                            ? nombre.substring(0, 1).toUpperCase()
+                            : '?';
+
+                        return Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                accentColor.withValues(alpha: 0.12),
+                                accentColor.withValues(alpha: 0.03),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: accentColor.withValues(alpha: 0.2),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: accentColor.withValues(alpha: 0.08),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 24,
+                                backgroundColor:
+                                    accentColor.withValues(alpha: 0.18),
+                                child: Text(
+                                  inicial,
+                                  style: TextStyle(
+                                    color: accentColor,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text(nombre,
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14)),
+                                    const SizedBox(height: 4),
+                                    Text(rol,
+                                        style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey[700])),
+                                    if (camion.isNotEmpty)
+                                      Padding(
+                                        padding:
+                                            const EdgeInsets.only(top: 6),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                                Icons.local_shipping_rounded,
+                                                size: 14,
+                                                color: successColor),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              camion,
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: successColor,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      successColor.withValues(alpha: 0.18),
+                                      successColor.withValues(alpha: 0.08),
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: successColor.withValues(alpha: 0.3),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.check_circle_rounded,
+                                        color: successColor, size: 14),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'En jornada',
+                                      style: TextStyle(
+                                        color: successColor,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Info del sistema ──────────────────────────────────────────────────────
   Widget _buildDetailedInfoSection() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -1523,7 +1620,8 @@ class _AdminScreenState extends State<AdminScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+        Text(label,
+            style: TextStyle(color: Colors.grey[600], fontSize: 13)),
         Text(
           value,
           style: TextStyle(
@@ -1535,115 +1633,26 @@ class _AdminScreenState extends State<AdminScreen> {
       ],
     );
   }
+}
 
-  Widget _buildAdminDrawer(BuildContext context) {
-    return Drawer(
-      child: Column(
-        children: [
-          DrawerHeader(
-            margin: EdgeInsets.zero,
-            padding: EdgeInsets.zero,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [primaryColor, const Color(0xFF1e293b)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: primaryColor.withValues(alpha: 0.4),
-                    blurRadius: 16,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
-              child: Align(
-                alignment: Alignment.bottomLeft,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Menú',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      isLoading ? 'Administrador' : nombreUsuario,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          ListTile(
-            leading: Icon(Icons.local_shipping_rounded, color: accentColor),
-            title: const Text(
-              'Gestión de Camiones',
-              style: TextStyle(fontWeight: FontWeight.w700),
-            ),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const GestionCamionesScreen(),
-                ),
-              );
-            },
-          ),
+// ─────────────────────────────────────────────────────────────────────────────
+// Widget auxiliar para recomendaciones (necesario en este archivo)
+// ─────────────────────────────────────────────────────────────────────────────
+class _RecomendacionItemAdmin extends StatelessWidget {
+  final IconData icon;
+  final String texto;
 
-          ListTile(
-            leading: const Icon(
-              Icons.warning_amber_rounded,
-              color: Color(0xFFF59E0B),
-            ),
-            title: const Text('Reportes de camiones'),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const ReportesCamionesAdminScreen(),
-                ),
-              );
-            },
-          ),
+  const _RecomendacionItemAdmin({required this.icon, required this.texto});
 
-          ListTile(
-            leading: Icon(Icons.logout_rounded, color: accentColor),
-            title: const Text(
-              'Cerrar sesión',
-              style: TextStyle(fontWeight: FontWeight.w700),
-            ),
-            subtitle: const Text('Volver a la pantalla de inicio'),
-            onTap: () async {
-              Navigator.of(context).pop();
-              await _confirmarYCerrarSesion();
-            },
-          ),
-          const Spacer(),
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text(
-              'Recicladora',
-              style: TextStyle(color: Color(0xFF94A3B8)),
-            ),
-          ),
-        ],
-      ),
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 20, color: const Color(0xFF1D4ED8)),
+        const SizedBox(width: 10),
+        Expanded(child: Text(texto, style: const TextStyle(fontSize: 14))),
+      ],
     );
   }
 }
@@ -1849,26 +1858,4 @@ class _MonitoreoUbicacionScreenState extends State<MonitoreoUbicacionScreen> {
   }
 }
 
-class _RecomendacionItemAdmin extends StatelessWidget {
-  final IconData icon;
-  final String texto;
 
-  const _RecomendacionItemAdmin({required this.icon, required this.texto});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 18, color: const Color(0xFF1D4ED8)),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            texto,
-            style: const TextStyle(fontSize: 13, height: 1.35),
-          ),
-        ),
-      ],
-    );
-  }
-}
