@@ -8,7 +8,11 @@
       "deviceId": "9DUS497POV4T5P6D",
       "program": "lib/main.dart",
       "cwd": "C:\\Users\\ADR10\\Recicladora\\flutter_application_1",
-      "flutterMode": "debug"
+      "flutterMode": "debug",
+      "toolArgs": [
+        "--dart-define",
+        "GEMINI_API_KEY=AIzaSyBPZB9FGs_o97EOWS1EcLZco0wlh1Vvsmo"
+      ]
     },
     {
       "name": "Flutter Web (Chrome puerto 5000)",
@@ -16,6 +20,8 @@
       "type": "dart",
       "deviceId": "chrome",
       "toolArgs": [
+        "--dart-define",
+        "GEMINI_API_KEY=AIzaSyBPZB9FGs_o97EOWS1EcLZco0wlh1Vvsmo",
         "--web-port",
         "5000"
       ]

@@ -181,7 +181,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
                         crossAxisCount: 2,
                         crossAxisSpacing: 12,
                         mainAxisSpacing: 12,
-                        childAspectRatio: 1.4,
+                        childAspectRatio: 1.15,
                         children: [
                           _buildGridItem(
                             "Cubrebocas",
@@ -318,7 +318,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _choiceBtn(Icons.close, false, state == false, onSelect),
-              const SizedBox(width: 15),
+              const SizedBox(width: 14),
               _choiceBtn(Icons.done, true, state == true, onSelect),
             ],
           ),
@@ -333,20 +333,29 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     bool isSelected,
     Function(bool) onSelect,
   ) {
-    return GestureDetector(
-      onTap: () => onSelect(value),
-      child: Container(
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? (value ? Colors.green : Colors.red)
-              : Colors.grey[100],
-          shape: BoxShape.circle,
-        ),
-        child: Icon(
-          icon,
-          size: 20,
-          color: isSelected ? Colors.white : Colors.grey[400],
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => onSelect(value),
+        borderRadius: BorderRadius.circular(27),
+        child: Container(
+          width: 54,
+          height: 54,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: isSelected
+                ? (value ? Colors.green : Colors.red)
+                : Colors.grey[100],
+            shape: BoxShape.circle,
+            border: isSelected
+                ? null
+                : Border.all(color: Colors.grey.shade300, width: 1.5),
+          ),
+          child: Icon(
+            icon,
+            size: 30,
+            color: isSelected ? Colors.white : Colors.grey[400],
+          ),
         ),
       ),
     );

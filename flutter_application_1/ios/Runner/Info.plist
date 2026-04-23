@@ -4,6 +4,8 @@
 <dict>
    <key>NSPhotoLibraryAddUsageDescription</key>
    <string>Se necesita acceso para guardar imágenes en tu galería</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Se necesita acceso a la cámara para escanear comprobantes de gasolina.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
