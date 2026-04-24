@@ -1,15 +1,13 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
-import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:intl/intl.dart';
 import 'operador_screen.dart';
 import 'reporte_screen.dart'; // Asegúrate de que esta línea esté presente
@@ -1303,11 +1301,6 @@ class RegistroGasolinaScreen extends StatefulWidget {
 class _RegistroGasolinaScreenState extends State<RegistroGasolinaScreen>
     with SingleTickerProviderStateMixin {
   final ImagePicker _imagePicker = ImagePicker();
-  static const String _geminiApiKey = String.fromEnvironment(
-    'GEMINI_API_KEY',
-    defaultValue: 'AIzaSyBPZB9FGs_o97EOWS1EcLZco0wlh1Vvsmo',
-  );
-  static const String _geminiModel = 'gemini-2.0-flash';
 
   final TextEditingController _folioController = TextEditingController();
   final TextEditingController _cantidadController = TextEditingController();
@@ -1316,10 +1309,11 @@ class _RegistroGasolinaScreenState extends State<RegistroGasolinaScreen>
   String? _concepto;
   String? _unidad;
   String? _metodoPago;
-  bool _escaneoEnProgreso = false;
-  bool _mejoraIaEnProgreso = false;
-  int _intentosEscaneoFallidos = 0;
-  XFile? _ultimaImagenEscaneada;
+  XFile? _imagenTicket;
+  String? _ticketUrl;
+  String? _ticketStoragePath;
+  bool _subiendoImagen = false;
+  bool _guardando = false;
   late final AnimationController _entryController;
   late final Animation<double> _fadeAnimation;
   late final Animation<Offset> _slideAnimation;
@@ -1327,11 +1321,13 @@ class _RegistroGasolinaScreenState extends State<RegistroGasolinaScreen>
   static const Color _primary = Color(0xFF0B1220);
   static const Color _accent = Color(0xFF06B6D4);
   static const Color _success = Color(0xFF10B981);
-  static const Color _warning = Color(0xFFF59E0B);
 
   @override
   void initState() {
     super.initState();
+    _concepto = 'gasolina';
+    _unidad = 'litros';
+    _metodoPago = 'efectivo';
     _entryController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 850),
@@ -1362,524 +1358,7 @@ class _RegistroGasolinaScreenState extends State<RegistroGasolinaScreen>
     return DateFormat('dd/MM/yyyy HH:mm').format(fecha);
   }
 
-  String _normalizarTextoEscaneado(String texto) {
-    return texto
-        .toUpperCase()
-        .replaceAll('Á', 'A')
-        .replaceAll('É', 'E')
-        .replaceAll('Í', 'I')
-        .replaceAll('Ó', 'O')
-        .replaceAll('Ú', 'U')
-        .replaceAll('Ü', 'U')
-        .replaceAll('Ñ', 'N');
-  }
-
-  String? _normalizarMontoEscaneado(String valor) {
-    var limpio = valor.replaceAll(RegExp(r'[^0-9,.-]'), '');
-    if (limpio.isEmpty) return null;
-
-    final ultimoPunto = limpio.lastIndexOf('.');
-    final ultimaComa = limpio.lastIndexOf(',');
-    if (ultimoPunto >= 0 && ultimaComa >= 0) {
-      if (ultimaComa > ultimoPunto) {
-        limpio = limpio.replaceAll('.', '').replaceAll(',', '.');
-      } else {
-        limpio = limpio.replaceAll(',', '');
-      }
-    } else if (ultimaComa >= 0) {
-      limpio = limpio.replaceAll('.', '').replaceAll(',', '.');
-    } else {
-      limpio = limpio.replaceAll(',', '');
-    }
-
-    return limpio;
-  }
-
-  String _normalizarTokenNumerico(String token) {
-    if (!RegExp(r'\d').hasMatch(token)) return token;
-
-    return token
-        .replaceAll('O', '0')
-        .replaceAll('Q', '0')
-        .replaceAll('I', '1')
-        .replaceAll('L', '1')
-        .replaceAll('S', '5')
-        .replaceAll('B', '8');
-  }
-
-  String _normalizarTextoParaNumeros(String texto) {
-    return texto.split(RegExp(r'\s+')).map(_normalizarTokenNumerico).join(' ');
-  }
-
-  String? _normalizarCantidadEscaneada(String valor) {
-    final limpio = _normalizarMontoEscaneado(_normalizarTokenNumerico(valor));
-    if (limpio == null || limpio.isEmpty) return null;
-
-    final numero = double.tryParse(limpio);
-    if (numero == null) return null;
-
-    if (numero == numero.truncateToDouble()) {
-      return numero.toStringAsFixed(0);
-    }
-
-    return numero.toString();
-  }
-
-  String? _detectarFolio(String texto) {
-    final folioRegex = RegExp(
-      r'(?:FOLIO|FOL|FCT|FACTURA|UUID|UUID:|FISCAL)[^A-Z0-9]*([A-Z0-9\-]{4,})',
-      caseSensitive: false,
-    );
-    final match = folioRegex.firstMatch(texto);
-    if (match != null) return match.group(1)?.trim();
-
-    final lineas = texto.split(RegExp(r'\s+'));
-    for (final linea in lineas) {
-      if (RegExp(r'^[A-Z]?[0-9]{3,}[-A-Z0-9]*$').hasMatch(linea)) {
-        return linea.trim();
-      }
-    }
-    return null;
-  }
-
-  String? _detectarLitros(String texto) {
-    final regex = RegExp(
-      r'([0-9]+(?:[\.,][0-9]+)?)\s*(?:LITROS?|LTS?|LT)\b',
-      caseSensitive: false,
-    );
-    final match = regex.firstMatch(texto);
-    if (match != null) {
-      return _normalizarCantidadEscaneada(match.group(1) ?? '');
-    }
-
-    final litrosRegex = RegExp(r'\b([0-9]+(?:[\.,][0-9]+)?)\b');
-    final candidates = litrosRegex.allMatches(texto).toList();
-    for (final candidate in candidates) {
-      final valor = candidate.group(1) ?? '';
-      final start = candidate.start;
-      final end = candidate.end;
-      final contexto = texto.substring(
-        (start - 18).clamp(0, texto.length),
-        (end + 18).clamp(0, texto.length),
-      );
-      if (contexto.contains('LITRO') || contexto.contains('LT') || contexto.contains('LTS')) {
-        return _normalizarCantidadEscaneada(valor);
-      }
-    }
-
-    return null;
-  }
-
-  String? _detectarMontoTotal(String texto) {
-    final regex = RegExp(
-      r'(?:MONTO|TOTAL|IMPORTE|PAGO|SUBTOTAL)[^0-9]{0,12}([0-9]+(?:[\.,][0-9]{1,2})?)',
-      caseSensitive: false,
-    );
-    final match = regex.firstMatch(texto);
-    if (match != null) {
-      return _normalizarMontoEscaneado(match.group(1) ?? '');
-    }
-
-    final montoRegex = RegExp(r'\b([0-9]+(?:[\.,][0-9]{1,2})?)\b');
-    for (final matchCandidate in montoRegex.allMatches(texto)) {
-      final valor = matchCandidate.group(1) ?? '';
-      final contexto = texto.substring(
-        (matchCandidate.start - 18).clamp(0, texto.length),
-        (matchCandidate.end + 18).clamp(0, texto.length),
-      );
-      if (contexto.contains('TOTAL') ||
-          contexto.contains('IMPORTE') ||
-          contexto.contains('MONTO') ||
-          contexto.contains(r'$')) {
-        return _normalizarMontoEscaneado(valor);
-      }
-    }
-
-    return null;
-  }
-
-  String? _detectarFormaPago(String texto) {
-    final normalizado = texto.toUpperCase();
-    if (normalizado.contains('EFECTIVO') || normalizado.contains('CONTADO')) {
-      return 'efectivo';
-    }
-    if (normalizado.contains('DEBITO') || normalizado.contains('TARJETA DE DEBITO')) {
-      return 'debito';
-    }
-    if (normalizado.contains('CREDITO') || normalizado.contains('TARJETA DE CREDITO')) {
-      return 'credito';
-    }
-    if (normalizado.contains('PAGO EN EFECTIVO') || normalizado.contains('CASH')) {
-      return 'efectivo';
-    }
-    return null;
-  }
-
-  String? _detectarConcepto(String texto) {
-    final normalizado = texto.toUpperCase();
-    if (normalizado.contains('DIESEL') || normalizado.contains('DISEL')) {
-      return 'diesel';
-    }
-    if (normalizado.contains('GASOLINA')) return 'gasolina';
-    if (normalizado.contains('GAS')) return 'gas';
-    return null;
-  }
-
-  String? _normalizarFormaPagoIa(String? valor) {
-    if (valor == null) return null;
-    final texto = _normalizarTextoEscaneado(valor);
-    if (texto.contains('EFECTIVO') || texto == '01') return 'efectivo';
-    if (texto.contains('DEBITO') || texto == '28') return 'debito';
-    if (texto.contains('CREDITO') || texto == '04') return 'credito';
-    return null;
-  }
-
-  String? _normalizarConceptoIa(String? valor) {
-    if (valor == null) return null;
-    final texto = _normalizarTextoEscaneado(valor);
-    if (texto.contains('DIESEL') || texto.contains('DISEL')) return 'diesel';
-    if (texto.contains('GASOLINA')) return 'gasolina';
-    if (texto.contains('GAS')) return 'gas';
-    return null;
-  }
-
-  String? _normalizarUnidadIa(String? valor) {
-    if (valor == null) return null;
-    final texto = _normalizarTextoEscaneado(valor);
-    if (texto.contains('LITRO') || texto == 'LT' || texto == 'LTS') {
-      return 'litros';
-    }
-    if (texto.contains('KILOGRAM') || texto == 'KG') {
-      return 'kilogramos';
-    }
-    return null;
-  }
-
-  String _limpiarRespuestaIa(String texto) {
-    var limpio = texto.trim();
-    if (limpio.startsWith('```json')) {
-      limpio = limpio.substring(7).trim();
-    } else if (limpio.startsWith('```')) {
-      limpio = limpio.substring(3).trim();
-    }
-    if (limpio.endsWith('```')) {
-      limpio = limpio.substring(0, limpio.length - 3).trim();
-    }
-    return limpio;
-  }
-
-  Map<String, dynamic>? _parsearJsonIa(String texto) {
-    final limpio = _limpiarRespuestaIa(texto);
-    try {
-      final jsonObj = jsonDecode(limpio);
-      if (jsonObj is Map<String, dynamic>) return jsonObj;
-    } catch (_) {}
-
-    final inicio = limpio.indexOf('{');
-    final fin = limpio.lastIndexOf('}');
-    if (inicio >= 0 && fin > inicio) {
-      try {
-        final jsonObj = jsonDecode(limpio.substring(inicio, fin + 1));
-        if (jsonObj is Map<String, dynamic>) return jsonObj;
-      } catch (_) {}
-    }
-    return null;
-  }
-
-  String? _extraerTextoDeGemini(Map<String, dynamic> body) {
-    final candidates = body['candidates'];
-    if (candidates is! List || candidates.isEmpty) return null;
-    final content = candidates.first['content'];
-    if (content is! Map<String, dynamic>) return null;
-    final parts = content['parts'];
-    if (parts is! List || parts.isEmpty) return null;
-
-    for (final part in parts) {
-      if (part is Map<String, dynamic>) {
-        final text = part['text'];
-        if (text is String && text.trim().isNotEmpty) return text;
-      }
-    }
-    return null;
-  }
-
-  bool _geminiDisponible() {
-    return _geminiApiKey.trim().isNotEmpty;
-  }
-
-  Future<({
-    String? folio,
-    String? litros,
-    String? monto,
-    String? formaPago,
-    String? concepto,
-    String? unidad,
-    bool esCfdi,
-  })?> _extraerDatosConIa(XFile imagen) async {
-    if (!_geminiDisponible()) return null;
-
-    final bytes = await imagen.readAsBytes();
-    final base64Imagen = base64Encode(bytes);
-
-    final uri = Uri.parse(
-      'https://generativelanguage.googleapis.com/v1beta/models/$_geminiModel:generateContent?key=$_geminiApiKey',
-    );
-
-    final prompt = '''
-Extrae datos de un comprobante de combustible (ticket o factura CFDI) y responde SOLO un JSON valido.
-
-Reglas:
-- No escribas explicaciones.
-- Si un dato no se detecta, usa null.
-- Campos esperados: folio, litros, monto_total, forma_pago, concepto, unidad, tipo_comprobante.
-- forma_pago solo puede ser: efectivo, debito, credito o null.
-- concepto solo puede ser: gasolina, diesel, gas o null.
-- unidad solo puede ser: litros, kilogramos o null.
-- tipo_comprobante solo puede ser: cfdi, ticket, desconocido.
-
-Formato de salida obligatorio:
-{
-  "folio": "...",
-  "litros": "...",
-  "monto_total": "...",
-  "forma_pago": "...",
-  "concepto": "...",
-  "unidad": "...",
-  "tipo_comprobante": "..."
-}
-''';
-
-    final response = await http.post(
-      uri,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'contents': [
-          {
-            'parts': [
-              {'text': prompt},
-              {
-                'inline_data': {'mime_type': 'image/jpeg', 'data': base64Imagen},
-              },
-            ],
-          },
-        ],
-        'generationConfig': {
-          'temperature': 0.1,
-          'topP': 0.8,
-          'responseMimeType': 'application/json',
-        },
-      }),
-    );
-
-    if (response.statusCode < 200 || response.statusCode >= 300) return null;
-
-    final body = jsonDecode(response.body);
-    if (body is! Map<String, dynamic>) return null;
-
-    final texto = _extraerTextoDeGemini(body);
-    if (texto == null || texto.trim().isEmpty) return null;
-
-    final jsonIa = _parsearJsonIa(texto);
-    if (jsonIa == null) return null;
-
-    final folio = (jsonIa['folio'] as String?)?.trim();
-    final litros = _normalizarCantidadEscaneada(
-      (jsonIa['litros'] as String?)?.trim() ?? '',
-    );
-    final monto = _normalizarMontoEscaneado(
-      _normalizarTokenNumerico((jsonIa['monto_total'] as String?)?.trim() ?? ''),
-    );
-    final formaPago = _normalizarFormaPagoIa(jsonIa['forma_pago'] as String?);
-    final concepto = _normalizarConceptoIa(jsonIa['concepto'] as String?);
-    final unidad = _normalizarUnidadIa(jsonIa['unidad'] as String?) ??
-        (litros != null ? 'litros' : null);
-    final tipo = _normalizarTextoEscaneado(
-      (jsonIa['tipo_comprobante'] as String?)?.trim() ?? '',
-    );
-
-    return (
-      folio: (folio == null || folio.isEmpty) ? null : folio,
-      litros: litros,
-      monto: monto,
-      formaPago: formaPago,
-      concepto: concepto,
-      unidad: unidad,
-      esCfdi: tipo == 'CFDI',
-    );
-  }
-
-  ({String? folio, String? litros, String? monto, String? formaPago, String? concepto, String? unidad, bool esCfdi})
-  _extraerDatosComprobante(String textoOriginal) {
-    final texto = _normalizarTextoEscaneado(textoOriginal);
-    final esCfdi = texto.contains('CFDI') ||
-        texto.contains('COMPROBANTE FISCAL') ||
-        texto.contains('FOLIO FISCAL') ||
-        texto.contains('UUID') ||
-        texto.contains('FACTURA');
-
-    final folio = _detectarFolio(texto);
-    final litros = _detectarLitros(texto);
-    final monto = _detectarMontoTotal(texto);
-    final formaPago = _detectarFormaPago(texto);
-    final concepto = _detectarConcepto(texto);
-
-    return (
-      folio: folio,
-      litros: litros,
-      monto: monto,
-      formaPago: formaPago,
-      concepto: concepto,
-      unidad: litros != null ? 'litros' : null,
-      esCfdi: esCfdi,
-    );
-  }
-
-  void _limpiarCamposEscaneo() {
-    _folioController.clear();
-    _cantidadController.clear();
-    _montoController.clear();
-    _concepto = null;
-    _unidad = null;
-    _metodoPago = null;
-  }
-
-  void _aplicarDatosEscaneados({
-    String? folio,
-    String? litros,
-    String? monto,
-    String? formaPago,
-    String? concepto,
-    String? unidad,
-    bool reemplazarTodo = true,
-  }) {
-    setState(() {
-      if (reemplazarTodo) {
-        _limpiarCamposEscaneo();
-      }
-
-      if (folio != null && folio.isNotEmpty) {
-        _folioController.text = folio;
-      }
-      if (litros != null && litros.isNotEmpty) {
-        _cantidadController.text = litros;
-      }
-      if (monto != null && monto.isNotEmpty) {
-        _montoController.text = monto;
-      }
-
-      if (concepto != null && concepto.isNotEmpty) {
-        _concepto = concepto;
-      }
-      if (unidad != null && unidad.isNotEmpty) {
-        _unidad = unidad;
-      }
-      if (formaPago != null && formaPago.isNotEmpty) {
-        _metodoPago = formaPago;
-      }
-    });
-  }
-
-  int _contarCamposDetectados({
-    String? folio,
-    String? litros,
-    String? monto,
-    String? formaPago,
-    String? concepto,
-  }) {
-    var total = 0;
-    if (folio != null && folio.isNotEmpty) total++;
-    if (litros != null && litros.isNotEmpty) total++;
-    if (monto != null && monto.isNotEmpty) total++;
-    if (formaPago != null && formaPago.isNotEmpty) total++;
-    if (concepto != null && concepto.isNotEmpty) total++;
-    return total;
-  }
-
-  Future<void> _intentarMejoraConIa({
-    required XFile imagen,
-    required int camposLocales,
-    required bool fallbackAutomatico,
-  }) async {
-    if (_mejoraIaEnProgreso) return;
-
-    if (!_geminiDisponible()) {
-      if (!fallbackAutomatico) {
-        _mostrarMensajeEscaneo(
-          'Falta configurar GEMINI_API_KEY. Ejecuta la app con --dart-define=GEMINI_API_KEY=TU_API_KEY.',
-          error: true,
-        );
-      }
-      return;
-    }
-
-    setState(() {
-      _mejoraIaEnProgreso = true;
-    });
-
-    try {
-      final datosIa = await _extraerDatosConIa(imagen);
-      if (datosIa == null) {
-        if (!fallbackAutomatico) {
-          _mostrarMensajeEscaneo(
-            'La IA no pudo extraer datos en este intento.',
-            error: true,
-          );
-        }
-        return;
-      }
-
-      final camposIa = _contarCamposDetectados(
-        folio: datosIa.folio,
-        litros: datosIa.litros,
-        monto: datosIa.monto,
-        formaPago: datosIa.formaPago,
-        concepto: datosIa.concepto,
-      );
-
-      if (camposIa == 0) {
-        if (!fallbackAutomatico) {
-          _mostrarMensajeEscaneo(
-            'La IA no encontró datos utilizables en la imagen.',
-            error: true,
-          );
-        }
-        return;
-      }
-
-      _aplicarDatosEscaneados(
-        folio: datosIa.folio,
-        litros: datosIa.litros,
-        monto: datosIa.monto,
-        formaPago: datosIa.formaPago,
-        concepto: datosIa.concepto,
-        unidad: datosIa.unidad,
-        reemplazarTodo: camposLocales == 0,
-      );
-
-      final tipo = datosIa.esCfdi ? 'factura CFDI' : 'ticket simple';
-      _mostrarMensajeEscaneo(
-        fallbackAutomatico
-            ? 'Se mejoró el escaneo automáticamente con IA ($tipo).'
-            : 'Mejora con IA completada ($tipo). Verifica la información.',
-      );
-      await _mostrarAvisoVerificacion();
-    } catch (_) {
-      if (!fallbackAutomatico) {
-        _mostrarMensajeEscaneo(
-          'Ocurrió un error al consultar la IA.',
-          error: true,
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _mejoraIaEnProgreso = false;
-        });
-      }
-    }
-  }
-
-  void _mostrarMensajeEscaneo(String mensaje, {bool error = false}) {
+  void _mostrarMensaje(String mensaje, {bool error = false}) {
     if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -1890,165 +1369,78 @@ Formato de salida obligatorio:
     );
   }
 
-  Future<void> _mostrarAvisoVerificacion() async {
-    if (!mounted) return;
-
-    await showDialog<void>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Verifica los datos'),
-        content: const Text(
-          'El escaneo se completó. Revisa y corrige manualmente cualquier dato antes de registrar, porque el OCR puede cometer errores.',
-        ),
-        actions: [
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Entendido'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _mostrarDialogoManual() async {
-    if (!mounted) return;
-
-    await showDialog<void>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Comprobante no legible'),
-        content: const Text(
-          'No se pudo detectar el comprobante después de 3 intentos. Te sugerimos capturar los datos manualmente para continuar.',
-        ),
-        actions: [
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Entendido'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _escanearComprobante() async {
-    if (_escaneoEnProgreso) return;
-
+  Future<void> _tomarFotoTicket() async {
     final esMovil = !kIsWeb &&
         (defaultTargetPlatform == TargetPlatform.android ||
             defaultTargetPlatform == TargetPlatform.iOS);
 
     if (!esMovil) {
-      _mostrarMensajeEscaneo(
-        'El escaneo de comprobantes solo está disponible en Android e iPhone.',
+      _mostrarMensaje(
+        'La captura de foto de ticket solo está disponible en Android e iPhone.',
         error: true,
       );
       return;
     }
 
-    setState(() {
-      _escaneoEnProgreso = true;
-    });
-
     try {
       final imagen = await _imagePicker.pickImage(
         source: ImageSource.camera,
-        imageQuality: 100,
+        imageQuality: 92,
         preferredCameraDevice: CameraDevice.rear,
       );
 
       if (imagen == null) return;
 
-      _ultimaImagenEscaneada = imagen;
-
-      final inputImage = InputImage.fromFilePath(imagen.path);
-      final recognizer = TextRecognizer(script: TextRecognitionScript.latin);
-
-      try {
-        final recognizedText = await recognizer.processImage(inputImage);
-        final texto = recognizedText.text.trim();
-
-        if (texto.isEmpty) {
-          _intentosEscaneoFallidos += 1;
-          _mostrarMensajeEscaneo(
-            'El comprobante no fue legible. Toma la foto de nuevo con más luz y enfoque.',
-            error: true,
-          );
-          if (_intentosEscaneoFallidos >= 3) {
-            await _mostrarDialogoManual();
-          }
-          return;
-        }
-
-        final datos = _extraerDatosComprobante(texto);
-        final camposLocales = _contarCamposDetectados(
-          folio: datos.folio,
-          litros: datos.litros,
-          monto: datos.monto,
-          formaPago: datos.formaPago,
-          concepto: datos.concepto,
-        );
-        final hayDatos = camposLocales > 0;
-
-        if (hayDatos) {
-          _aplicarDatosEscaneados(
-            folio: datos.folio,
-            litros: datos.litros,
-            monto: datos.monto,
-            formaPago: datos.formaPago,
-            concepto: datos.concepto,
-            unidad: datos.unidad,
-          );
-        }
-
-        if (camposLocales < 3) {
-          await _intentarMejoraConIa(
-            imagen: imagen,
-            camposLocales: camposLocales,
-            fallbackAutomatico: true,
-          );
-        }
-
-        if (!hayDatos) {
-          _intentosEscaneoFallidos += 1;
-          _mostrarMensajeEscaneo(
-            'Se leyó la imagen pero no se pudieron detectar folio, litros, monto o forma de pago. Acerca el ticket, evita reflejos e intenta de nuevo.',
-            error: true,
-          );
-          if (_intentosEscaneoFallidos >= 3) {
-            await _mostrarDialogoManual();
-          }
-          return;
-        }
-
-        _intentosEscaneoFallidos = 0;
-
-        final tipo = datos.esCfdi ? 'factura CFDI' : 'ticket simple';
-        if (camposLocales >= 3) {
-          _mostrarMensajeEscaneo('Escaneo completado: se detectó $tipo.');
-        } else {
-          _mostrarMensajeEscaneo(
-            _geminiDisponible()
-                ? 'Escaneo parcial detectado ($tipo). Se aplicó mejora automática con IA para completar más campos.'
-                : 'Escaneo parcial detectado ($tipo). Puedes completar los campos faltantes manualmente.',
-          );
-        }
-        await _mostrarAvisoVerificacion();
-      } finally {
-        await recognizer.close();
-      }
+      setState(() {
+        _imagenTicket = imagen;
+        _ticketUrl = null;
+        _ticketStoragePath = null;
+      });
+      _mostrarMensaje('Foto del ticket capturada.');
     } catch (_) {
-      _intentosEscaneoFallidos += 1;
-      _mostrarMensajeEscaneo(
-        'No fue posible leer el comprobante. Intenta tomar la foto de nuevo.',
+      _mostrarMensaje(
+        'No fue posible abrir la camara. Intenta de nuevo.',
         error: true,
       );
-      if (_intentosEscaneoFallidos >= 3) {
-        await _mostrarDialogoManual();
+    }
+  }
+
+  Future<({String url, String storagePath})?> _subirImagenSiExiste() async {
+    if (_imagenTicket == null) return null;
+
+    setState(() {
+      _subiendoImagen = true;
+    });
+
+    try {
+      final bytes = await _imagenTicket!.readAsBytes();
+      final nombreArchivo =
+          '${DateTime.now().millisecondsSinceEpoch}_${widget.operador}.jpg';
+      final storagePath =
+          'tickets_gasolina/${widget.operador}/$nombreArchivo';
+
+      final ref = FirebaseStorage.instance.ref().child(storagePath);
+      await ref.putData(
+        bytes,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
+      final url = await ref.getDownloadURL();
+
+      if (mounted) {
+        setState(() {
+          _ticketUrl = url;
+          _ticketStoragePath = storagePath;
+        });
       }
+
+      return (url: url, storagePath: storagePath);
+    } catch (_) {
+      _mostrarMensaje('No se pudo subir la foto del ticket.', error: true);
+      rethrow;
     } finally {
       if (mounted) {
         setState(() {
-          _escaneoEnProgreso = false;
+          _subiendoImagen = false;
         });
       }
     }
@@ -2081,6 +1473,8 @@ Formato de salida obligatorio:
   }
 
   Future<void> _guardarRegistro() async {
+    if (_guardando) return;
+
     final folio = _folioController.text.trim();
     final cantidad = double.tryParse(
       _cantidadController.text.trim().replaceAll(',', '.'),
@@ -2089,10 +1483,22 @@ Formato de salida obligatorio:
       _montoController.text.trim().replaceAll(',', '.'),
     );
 
-    if (folio.isEmpty || cantidad == null || monto == null) {
+    if (_imagenTicket == null) {
+      _mostrarMensaje('Primero toma la foto del ticket de gasolina.', error: true);
+      return;
+    }
+
+    if (folio.isEmpty ||
+        cantidad == null ||
+        monto == null ||
+        _concepto == null ||
+        _unidad == null ||
+        _metodoPago == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Completa folio, cantidad y monto correctamente.'),
+          content: Text(
+            'Completa foto, folio, concepto, unidad, cantidad, metodo de pago y monto.',
+          ),
         ),
       );
       return;
@@ -2106,30 +1512,47 @@ Formato de salida obligatorio:
 
     if (!confirmar) return;
 
-    final fechaActual = DateTime.now();
-
-    await FirebaseFirestore.instance.collection('registros_gasolina').add({
-      'tipo_registro': 'gasolina',
-      'fecha': fechaActual,
-      'fecha_texto': _formatearFecha(fechaActual),
-      'folio': folio,
-      'concepto': _concepto,
-      'automovil': widget.camion,
-      'placas': widget.placas,
-      'cantidad': cantidad,
-      'unidad': _unidad,
-      'monto': monto,
-      'metodo_pago': _metodoPago,
-      'operador': widget.operador,
-      'camion': widget.camion,
-      'creadoEn': FieldValue.serverTimestamp(),
+    setState(() {
+      _guardando = true;
     });
 
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Registro guardado')),
-    );
-    Navigator.of(context).pop();
+    try {
+      final fechaActual = DateTime.now();
+      final ticketSubido = await _subirImagenSiExiste();
+
+      await FirebaseFirestore.instance.collection('registros_gasolina').add({
+        'tipo_registro': 'gasolina',
+        'fecha': fechaActual,
+        'fecha_texto': _formatearFecha(fechaActual),
+        'folio': folio,
+        'concepto': _concepto,
+        'automovil': widget.camion,
+        'placas': widget.placas,
+        'cantidad': cantidad,
+        'unidad': _unidad,
+        'monto': monto,
+        'metodo_pago': _metodoPago,
+        'operador': widget.operador,
+        'camion': widget.camion,
+        'ticket_url': ticketSubido?.url,
+        'ticket_storage_path': ticketSubido?.storagePath,
+        'ticket_subido_en': FieldValue.serverTimestamp(),
+        'captura_pendiente_admin': true,
+        'creadoEn': FieldValue.serverTimestamp(),
+      });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Registro guardado con ticket.')),
+      );
+      Navigator.of(context).pop();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _guardando = false;
+        });
+      }
+    }
   }
 
   Future<void> _cancelarRegistro() async {
@@ -2274,7 +1697,7 @@ Formato de salida obligatorio:
                                 ),
                                 const SizedBox(height: 6),
                                 Text(
-                                  'Al escanear, los datos se autorellenan automáticamente. Si el escaneo no lee bien, revisa y modifica manualmente antes de registrar.',
+                                  'Toma foto del ticket y completa los datos manualmente para que administracion pueda revisarlos y cargarlos al sistema.',
                                   style: TextStyle(
                                     color: Colors.white.withValues(alpha: 0.82),
                                     height: 1.35,
@@ -2307,11 +1730,8 @@ Formato de salida obligatorio:
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           FilledButton.icon(
-                            onPressed:
-                                (_escaneoEnProgreso || _mejoraIaEnProgreso)
-                                    ? null
-                                    : _escanearComprobante,
-                            icon: (_escaneoEnProgreso || _mejoraIaEnProgreso)
+                            onPressed: _subiendoImagen ? null : _tomarFotoTicket,
+                            icon: _subiendoImagen
                                 ? const SizedBox(
                                     width: 18,
                                     height: 18,
@@ -2320,13 +1740,11 @@ Formato de salida obligatorio:
                                       color: Colors.white,
                                     ),
                                   )
-                                : const Icon(Icons.document_scanner_rounded),
+                                : const Icon(Icons.photo_camera_rounded),
                             label: Text(
-                              _escaneoEnProgreso
-                                  ? 'Escaneando comprobante...'
-                                  : (_mejoraIaEnProgreso
-                                        ? 'Mejorando con IA...'
-                                        : 'Escanear comprobante (auto IA)'),
+                              _imagenTicket == null
+                                  ? 'Tomar foto del ticket'
+                                  : 'Tomar otra foto del ticket',
                             ),
                             style: FilledButton.styleFrom(
                               backgroundColor: const Color(0xFF0F766E),
@@ -2340,35 +1758,41 @@ Formato de salida obligatorio:
                               ),
                             ),
                           ),
-                          if (!_geminiDisponible()) ...[
+                          if (_imagenTicket != null) ...[
                             const SizedBox(height: 10),
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: _warning.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(
-                                  color: _warning.withValues(alpha: 0.25),
-                                ),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(14),
+                              child: FutureBuilder<Uint8List>(
+                                future: _imagenTicket!.readAsBytes(),
+                                builder: (context, snapshot) {
+                                  if (!snapshot.hasData) {
+                                    return Container(
+                                      height: 170,
+                                      color: const Color(0xFFF1F5F9),
+                                      alignment: Alignment.center,
+                                      child: const CircularProgressIndicator(),
+                                    );
+                                  }
+
+                                  return Image.memory(
+                                    snapshot.data!,
+                                    height: 190,
+                                    width: double.infinity,
+                                    fit: BoxFit.cover,
+                                  );
+                                },
                               ),
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.auto_awesome_rounded,
-                                    color: Color(0xFFB45309),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      'La mejora automática con IA requiere GEMINI_API_KEY.',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: _primary.withValues(alpha: 0.76),
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                            ),
+                            const SizedBox(height: 8),
+                            const Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                'La foto se sube automaticamente al guardar el registro.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF64748B),
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                           ],
@@ -2422,6 +1846,44 @@ Formato de salida obligatorio:
                             decoration: InputDecoration(
                               hintText: 'Ej: F-00124',
                               prefixIcon: const Icon(Icons.receipt_long_rounded),
+                              filled: true,
+                              fillColor: const Color(0xFFF8FAFC),
+                              border: inputBorder,
+                              enabledBorder: inputBorder,
+                              focusedBorder: inputBorder.copyWith(
+                                borderSide: BorderSide(color: _accent, width: 1.6),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          _buildFieldLabel('Concepto'),
+                          const SizedBox(height: 6),
+                          DropdownButtonFormField<String>(
+                            initialValue: _concepto,
+                            hint: const Text('Selecciona concepto'),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'gasolina',
+                                child: Text('Gasolina'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'diesel',
+                                child: Text('Diesel'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'gas',
+                                child: Text('Gas'),
+                              ),
+                            ],
+                            onChanged: (value) {
+                              if (value != null) {
+                                setState(() {
+                                  _concepto = value;
+                                });
+                              }
+                            },
+                            decoration: InputDecoration(
+                              prefixIcon: const Icon(Icons.category_rounded),
                               filled: true,
                               fillColor: const Color(0xFFF8FAFC),
                               border: inputBorder,
@@ -2553,7 +2015,9 @@ Formato de salida obligatorio:
                         final isNarrow = constraints.maxWidth < 410;
 
                         final registrarButton = FilledButton.icon(
-                          onPressed: _guardarRegistro,
+                          onPressed: (_guardando || _subiendoImagen)
+                              ? null
+                              : _guardarRegistro,
                           style: FilledButton.styleFrom(
                             backgroundColor: const Color(0xFF10B981),
                             foregroundColor: Colors.white,
@@ -2563,10 +2027,19 @@ Formato de salida obligatorio:
                             ),
                             elevation: 4,
                           ),
-                          icon: const Icon(Icons.check_circle_rounded),
-                          label: const Text(
-                            'Registrar',
-                            style: TextStyle(fontWeight: FontWeight.w700),
+                          icon: _guardando
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(Icons.check_circle_rounded),
+                          label: Text(
+                            _guardando ? 'Guardando...' : 'Registrar',
+                            style: const TextStyle(fontWeight: FontWeight.w700),
                           ),
                         );
 

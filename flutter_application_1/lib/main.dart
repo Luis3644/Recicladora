@@ -5,10 +5,12 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'config/session_manager.dart';
+import 'utils/push_notifications_service.dart';
 import 'firebase_options.dart';
 import 'screens/Trabajador_screen.dart';
 import 'screens/admin_screen.dart';
@@ -17,9 +19,17 @@ import 'screens/operador_screen.dart';
 import 'screens/jornada_screen.dart';
 import 'screens/widgets_conexion/connection_wrapper.dart';
 
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await PushNotificationsService.initialize();
+  await PushNotificationsService.showSystemNotificationFromMessage(message);
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   FirebaseFirestore.instance.settings = const Settings(
     persistenceEnabled: true,
     cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
@@ -30,6 +40,7 @@ void main() async {
     name: "super_prueba",
     parameters: {"timestamp": DateTime.now().toIso8601String()},
   );
+  await PushNotificationsService.initialize();
   await initializeDateFormatting('es_ES', null);
   runApp(const MyApp());
 }
@@ -146,6 +157,7 @@ class SessionBootstrapScreen extends StatelessWidget {
       final sesionGuardada = await SessionManager.obtenerSesion();
       String? rol;
       String? nombre;
+      String? usuarioDocId;
 
       if (sesionGuardada != null) {
         if (!_rolValido(sesionGuardada.rol)) {
@@ -153,6 +165,7 @@ class SessionBootstrapScreen extends StatelessWidget {
         } else {
           rol = sesionGuardada.rol;
           nombre = sesionGuardada.nombre;
+          usuarioDocId = sesionGuardada.usuarioDocId;
         }
       }
 
@@ -164,6 +177,7 @@ class SessionBootstrapScreen extends StatelessWidget {
         final data = userDoc?.data();
         rol = data?['rol']?.toString();
         nombre = data?['nombre']?.toString() ?? '';
+        usuarioDocId = userDoc?.id;
 
         if (rol == null || rol.isEmpty) {
           await FirebaseAuth.instance.signOut();
@@ -181,6 +195,18 @@ class SessionBootstrapScreen extends StatelessWidget {
       // ── Notificar el rol al builder global ──────────────────────────────
       // Esto activa/desactiva ConnectionWrapper en toda la app
       rolActualNotifier.value = rol;
+
+      if (rol != null && usuarioDocId != null && usuarioDocId.isNotEmpty) {
+        await PushNotificationsService.registerUserToken(
+          usuarioDocId: usuarioDocId,
+          rol: rol,
+        );
+        await PushNotificationsService.startInAppMessagesListener(
+          usuarioDocId: usuarioDocId,
+          rol: rol,
+          nombre: nombre ?? '',
+        );
+      }
 
       if (rol == 'admin')      return const AdminScreen();
       if (rol == 'trabajador') return const TrabajadorScreen();

@@ -10,8 +10,8 @@
       "cwd": "C:\\Users\\ADR10\\Recicladora\\flutter_application_1",
       "flutterMode": "debug",
       "toolArgs": [
-        "--dart-define",
-        "GEMINI_API_KEY=AIzaSyBPZB9FGs_o97EOWS1EcLZco0wlh1Vvsmo"
+        "--dart-define-from-file",
+        ".vscode/defines.local.json"
       ]
     },
     {
@@ -20,8 +20,8 @@
       "type": "dart",
       "deviceId": "chrome",
       "toolArgs": [
-        "--dart-define",
-        "GEMINI_API_KEY=AIzaSyBPZB9FGs_o97EOWS1EcLZco0wlh1Vvsmo",
+        "--dart-define-from-file",
+        ".vscode/defines.local.json",
         "--web-port",
         "5000"
       ]

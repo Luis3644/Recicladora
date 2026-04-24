@@ -120,6 +120,13 @@ class NotificacionesDrawer extends StatelessWidget {
   final String rolUsuario;
   final String nombreUsuario;
 
+  static const Color _primary = Color(0xFF0B1F3A);
+  static const Color _secondary = Color(0xFF1D4ED8);
+  static const Color _accent = Color(0xFF0891B2);
+  static const Color _surface = Colors.white;
+  static const Color _bg = Color(0xFFF4F7FB);
+  static const Color _muted = Color(0xFF64748B);
+
   const NotificacionesDrawer({
     super.key,
     required this.rolUsuario,
@@ -178,6 +185,31 @@ class NotificacionesDrawer extends StatelessWidget {
     return '${dt.day}/${dt.month} $hh:$mm';
   }
 
+  BoxDecoration _cardNotificacion({required bool leida}) {
+    return BoxDecoration(
+      gradient: LinearGradient(
+        colors: leida
+            ? [_surface, const Color(0xFFF8FBFF)]
+            : [const Color(0xFFEFF5FF), const Color(0xFFE6F8FF)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(
+        color: leida
+            ? const Color(0xFFD5DFEE)
+            : _secondary.withValues(alpha: 0.35),
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: _primary.withValues(alpha: 0.07),
+          blurRadius: 12,
+          offset: const Offset(0, 6),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final claveUsuario = _claveUsuarioNotificacion(
@@ -187,193 +219,348 @@ class NotificacionesDrawer extends StatelessWidget {
 
     return Drawer(
       child: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                stream: FirebaseFirestore.instance
-                    .collection('notificaciones')
-                    .orderBy('creadoEn', descending: true)
-                    .limit(120)
-                    .snapshots(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
+        child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: FirebaseFirestore.instance
+              .collection('notificaciones')
+              .orderBy('creadoEn', descending: true)
+              .limit(120)
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-                  if (snapshot.hasError) {
-                    return const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(16),
-                        child: Text(
-                          'No se pudieron cargar las notificaciones.',
+            if (snapshot.hasError) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text('No se pudieron cargar las notificaciones.'),
+                ),
+              );
+            }
+
+            final docs = snapshot.data?.docs ?? [];
+            final filtradas = docs.where((doc) {
+              final data = doc.data();
+              return _esParaUsuarioNotificacion(
+                data,
+                rolUsuario: rolUsuario,
+                nombreUsuario: nombreUsuario,
+              );
+            }).toList();
+            final noLeidas = filtradas.where((doc) {
+              return !_estaLeidaPorUsuario(doc.data(), claveUsuario: claveUsuario);
+            }).toList();
+
+            return Stack(
+              children: [
+                Positioned(
+                  top: -70,
+                  right: -55,
+                  child: Container(
+                    width: 220,
+                    height: 220,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _secondary.withValues(alpha: 0.09),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: -85,
+                  left: -75,
+                  child: Container(
+                    width: 220,
+                    height: 220,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _accent.withValues(alpha: 0.08),
+                    ),
+                  ),
+                ),
+                Column(
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 13),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [_primary, _secondary],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: _primary.withValues(alpha: 0.26),
+                            blurRadius: 14,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
                       ),
-                    );
-                  }
-
-                  final docs = snapshot.data?.docs ?? [];
-                  final filtradas = docs.where((doc) {
-                    final data = doc.data();
-                    return _esParaUsuarioNotificacion(
-                      data,
-                      rolUsuario: rolUsuario,
-                      nombreUsuario: nombreUsuario,
-                    );
-                  }).toList();
-                  final noLeidas = filtradas.where((doc) {
-                    return !_estaLeidaPorUsuario(
-                      doc.data(),
-                      claveUsuario: claveUsuario,
-                    );
-                  }).toList();
-
-                  return Column(
-                    children: [
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-                        decoration: BoxDecoration(
-                          color: const Color(
-                            0xFF0F172A,
-                          ).withValues(alpha: 0.96),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.notifications_active_rounded,
-                              color: Colors.white,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Notificaciones (${noLeidas.length} nuevas)',
-                                style: const TextStyle(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.16),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(
+                                  Icons.notifications_active_rounded,
                                   color: Colors.white,
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w700,
+                                  size: 18,
                                 ),
                               ),
-                            ),
-                            TextButton(
-                              onPressed: noLeidas.isEmpty
-                                  ? null
-                                  : () async {
-                                      await _marcarTodasComoLeidas(docs);
-                                    },
-                              child: const Text(
-                                'Marcar todo',
-                                style: TextStyle(color: Colors.white),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'Notificaciones ${noLeidas.isEmpty ? '' : '(${noLeidas.length} nuevas)'}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.14),
+                                  borderRadius: BorderRadius.circular(999),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.22),
+                                  ),
+                                ),
+                                child: Text(
+                                  'Total ${filtradas.length}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 11.5,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.14),
+                                  borderRadius: BorderRadius.circular(999),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.22),
+                                  ),
+                                ),
+                                child: Text(
+                                  'Sin leer ${noLeidas.length}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 11.5,
+                                  ),
+                                ),
+                              ),
+                              const Spacer(),
+                              TextButton.icon(
+                                style: TextButton.styleFrom(
+                                  foregroundColor: Colors.white,
+                                  backgroundColor:
+                                      Colors.white.withValues(alpha: 0.14),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                onPressed: noLeidas.isEmpty
+                                    ? null
+                                    : () async {
+                                        await _marcarTodasComoLeidas(docs);
+                                      },
+                                icon: const Icon(Icons.done_all_rounded, size: 16),
+                                label: const Text('Marcar todo'),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                      Expanded(
+                    ),
+                    Expanded(
+                      child: Container(
+                        color: _bg,
                         child: filtradas.isEmpty
-                            ? const Center(
+                            ? Center(
                                 child: Padding(
-                                  padding: EdgeInsets.all(16),
-                                  child: Text(
-                                    'No hay mensajes por ahora.\nAquí verás avisos de administración.',
-                                    textAlign: TextAlign.center,
+                                  padding: const EdgeInsets.all(24),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(18),
+                                    decoration: BoxDecoration(
+                                      color: _surface,
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: const Color(0xFFD5DFEE),
+                                      ),
+                                    ),
+                                    child: const Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.notifications_none_rounded,
+                                          size: 36,
+                                          color: Color(0xFF64748B),
+                                        ),
+                                        SizedBox(height: 10),
+                                        Text(
+                                          'No hay mensajes por ahora.',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            color: Color(0xFF1E293B),
+                                          ),
+                                        ),
+                                        SizedBox(height: 4),
+                                        Text(
+                                          'Aquí verás avisos enviados por administración.',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            color: Color(0xFF64748B),
+                                            fontSize: 12.5,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               )
                             : ListView.separated(
-                                padding: const EdgeInsets.all(12),
+                                padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
                                 itemBuilder: (context, index) {
                                   final doc = filtradas[index];
                                   final data = doc.data();
                                   final mensaje =
-                                      data['mensaje']?.toString() ??
-                                      'Sin mensaje';
+                                      data['mensaje']?.toString() ?? 'Sin mensaje';
                                   final enviadoPor =
-                                      data['enviadoPor']?.toString() ??
-                                      'Administración';
-                                  final creadoEn =
-                                      data['creadoEn'] as Timestamp?;
+                                      data['enviadoPor']?.toString() ?? 'Administración';
+                                  final creadoEn = data['creadoEn'] as Timestamp?;
                                   final leida = _estaLeidaPorUsuario(
                                     data,
                                     claveUsuario: claveUsuario,
                                   );
 
-                                  return InkWell(
-                                    borderRadius: BorderRadius.circular(12),
-                                    onTap: () async {
-                                      if (!leida) {
-                                        await _marcarComoLeida(doc);
-                                      }
+                                  return TweenAnimationBuilder<double>(
+                                    tween: Tween(begin: 0, end: 1),
+                                    duration: Duration(
+                                      milliseconds: 280 + (index * 40),
+                                    ),
+                                    curve: Curves.easeOutCubic,
+                                    builder: (context, value, child) {
+                                      return Transform.translate(
+                                        offset: Offset(0, 14 * (1 - value)),
+                                        child: Opacity(opacity: value, child: child),
+                                      );
                                     },
-                                    child: Container(
-                                      padding: const EdgeInsets.all(12),
-                                      decoration: BoxDecoration(
-                                        color: leida
-                                            ? Colors.white
-                                            : const Color(0xFFEFF6FF),
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(
-                                          color: leida
-                                              ? const Color(0xFFCBD5E1)
-                                              : const Color(0xFF93C5FD),
-                                        ),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withValues(
-                                              alpha: 0.04,
-                                            ),
-                                            blurRadius: 8,
-                                            offset: const Offset(0, 3),
-                                          ),
-                                        ],
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              Icon(
-                                                leida
-                                                    ? Icons
-                                                          .mark_email_read_rounded
-                                                    : Icons
-                                                          .mark_email_unread_rounded,
-                                                color: const Color(0xFF1D4ED8),
-                                                size: 18,
-                                              ),
-                                              const SizedBox(width: 6),
-                                              Expanded(
-                                                child: Text(
-                                                  'Admin: $enviadoPor',
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: const TextStyle(
-                                                    fontWeight: FontWeight.w700,
-                                                    fontSize: 12.5,
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(14),
+                                      onTap: () async {
+                                        if (!leida) {
+                                          await _marcarComoLeida(doc);
+                                        }
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: _cardNotificacion(leida: leida),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.all(6),
+                                                  decoration: BoxDecoration(
+                                                    color: _secondary.withValues(
+                                                      alpha: leida ? 0.10 : 0.20,
+                                                    ),
+                                                    borderRadius:
+                                                        BorderRadius.circular(9),
+                                                  ),
+                                                  child: Icon(
+                                                    leida
+                                                        ? Icons
+                                                              .mark_email_read_rounded
+                                                        : Icons
+                                                              .mark_email_unread_rounded,
+                                                    color: _secondary,
+                                                    size: 16,
                                                   ),
                                                 ),
-                                              ),
-                                              Text(
-                                                _fechaCorta(creadoEn),
-                                                style: const TextStyle(
-                                                  color: Color(0xFF64748B),
-                                                  fontSize: 11,
+                                                const SizedBox(width: 8),
+                                                Expanded(
+                                                  child: Text(
+                                                    'Admin: $enviadoPor',
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: const TextStyle(
+                                                      fontWeight: FontWeight.w800,
+                                                      fontSize: 12.5,
+                                                      color: Color(0xFF0F172A),
+                                                    ),
+                                                  ),
                                                 ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 8),
-                                          Text(
-                                            mensaje,
-                                            style: const TextStyle(
-                                              fontSize: 13.5,
-                                              color: Color(0xFF0F172A),
-                                              height: 1.3,
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 3,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.white
+                                                        .withValues(alpha: 0.72),
+                                                    borderRadius:
+                                                        BorderRadius.circular(999),
+                                                    border: Border.all(
+                                                      color: const Color(0xFFD6E0EF),
+                                                    ),
+                                                  ),
+                                                  child: Text(
+                                                    _fechaCorta(creadoEn),
+                                                    style: const TextStyle(
+                                                      color: _muted,
+                                                      fontSize: 10.8,
+                                                      fontWeight: FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
                                             ),
-                                          ),
-                                        ],
+                                            const SizedBox(height: 8),
+                                            Text(
+                                              mensaje,
+                                              style: const TextStyle(
+                                                fontSize: 13.5,
+                                                color: Color(0xFF0F172A),
+                                                height: 1.32,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   );
@@ -383,12 +570,12 @@ class NotificacionesDrawer extends StatelessWidget {
                                 itemCount: filtradas.length,
                               ),
                       ),
-                    ],
-                  );
-                },
-              ),
-            ),
-          ],
+                    ),
+                  ],
+                ),
+              ],
+            );
+          },
         ),
       ),
     );

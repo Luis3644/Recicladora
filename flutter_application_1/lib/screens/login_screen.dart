@@ -14,6 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/session_manager.dart';
 import '../main.dart'; // ← necesario para rolActualNotifier
+import '../utils/push_notifications_service.dart';
 import 'Trabajador_screen.dart';
 import 'admin_screen.dart';
 import 'operador_screen.dart';
@@ -522,6 +523,15 @@ class _LoginScreenState extends State<LoginScreen> {
         usuarioDocId: usuarioDocId,
         dispositivoId: _dispositivoIdActual,
       );
+      await PushNotificationsService.registerUserToken(
+        usuarioDocId: usuarioDocId,
+        rol: rol,
+      );
+      await PushNotificationsService.startInAppMessagesListener(
+        usuarioDocId: usuarioDocId,
+        rol: rol,
+        nombre: nombre,
+      );
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
@@ -536,6 +546,15 @@ class _LoginScreenState extends State<LoginScreen> {
         nombre: nombre,
         usuarioDocId: usuarioDocId,
         dispositivoId: _dispositivoIdActual,
+      );
+      await PushNotificationsService.registerUserToken(
+        usuarioDocId: usuarioDocId,
+        rol: rol,
+      );
+      await PushNotificationsService.startInAppMessagesListener(
+        usuarioDocId: usuarioDocId,
+        rol: rol,
+        nombre: nombre,
       );
 
       // ── CLAVE: activar ConnectionWrapper ANTES de navegar ──────────────
@@ -563,6 +582,15 @@ class _LoginScreenState extends State<LoginScreen> {
         nombre: nombre,
         usuarioDocId: usuarioDocId,
         dispositivoId: _dispositivoIdActual,
+      );
+      await PushNotificationsService.registerUserToken(
+        usuarioDocId: usuarioDocId,
+        rol: rol,
+      );
+      await PushNotificationsService.startInAppMessagesListener(
+        usuarioDocId: usuarioDocId,
+        rol: rol,
+        nombre: nombre,
       );
       if (!mounted) return;
       Navigator.pushReplacement(

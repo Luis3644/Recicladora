@@ -385,6 +385,13 @@ class _AdminScreenState extends State<AdminScreen>
         ),
       );
 
+  void _abrirReportesCamiones() => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const ReportesCamionesAdminScreen(),
+        ),
+      );
+
   void _abrirPanelGeneralUsuarios() => Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const PanelGeneralUsuariosScreen()),
@@ -974,6 +981,15 @@ class _AdminScreenState extends State<AdminScreen>
                             color: const Color(0xFF0F766E),
                             compact: isMobile,
                           ),
+                          _AnimatedOptionCard(
+                            icon: Icons.local_shipping_rounded,
+                            title: 'Reportes de Camiones',
+                            description:
+                                'Incidentes y averias de unidades',
+                            onTap: _abrirReportesCamiones,
+                            color: const Color(0xFF0EA5A4),
+                            compact: isMobile,
+                          ),
                         ],
                       ),
                       const SizedBox(height: 32),
@@ -1075,21 +1091,42 @@ class _AdminScreenState extends State<AdminScreen>
           .where('jornada_activa', isEqualTo: true)
           .snapshots();
 
-  Stream<int> _streamReportesEquipoPendientes() => FirebaseFirestore.instance
+  Stream<QuerySnapshot<Map<String, dynamic>>> _streamReportesEquipoPendientes() => FirebaseFirestore.instance
       .collection('checklist')
       .where('equipo_completo', isEqualTo: false)
-      .snapshots()
-      .map((s) => s.docs.length);
+      .snapshots();
 
-  Stream<int> _streamIncidentesOperadores() => FirebaseFirestore.instance
+  Stream<QuerySnapshot<Map<String, dynamic>>> _streamIncidentesOperadores() => FirebaseFirestore.instance
       .collection('reportes')
-      .snapshots()
-      .map((s) => s.docs.length);
+      .snapshots();
 
-  Stream<int> _streamReportesCamiones() => FirebaseFirestore.instance
+  Stream<QuerySnapshot<Map<String, dynamic>>> _streamReportesCamiones() => FirebaseFirestore.instance
       .collection('reportes_camiones')
-      .snapshots()
-      .map((s) => s.docs.length);
+      .snapshots();
+
+  int _contarReportesHoy(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
+  ) {
+    final ahora = DateTime.now();
+    final inicioHoy = DateTime(ahora.year, ahora.month, ahora.day);
+    final finHoy = inicioHoy.add(const Duration(days: 1));
+
+    var total = 0;
+    for (final doc in docs) {
+      final valorFecha = doc.data()['fecha'];
+      DateTime? fecha;
+      if (valorFecha is Timestamp) {
+        fecha = valorFecha.toDate();
+      } else if (valorFecha is DateTime) {
+        fecha = valorFecha;
+      }
+
+      if (fecha != null && !fecha.isBefore(inicioHoy) && fecha.isBefore(finHoy)) {
+        total++;
+      }
+    }
+    return total;
+  }
 
   // ── Stats ─────────────────────────────────────────────────────────────────
   Widget _buildSystemStatsSection() {
@@ -1099,20 +1136,33 @@ class _AdminScreenState extends State<AdminScreen>
         final usuariosActivos = usuariosSnapshot.data?.docs ?? [];
         final cantidadActivos = usuariosActivos.length;
 
-        return StreamBuilder<int>(
+        return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
           stream: _streamReportesEquipoPendientes(),
           builder: (context, equipoSnapshot) {
-            return StreamBuilder<int>(
+            return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: _streamIncidentesOperadores(),
               builder: (context, incidentesSnapshot) {
-                return StreamBuilder<int>(
+                return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
                   stream: _streamReportesCamiones(),
                   builder: (context, camionesSnapshot) {
-                    final reportesEquipo = equipoSnapshot.data ?? 0;
-                    final incidentesOperador = incidentesSnapshot.data ?? 0;
-                    final reportesCamiones = camionesSnapshot.data ?? 0;
+                    final reportesEquipoDocs = equipoSnapshot.data?.docs ??
+                        <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+                    final incidentesOperadorDocs =
+                        incidentesSnapshot.data?.docs ??
+                            <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+                    final reportesCamionesDocs = camionesSnapshot.data?.docs ??
+                        <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+
+                    final reportesEquipo = reportesEquipoDocs.length;
+                    final incidentesOperador = incidentesOperadorDocs.length;
+                    final reportesCamiones = reportesCamionesDocs.length;
                     final totalReportes =
                         reportesEquipo + incidentesOperador + reportesCamiones;
+                    final hoyEquipo = _contarReportesHoy(reportesEquipoDocs);
+                    final hoyOperadores =
+                        _contarReportesHoy(incidentesOperadorDocs);
+                    final hoyCamiones = _contarReportesHoy(reportesCamionesDocs);
+                    final hoyTotal = hoyEquipo + hoyOperadores + hoyCamiones;
 
                     return LayoutBuilder(
                       builder: (context, constraints) {
@@ -1146,60 +1196,17 @@ class _AdminScreenState extends State<AdminScreen>
                               compact: isMobileStats,
                             ),
                             _buildStatCard(
-                              icon: Icons.bar_chart_rounded,
-                              label: 'Reportes de Equipo',
-                              statusText: 'Tiempo real',
-                              value: reportesEquipo.toString(),
-                              color: const Color(0xFF3B82F6),
-                              backgroundGradient: [
-                                const Color(0xFF3B82F6).withValues(alpha: 0.12),
-                                const Color(0xFF3B82F6).withValues(alpha: 0.04),
-                              ],
-                              onTap: _abrirReportes,
-                              compact: isMobileStats,
-                            ),
-                            _buildStatCard(
-                              icon: Icons.emergency_share_rounded,
-                              label: 'Incidentes Operadores',
-                              statusText: 'Tiempo real',
-                              value: incidentesOperador.toString(),
-                              color: warningColor,
-                              backgroundGradient: [
-                                warningColor.withValues(alpha: 0.12),
-                                warningColor.withValues(alpha: 0.04),
-                              ],
-                              onTap: _abrirIncidentes,
-                              compact: isMobileStats,
-                            ),
-                            _buildStatCard(
-                              icon: Icons.local_shipping_rounded,
-                              label: 'Reportes Camiones',
-                              statusText: 'Tiempo real',
-                              value: reportesCamiones.toString(),
-                              color: const Color(0xFF0F766E),
-                              backgroundGradient: [
-                                const Color(0xFF0F766E).withValues(alpha: 0.12),
-                                const Color(0xFF0F766E).withValues(alpha: 0.04),
-                              ],
-                              onTap: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      const ReportesCamionesAdminScreen(),
-                                ),
-                              ),
-                              compact: isMobileStats,
-                            ),
-                            _buildStatCard(
                               icon: Icons.assignment_rounded,
                               label: 'Total de Reportes',
-                              statusText: 'Suma de todas las áreas',
+                              statusText:
+                                  'Hoy $hoyTotal | Equipo $hoyEquipo | Operadores $hoyOperadores | Camiones $hoyCamiones',
                               value: totalReportes.toString(),
                               color: successColor,
                               backgroundGradient: [
                                 successColor.withValues(alpha: 0.12),
                                 successColor.withValues(alpha: 0.04),
                               ],
+                              onTap: _abrirReportes,
                               compact: isMobileStats,
                             ),
                           ],

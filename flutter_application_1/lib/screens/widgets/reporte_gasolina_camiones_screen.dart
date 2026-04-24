@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:excel/excel.dart' as ex;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -83,6 +84,65 @@ class _ReporteGasolinaCamionesScreenState
     }).toList();
   }
 
+  String _valorMostrado(Map<String, dynamic> registro, String campo) {
+    final manual = registro['admin_manual'];
+    if (manual is Map<String, dynamic>) {
+      final valorManual = manual[campo];
+      if (valorManual != null && valorManual.toString().trim().isNotEmpty) {
+        return valorManual.toString();
+      }
+    }
+
+    final valor = registro[campo];
+    if (valor == null) return '';
+    return valor.toString();
+  }
+
+  String _automovilMostrado(Map<String, dynamic> registro) {
+    final manual = registro['admin_manual'];
+    if (manual is Map<String, dynamic>) {
+      final valorManual = manual['automovil'];
+      if (valorManual != null && valorManual.toString().trim().isNotEmpty) {
+        return valorManual.toString();
+      }
+    }
+    return (registro['automovil'] ?? registro['camion'] ?? '').toString();
+  }
+
+  bool _tieneTicket(Map<String, dynamic> registro) {
+    final ticket = registro['ticket_url'];
+    return ticket != null && ticket.toString().trim().isNotEmpty;
+  }
+
+  Future<void> _copiarDatosRegistro(Map<String, dynamic> registro) async {
+    final fecha = _toDate(registro['fecha']);
+    final texto = [
+      'FECHA: ${fecha == null ? '-' : DateFormat('dd/MM/yyyy').format(fecha)}',
+      'FOLIO: ${_valorMostrado(registro, 'folio')}',
+      'CONCEPTO: ${_valorMostrado(registro, 'concepto').toUpperCase()}',
+      'AUTOMOVIL: ${_automovilMostrado(registro).toUpperCase()}',
+      'CANTIDAD: ${_valorMostrado(registro, 'cantidad')}',
+      'UNIDAD: ${_valorMostrado(registro, 'unidad').toUpperCase()}',
+      'MONTO: ${_valorMostrado(registro, 'monto')}',
+      'METODO PAGO: ${_valorMostrado(registro, 'metodo_pago').toUpperCase()}',
+    ].join('\n');
+
+    await Clipboard.setData(ClipboardData(text: texto));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Datos copiados al portapapeles.')),
+    );
+  }
+
+  Future<void> _abrirRevisionRegistro(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => _RevisionTicketGasolinaDialog(doc: doc),
+    );
+  }
+
   Future<void> _exportarExcel(
     List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
   ) async {
@@ -135,15 +195,13 @@ class _ReporteGasolinaCamionesScreenState
         final fecha = _toDate(r['fecha']);
         sheet.appendRow([
           ex.TextCellValue(fecha == null ? '-' : fechaFormat.format(fecha)),
-          ex.TextCellValue((r['folio'] ?? '').toString()),
-          ex.TextCellValue((r['concepto'] ?? '').toString().toUpperCase()),
-          ex.TextCellValue(
-            (r['automovil'] ?? r['camion'] ?? '').toString().toUpperCase(),
-          ),
-          ex.TextCellValue((r['cantidad'] ?? '').toString()),
-          ex.TextCellValue((r['unidad'] ?? '').toString().toUpperCase()),
-          ex.TextCellValue((r['monto'] ?? '').toString()),
-          ex.TextCellValue((r['metodo_pago'] ?? '').toString().toUpperCase()),
+          ex.TextCellValue(_valorMostrado(r, 'folio')),
+          ex.TextCellValue(_valorMostrado(r, 'concepto').toUpperCase()),
+          ex.TextCellValue(_automovilMostrado(r).toUpperCase()),
+          ex.TextCellValue(_valorMostrado(r, 'cantidad')),
+          ex.TextCellValue(_valorMostrado(r, 'unidad').toUpperCase()),
+          ex.TextCellValue(_valorMostrado(r, 'monto')),
+          ex.TextCellValue(_valorMostrado(r, 'metodo_pago').toUpperCase()),
         ]);
       }
 
@@ -478,6 +536,8 @@ class _ReporteGasolinaCamionesScreenState
                                   DataColumn(label: Text('KG/LT')),
                                   DataColumn(label: Text('MONTO')),
                                   DataColumn(label: Text('METODO DE PAGO')),
+                                  DataColumn(label: Text('TICKET')),
+                                  DataColumn(label: Text('ACCIONES')),
                                 ],
                                 rows: filtrados.map((doc) {
                                   final r = doc.data();
@@ -494,40 +554,77 @@ class _ReporteGasolinaCamionesScreenState
                                         ),
                                       ),
                                       DataCell(
-                                        Text((r['folio'] ?? '').toString()),
+                                        Text(_valorMostrado(r, 'folio')),
                                       ),
                                       DataCell(
                                         Text(
-                                          (r['concepto'] ?? '')
-                                              .toString()
-                                              .toUpperCase(),
+                                          _valorMostrado(
+                                            r,
+                                            'concepto',
+                                          ).toUpperCase(),
                                         ),
                                       ),
                                       DataCell(
                                         Text(
-                                          (r['automovil'] ?? r['camion'] ?? '')
-                                              .toString()
-                                              .toUpperCase(),
+                                          _automovilMostrado(r).toUpperCase(),
                                         ),
                                       ),
                                       DataCell(
-                                        Text((r['cantidad'] ?? '').toString()),
+                                        Text(_valorMostrado(r, 'cantidad')),
                                       ),
                                       DataCell(
                                         Text(
-                                          (r['unidad'] ?? '')
-                                              .toString()
-                                              .toUpperCase(),
+                                          _valorMostrado(
+                                            r,
+                                            'unidad',
+                                          ).toUpperCase(),
                                         ),
                                       ),
                                       DataCell(
-                                        Text((r['monto'] ?? '').toString()),
+                                        Text(_valorMostrado(r, 'monto')),
                                       ),
                                       DataCell(
                                         Text(
-                                          (r['metodo_pago'] ?? '')
-                                              .toString()
-                                              .toUpperCase(),
+                                          _valorMostrado(
+                                            r,
+                                            'metodo_pago',
+                                          ).toUpperCase(),
+                                        ),
+                                      ),
+                                      DataCell(
+                                        _tieneTicket(r)
+                                            ? TextButton.icon(
+                                                onPressed: () =>
+                                                    _abrirRevisionRegistro(doc),
+                                                icon: const Icon(
+                                                  Icons.photo_library_rounded,
+                                                  size: 16,
+                                                ),
+                                                label: const Text('Ver'),
+                                              )
+                                            : const Text('Sin foto'),
+                                      ),
+                                      DataCell(
+                                        Wrap(
+                                          spacing: 4,
+                                          children: [
+                                            IconButton(
+                                              tooltip: 'Revisar ticket y capturar',
+                                              onPressed: () =>
+                                                  _abrirRevisionRegistro(doc),
+                                              icon: const Icon(
+                                                Icons.edit_note_rounded,
+                                              ),
+                                            ),
+                                            IconButton(
+                                              tooltip: 'Copiar datos',
+                                              onPressed: () =>
+                                                  _copiarDatosRegistro(r),
+                                              icon: const Icon(
+                                                Icons.content_copy_rounded,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
                                     ],
@@ -542,6 +639,385 @@ class _ReporteGasolinaCamionesScreenState
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _RevisionTicketGasolinaDialog extends StatefulWidget {
+  final QueryDocumentSnapshot<Map<String, dynamic>> doc;
+
+  const _RevisionTicketGasolinaDialog({required this.doc});
+
+  @override
+  State<_RevisionTicketGasolinaDialog> createState() =>
+      _RevisionTicketGasolinaDialogState();
+}
+
+class _RevisionTicketGasolinaDialogState
+    extends State<_RevisionTicketGasolinaDialog> {
+  late final TextEditingController _folioController;
+  late final TextEditingController _automovilController;
+  late final TextEditingController _cantidadController;
+  late final TextEditingController _montoController;
+
+  String _concepto = 'gasolina';
+  String _unidad = 'litros';
+  String _metodoPago = 'efectivo';
+  bool _guardando = false;
+
+  Map<String, dynamic> get _registro => widget.doc.data();
+
+  String _baseValue(String key) {
+    final manual = _registro['admin_manual'];
+    if (manual is Map<String, dynamic>) {
+      final valorManual = manual[key];
+      if (valorManual != null && valorManual.toString().trim().isNotEmpty) {
+        return valorManual.toString();
+      }
+    }
+    final valor = _registro[key];
+    return valor == null ? '' : valor.toString();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _folioController = TextEditingController(text: _baseValue('folio'));
+    _automovilController = TextEditingController(
+      text: _baseValue('automovil').isNotEmpty
+          ? _baseValue('automovil')
+          : _baseValue('camion'),
+    );
+    _cantidadController = TextEditingController(text: _baseValue('cantidad'));
+    _montoController = TextEditingController(text: _baseValue('monto'));
+
+    final concepto = _baseValue('concepto').toLowerCase();
+    final unidad = _baseValue('unidad').toLowerCase();
+    final metodoPago = _baseValue('metodo_pago').toLowerCase();
+
+    if (['gasolina', 'diesel', 'gas'].contains(concepto)) {
+      _concepto = concepto;
+    }
+    if (['litros', 'kilogramos'].contains(unidad)) {
+      _unidad = unidad;
+    }
+    if (['efectivo', 'debito', 'credito'].contains(metodoPago)) {
+      _metodoPago = metodoPago;
+    }
+  }
+
+  @override
+  void dispose() {
+    _folioController.dispose();
+    _automovilController.dispose();
+    _cantidadController.dispose();
+    _montoController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _copiarDatos() async {
+    final texto = [
+      'FOLIO: ${_folioController.text.trim()}',
+      'CONCEPTO: ${_concepto.toUpperCase()}',
+      'AUTOMOVIL: ${_automovilController.text.trim().toUpperCase()}',
+      'CANTIDAD: ${_cantidadController.text.trim()}',
+      'UNIDAD: ${_unidad.toUpperCase()}',
+      'MONTO: ${_montoController.text.trim()}',
+      'METODO PAGO: ${_metodoPago.toUpperCase()}',
+    ].join('\n');
+
+    await Clipboard.setData(ClipboardData(text: texto));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Datos copiados al portapapeles.')),
+    );
+  }
+
+  Future<void> _guardarCapturaManual() async {
+    final folio = _folioController.text.trim();
+    final automovil = _automovilController.text.trim();
+    final cantidad = _cantidadController.text.trim();
+    final monto = _montoController.text.trim();
+
+    if (folio.isEmpty || automovil.isEmpty || cantidad.isEmpty || monto.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Completa todos los campos.')),
+      );
+      return;
+    }
+
+    setState(() => _guardando = true);
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('registros_gasolina')
+          .doc(widget.doc.id)
+          .set({
+            'admin_manual': {
+              'folio': folio,
+              'concepto': _concepto,
+              'automovil': automovil,
+              'cantidad': cantidad,
+              'unidad': _unidad,
+              'monto': monto,
+              'metodo_pago': _metodoPago,
+            },
+            'admin_captura_manual': true,
+            'captura_pendiente_admin': false,
+            'admin_actualizado_en': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Datos manuales guardados.')),
+      );
+      Navigator.of(context).pop();
+    } finally {
+      if (mounted) {
+        setState(() => _guardando = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ticketUrl = (_registro['ticket_url'] ?? '').toString();
+
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 1080, maxHeight: 760),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Revision de ticket de gasolina',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final vertical = constraints.maxWidth < 920;
+
+                    final imagenTicket = Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFFD1D5DB)),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(14),
+                        child: ticketUrl.isEmpty
+                            ? const Center(
+                                child: Text('No hay ticket cargado.'),
+                              )
+                            : InteractiveViewer(
+                                minScale: 1,
+                                maxScale: 6,
+                                child: Image.network(
+                                  ticketUrl,
+                                  fit: BoxFit.contain,
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                  loadingBuilder: (context, child, loading) {
+                                    if (loading == null) return child;
+                                    return const Center(
+                                      child: CircularProgressIndicator(),
+                                    );
+                                  },
+                                  errorBuilder: (_, __, ___) => const Center(
+                                    child: Text(
+                                      'No se pudo cargar la imagen del ticket.',
+                                    ),
+                                  ),
+                                ),
+                              ),
+                      ),
+                    );
+
+                    final formulario = SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          TextField(
+                            controller: _folioController,
+                            decoration: const InputDecoration(
+                              labelText: 'Folio',
+                              prefixIcon: Icon(Icons.receipt_long_rounded),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<String>(
+                            initialValue: _concepto,
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'gasolina',
+                                child: Text('Gasolina'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'diesel',
+                                child: Text('Diesel'),
+                              ),
+                              DropdownMenuItem(value: 'gas', child: Text('Gas')),
+                            ],
+                            onChanged: (value) {
+                              if (value != null) setState(() => _concepto = value);
+                            },
+                            decoration: const InputDecoration(
+                              labelText: 'Concepto',
+                              prefixIcon: Icon(Icons.category_rounded),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: _automovilController,
+                            decoration: const InputDecoration(
+                              labelText: 'Automovil',
+                              prefixIcon: Icon(Icons.local_shipping_rounded),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: _cantidadController,
+                            decoration: const InputDecoration(
+                              labelText: 'Cantidad',
+                              prefixIcon: Icon(Icons.numbers_rounded),
+                            ),
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<String>(
+                            initialValue: _unidad,
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'litros',
+                                child: Text('Litros'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'kilogramos',
+                                child: Text('Kilogramos'),
+                              ),
+                            ],
+                            onChanged: (value) {
+                              if (value != null) setState(() => _unidad = value);
+                            },
+                            decoration: const InputDecoration(
+                              labelText: 'Unidad',
+                              prefixIcon: Icon(Icons.straighten_rounded),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: _montoController,
+                            decoration: const InputDecoration(
+                              labelText: 'Monto',
+                              prefixIcon: Icon(Icons.attach_money_rounded),
+                            ),
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<String>(
+                            initialValue: _metodoPago,
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'efectivo',
+                                child: Text('Efectivo'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'debito',
+                                child: Text('Tarjeta Debito'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'credito',
+                                child: Text('Tarjeta Credito'),
+                              ),
+                            ],
+                            onChanged: (value) {
+                              if (value != null) {
+                                setState(() => _metodoPago = value);
+                              }
+                            },
+                            decoration: const InputDecoration(
+                              labelText: 'Metodo de pago',
+                              prefixIcon: Icon(Icons.payment_rounded),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (vertical) {
+                      return Column(
+                        children: [
+                          Expanded(flex: 6, child: imagenTicket),
+                          const SizedBox(height: 12),
+                          Expanded(flex: 5, child: formulario),
+                        ],
+                      );
+                    }
+
+                    return Row(
+                      children: [
+                        Expanded(flex: 6, child: imagenTicket),
+                        const SizedBox(width: 14),
+                        Expanded(flex: 4, child: formulario),
+                      ],
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _copiarDatos,
+                      icon: const Icon(Icons.content_copy_rounded),
+                      label: const Text('Copiar datos'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: _guardando ? null : _guardarCapturaManual,
+                      icon: _guardando
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.save_rounded),
+                      label: Text(_guardando ? 'Guardando...' : 'Guardar datos'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

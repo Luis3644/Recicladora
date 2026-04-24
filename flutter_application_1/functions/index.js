@@ -59,3 +59,142 @@ exports.sendNotificationOnReport = functions.firestore
       console.error('Error enviando notificación:', error);
     }
   });
+
+function _crearPayloadNotificacion({title, body, data = {}}) {
+  return {
+    notification: {
+      title,
+      body,
+    },
+    data,
+    android: {
+      priority: 'high',
+      notification: {
+        channelId: 'admin_notificaciones',
+      },
+    },
+    apns: {
+      headers: {
+        'apns-priority': '10',
+      },
+      payload: {
+        aps: {
+          sound: 'default',
+        },
+      },
+    },
+  };
+}
+
+async function _obtenerDestinatariosNotificacion(notificacion) {
+  const usuariosRef = admin.firestore().collection('usuarios');
+  const tipo = (notificacion.destinoTipo || 'todos').toString();
+
+  if (tipo === 'individual') {
+    const docId = (notificacion.destinatarioDocId || '').toString().trim();
+    if (!docId) return [];
+
+    const doc = await usuariosRef.doc(docId).get();
+    if (!doc.exists) return [];
+    return [doc];
+  }
+
+  if (tipo === 'rol') {
+    const rol = (notificacion.destinatarioRol || '').toString().trim();
+    if (!rol) return [];
+
+    const snapshot = await usuariosRef.where('rol', '==', rol).get();
+    return snapshot.docs;
+  }
+
+  const snapshot = await usuariosRef
+      .where('rol', 'in', ['operador', 'trabajador'])
+      .get();
+
+  return snapshot.docs;
+}
+
+exports.sendPushOnAdminNotification = functions.firestore
+    .document('notificaciones/{notificacionId}')
+    .onCreate(async (snap) => {
+      const notificacion = snap.data() || {};
+      const mensaje = (notificacion.mensaje || '').toString().trim();
+
+      if (!mensaje) {
+        logger.warn('Notificación sin mensaje; se omite push', {
+          notificacionId: snap.id,
+        });
+        return;
+      }
+
+      const enviadoPor =
+        (notificacion.enviadoPor || 'Administracion').toString().trim() ||
+        'Administracion';
+
+      const destinatarios = await _obtenerDestinatariosNotificacion(notificacion);
+
+      if (!destinatarios.length) {
+        logger.info('Sin destinatarios para notificación push', {
+          notificacionId: snap.id,
+        });
+        return;
+      }
+
+      const tokens = [...new Set(
+        destinatarios
+            .map((doc) => (doc.data().fcm_token || '').toString().trim())
+            .filter((token) => token.length > 0),
+      )];
+
+      if (!tokens.length) {
+        logger.info('Destinatarios sin token FCM; no se envía push', {
+          notificacionId: snap.id,
+          destinatarios: destinatarios.length,
+        });
+        return;
+      }
+
+      const payload = _crearPayloadNotificacion({
+        title: 'Mensaje de administracion',
+        body: mensaje,
+        data: {
+          type: 'admin_notificacion',
+          notificacionId: snap.id,
+          enviadoPor,
+          title: 'Mensaje de administracion',
+          body: mensaje,
+          mensaje,
+        },
+      });
+
+      const respuesta = await admin.messaging().sendEachForMulticast({
+        tokens,
+        ...payload,
+      });
+
+      const tokensInvalidos = [];
+      respuesta.responses.forEach((item, index) => {
+        if (item.success) return;
+        const code = item.error && item.error.code ? item.error.code : '';
+        if (
+          code === 'messaging/registration-token-not-registered' ||
+          code === 'messaging/invalid-registration-token'
+        ) {
+          tokensInvalidos.push(tokens[index]);
+        }
+      });
+
+      if (tokensInvalidos.length) {
+        const limpieza = destinatarios
+            .filter((doc) => tokensInvalidos.includes((doc.data().fcm_token || '').toString().trim()))
+            .map((doc) => doc.ref.set({fcm_token: ''}, {merge: true}));
+        await Promise.all(limpieza);
+      }
+
+      logger.info('Push de notificación admin procesado', {
+        notificacionId: snap.id,
+        tokens: tokens.length,
+        enviadas: respuesta.successCount,
+        fallidas: respuesta.failureCount,
+      });
+    });
