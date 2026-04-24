@@ -1282,6 +1282,13 @@ class _JornadaScreenState extends State<JornadaScreen> {
   }
 }
 
+
+
+
+
+
+
+
 class RegistroGasolinaScreen extends StatefulWidget {
   final String operador;
   final String camion;
@@ -1578,6 +1585,18 @@ class _RegistroGasolinaScreenState extends State<RegistroGasolinaScreen>
       ),
     );
   }
+
+
+
+
+
+
+
+
+
+
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -2307,6 +2326,14 @@ class RegistroToneladasScreen extends StatefulWidget {
     required this.placas,
   });
 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
   @override
   State<RegistroToneladasScreen> createState() => _RegistroToneladasScreenState();
 }

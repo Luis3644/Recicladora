@@ -8,10 +8,13 @@ import 'jornada_screen.dart';
 import 'confirmar_camion_screen.dart';
 import 'login_screen.dart';
 import 'widgets/notificaciones_drawer.dart';
+
 // ConnectionWrapper ya NO se importa aquí — se aplica globalmente desde main.dart
 
 class OperadorScreen extends StatefulWidget {
   final String nombreUsuario;
+ 
+  
 
   const OperadorScreen({super.key, required this.nombreUsuario});
 
@@ -354,6 +357,11 @@ class _OperadorScreenState extends State<OperadorScreen> {
                 await _confirmarYCerrarSesion();
               },
             ),
+
+            
+
+
+
             const Spacer(),
             const Padding(
               padding: EdgeInsets.all(16),
