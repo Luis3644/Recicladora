@@ -393,7 +393,7 @@ class _LoginScreenState extends State<LoginScreen> {
     super.initState();
     _googleSignIn = GoogleSignIn(
       scopes: const ['email', 'profile'],
-      // serverClientId: _googleWebClientId,
+      serverClientId: _googleWebClientId,
     );
   }
 

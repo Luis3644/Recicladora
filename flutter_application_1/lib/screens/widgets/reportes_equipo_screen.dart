@@ -13,14 +13,14 @@ class _ReportesEquipoScreenState extends State<ReportesEquipoScreen>
     with SingleTickerProviderStateMixin {
   // ── Colores ───────────────────────────────────────────────────────────────
   static const Color _primary  = Color(0xFF0F172A);
-  static const Color _accent   = Color(0xFF06B6D4);
+  static const Color _accent   = Color(0xFF38BDF8);
   static const Color _success  = Color(0xFF10B981);
   static const Color _warning  = Color(0xFFF59E0B);
   static const Color _danger   = Color(0xFFEF4444);
-  static const Color _bgColor  = Color(0xFFF0F9FF);
-  static const Color _surface  = Color(0xFFFFFFFF);
-  static const Color _slate    = Color(0xFF64748B);
-  static const Color _border   = Color(0xFFE2E8F0);
+  static const Color _bgColor  = Color(0xFF0B1020);
+  static const Color _surface  = Color(0xFF111827);
+  static const Color _slate    = Color(0xFFCBD5E1);
+  static const Color _border   = Color(0xFF334155);
 
   // ── Estado de filtros ─────────────────────────────────────────────────────
   String    _filtroPeriodo  = 'hoy';
@@ -249,6 +249,7 @@ class _ReportesEquipoScreenState extends State<ReportesEquipoScreen>
         opacity: _fadeCtrl,
         child: Column(
           children: [
+            _buildHeroSection(),
             _buildFiltros(),
             Expanded(child: _buildLista()),
           ],
@@ -260,6 +261,7 @@ class _ReportesEquipoScreenState extends State<ReportesEquipoScreen>
   // ── AppBar ────────────────────────────────────────────────────────────────
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
+      toolbarHeight: 74,
       title: const Text('Reportes de Equipo',
           style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
       backgroundColor: Colors.transparent,
@@ -268,10 +270,83 @@ class _ReportesEquipoScreenState extends State<ReportesEquipoScreen>
       flexibleSpace: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [_primary, Color(0xFF1E3A5F)],
+            colors: [Color(0xFF0B1220), Color(0xFF0F766E)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeroSection() {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) => Transform.translate(
+        offset: Offset(0, 14 * (1 - value)),
+        child: Opacity(opacity: value, child: child),
+      ),
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF0B1220), Color(0xFFF59E0B)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: _primary.withValues(alpha: 0.16),
+              blurRadius: 18,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+              ),
+              child: const Icon(
+                Icons.assignment_turned_in_rounded,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Control visual de faltantes',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Revisa equipo incompleto con filtros rápidos y una vista más limpia.',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12.5,
+                      height: 1.25,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -284,8 +359,24 @@ class _ReportesEquipoScreenState extends State<ReportesEquipoScreen>
         _filtroFecha != null;
 
     return Container(
-      color: _primary,
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+      margin: const EdgeInsets.symmetric(horizontal: 14),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0B1020), Color(0xFF111827)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFF475569)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x12000000),
+            blurRadius: 14,
+            offset: Offset(0, 5),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -300,7 +391,7 @@ class _ReportesEquipoScreenState extends State<ReportesEquipoScreen>
                 _chip('mes',    'Mes',     Icons.calendar_month_rounded),
                 _chip('todo',   'Todo',    Icons.all_inclusive_rounded),
                 const SizedBox(width: 8),
-                Container(width: 1, height: 24, color: Colors.white12),
+                Container(width: 1, height: 24, color: const Color(0xFF475569)),
                 const SizedBox(width: 8),
                 // Botón calendario
                 GestureDetector(
@@ -310,14 +401,14 @@ class _ReportesEquipoScreenState extends State<ReportesEquipoScreen>
                     padding: const EdgeInsets.symmetric(
                         horizontal: 14, vertical: 9),
                     decoration: BoxDecoration(
-                      color: (_filtroPeriodo == 'fecha' && _filtroFecha != null)
-                          ? Colors.amber
-                          : Colors.white12,
+                        color: (_filtroPeriodo == 'fecha' && _filtroFecha != null)
+                            ? const Color(0xFFFDE68A).withValues(alpha: 0.22)
+                          : const Color(0xFF1E293B),
                       borderRadius: BorderRadius.circular(22),
                       border: Border.all(
-                        color: (_filtroPeriodo == 'fecha' && _filtroFecha != null)
-                            ? Colors.amber
-                            : Colors.white24,
+                          color: (_filtroPeriodo == 'fecha' && _filtroFecha != null)
+                            ? const Color(0xFFFDE68A).withValues(alpha: 0.38)
+                            : const Color(0xFF475569),
                       ),
                     ),
                     child: Row(
@@ -326,8 +417,8 @@ class _ReportesEquipoScreenState extends State<ReportesEquipoScreen>
                         Icon(Icons.event_rounded, size: 14,
                             color: (_filtroPeriodo == 'fecha' &&
                                     _filtroFecha != null)
-                                ? _primary
-                                : Colors.white70),
+                          ? const Color(0xFFFDE68A)
+                          : Colors.white70),
                         const SizedBox(width: 6),
                         Text(
                           (_filtroPeriodo == 'fecha' && _filtroFecha != null)
@@ -338,7 +429,7 @@ class _ReportesEquipoScreenState extends State<ReportesEquipoScreen>
                             fontWeight: FontWeight.w700,
                             color: (_filtroPeriodo == 'fecha' &&
                                     _filtroFecha != null)
-                                ? _primary
+                                ? const Color(0xFFFDE68A)
                                 : Colors.white70,
                           ),
                         ),
@@ -374,13 +465,13 @@ class _ReportesEquipoScreenState extends State<ReportesEquipoScreen>
                               horizontal: 14, vertical: 9),
                           decoration: BoxDecoration(
                             color: _filtroOperador != null
-                                ? _accent
-                                : Colors.white10,
+                                ? const Color(0xFFFDE68A)
+                                : const Color(0xFF1E293B),
                             borderRadius: BorderRadius.circular(22),
                             border: Border.all(
                               color: _filtroOperador != null
-                                  ? _accent
-                                  : Colors.white24,
+                                  ? const Color(0xFFFDE68A)
+                                  : const Color(0xFF475569),
                             ),
                           ),
                           child: Row(
@@ -390,7 +481,7 @@ class _ReportesEquipoScreenState extends State<ReportesEquipoScreen>
                                   size: 14,
                                   color: _filtroOperador != null
                                       ? Colors.white
-                                      : Colors.white60),
+                                    : Colors.white70),
                               const SizedBox(width: 7),
                               Flexible(
                                 child: Text(
@@ -403,7 +494,7 @@ class _ReportesEquipoScreenState extends State<ReportesEquipoScreen>
                                     fontWeight: FontWeight.w700,
                                     color: _filtroOperador != null
                                         ? Colors.white
-                                        : Colors.white60,
+                                        : Colors.white70,
                                   ),
                                 ),
                               ),
@@ -412,7 +503,7 @@ class _ReportesEquipoScreenState extends State<ReportesEquipoScreen>
                                   size: 16,
                                   color: _filtroOperador != null
                                       ? Colors.white
-                                      : Colors.white38),
+                                      : Colors.white54),
                             ],
                           ),
                         ),
@@ -433,21 +524,21 @@ class _ReportesEquipoScreenState extends State<ReportesEquipoScreen>
                     padding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 9),
                     decoration: BoxDecoration(
-                      color: _danger.withOpacity(0.15),
+                      color: const Color(0xFF334155),
                       borderRadius: BorderRadius.circular(22),
-                      border: Border.all(color: _danger.withOpacity(0.35)),
+                      border: Border.all(color: const Color(0xFF64748B)),
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.close_rounded,
-                            size: 13, color: Colors.redAccent),
+                            size: 13, color: Colors.white70),
                         SizedBox(width: 5),
                         Text('Limpiar',
                             style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
-                                color: Colors.redAccent)),
+                                color: Colors.white70)),
                       ],
                     ),
                   ),
@@ -472,20 +563,20 @@ class _ReportesEquipoScreenState extends State<ReportesEquipoScreen>
         margin: const EdgeInsets.only(right: 7),
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
         decoration: BoxDecoration(
-          color: sel ? _accent : Colors.white10,
+          color: sel ? const Color(0xFFF59E0B) : const Color(0xFF1E293B),
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: sel ? _accent : Colors.white24),
+          border: Border.all(color: sel ? const Color(0xFFF59E0B) : const Color(0xFF334155)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 13, color: sel ? Colors.white : Colors.white60),
+            Icon(icon, size: 13, color: sel ? Colors.white : Colors.white70),
             const SizedBox(width: 5),
             Text(label,
                 style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: sel ? Colors.white : Colors.white60)),
+                    color: sel ? Colors.white : Colors.white70)),
           ],
         ),
       ),
@@ -592,25 +683,38 @@ class _ReportesEquipoScreenState extends State<ReportesEquipoScreen>
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(
-          color: _surface,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _warning.withOpacity(0.2)),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF111827), Color(0xFF0F172A)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFF475569)),
           boxShadow: [
             BoxShadow(
-              color: _primary.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
+              color: Colors.black.withOpacity(0.18),
+              blurRadius: 16,
+              offset: const Offset(0, 10),
             ),
           ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(18),
           child: IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Barra lateral
-                Container(width: 4, color: _warning),
+                Container(
+                  width: 5,
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFF38BDF8), Color(0xFFF59E0B)],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ),
+                  ),
+                ),
 
                 // Contenido
                 Expanded(
@@ -624,10 +728,10 @@ class _ReportesEquipoScreenState extends State<ReportesEquipoScreen>
                             // Avatar con inicial
                             CircleAvatar(
                               radius: 18,
-                              backgroundColor: _warning.withOpacity(0.15),
+                              backgroundColor: const Color(0xFF1E293B),
                               child: const Icon(
                                   Icons.warning_amber_rounded,
-                                  color: _warning,
+                                  color: Color(0xFFFDE68A),
                                   size: 18),
                             ),
                             const SizedBox(width: 10),
@@ -641,7 +745,7 @@ class _ReportesEquipoScreenState extends State<ReportesEquipoScreen>
                                     style: const TextStyle(
                                         fontWeight: FontWeight.w800,
                                         fontSize: 14,
-                                        color: _primary),
+                                      color: Colors.white),
                                   ),
                                   const SizedBox(height: 2),
                                   Row(
@@ -649,10 +753,10 @@ class _ReportesEquipoScreenState extends State<ReportesEquipoScreen>
                                       _miniTag(
                                           Icons.directions_bus_rounded,
                                           'Camión: ${r['camion'] ?? '—'}',
-                                          _slate),
+                                          Colors.white70),
                                       const SizedBox(width: 6),
                                       _miniTag(Icons.access_time_rounded,
-                                          '$fecha · $hora', _accent),
+                                          '$fecha · $hora', const Color(0xFFFDE68A)),
                                     ],
                                   ),
                                 ],
@@ -684,7 +788,7 @@ class _ReportesEquipoScreenState extends State<ReportesEquipoScreen>
                         padding: EdgeInsets.symmetric(
                             horizontal: 12, vertical: 10),
                         child: Divider(
-                            height: 1, color: Color(0xFFE2E8F0)),
+                          height: 1, color: Color(0xFF334155)),
                       ),
 
                       // ── Faltantes ────────────────────────────────
@@ -696,7 +800,7 @@ class _ReportesEquipoScreenState extends State<ReportesEquipoScreen>
                               style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w800,
-                                  color: _primary.withOpacity(0.45),
+                                color: Colors.white54,
                                   letterSpacing: 0.6)),
                         ),
                       ),
@@ -735,7 +839,7 @@ class _ReportesEquipoScreenState extends State<ReportesEquipoScreen>
                                 style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w800,
-                                    color: _primary.withOpacity(0.45),
+                                color: Colors.white54,
                                     letterSpacing: 0.6)),
                           ),
                         ),
@@ -748,7 +852,7 @@ class _ReportesEquipoScreenState extends State<ReportesEquipoScreen>
                             child: Text(
                               r['reporte'].toString(),
                               style: const TextStyle(
-                                  color: Color(0xFFB91C1C),
+                                  color: Color(0xFFFDE68A),
                                   fontSize: 13,
                                   height: 1.4),
                             ),

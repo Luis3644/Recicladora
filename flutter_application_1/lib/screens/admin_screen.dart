@@ -1168,7 +1168,7 @@ class _AdminScreenState extends State<AdminScreen>
                       builder: (context, constraints) {
                         final isMobileStats = constraints.maxWidth < 700;
                         final columnas = isMobileStats ? 2 : 3;
-                        final statAspectRatio = isMobileStats ? 1.14 : 1.42;
+                        final statAspectRatio = isMobileStats ? 1.28 : 1.42;
 
                         return GridView.count(
                           crossAxisCount: columnas,
@@ -1176,7 +1176,7 @@ class _AdminScreenState extends State<AdminScreen>
                           physics: const NeverScrollableScrollPhysics(),
                           mainAxisSpacing: isMobileStats ? 10 : 14,
                           crossAxisSpacing: isMobileStats ? 10 : 14,
-                          childAspectRatio: statAspectRatio,
+                            childAspectRatio: statAspectRatio,
                           children: [
                             _buildStatCard(
                               icon: Icons.people_outline_rounded,
@@ -1195,20 +1195,17 @@ class _AdminScreenState extends State<AdminScreen>
                                   usuariosActivos),
                               compact: isMobileStats,
                             ),
-                            _buildStatCard(
-                              icon: Icons.assignment_rounded,
-                              label: 'Total de Reportes',
-                              statusText:
-                                  'Hoy $hoyTotal | Equipo $hoyEquipo | Operadores $hoyOperadores | Camiones $hoyCamiones',
-                              value: totalReportes.toString(),
-                              color: successColor,
-                              backgroundGradient: [
-                                successColor.withValues(alpha: 0.12),
-                                successColor.withValues(alpha: 0.04),
-                              ],
-                              onTap: _abrirReportes,
-                              compact: isMobileStats,
-                            ),
+                              _buildReportSummaryCard(
+                                totalReportes: totalReportes,
+                                reportesEquipo: reportesEquipo,
+                                incidentesOperador: incidentesOperador,
+                                reportesCamiones: reportesCamiones,
+                                hoyTotal: hoyTotal,
+                                hoyEquipo: hoyEquipo,
+                                hoyOperadores: hoyOperadores,
+                                hoyCamiones: hoyCamiones,
+                                compact: isMobileStats,
+                              ),
                           ],
                         );
                       },
@@ -1326,6 +1323,107 @@ class _AdminScreenState extends State<AdminScreen>
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildReportSummaryCard({
+    required int totalReportes,
+    required int reportesEquipo,
+    required int incidentesOperador,
+    required int reportesCamiones,
+    required int hoyTotal,
+    required int hoyEquipo,
+    required int hoyOperadores,
+    required int hoyCamiones,
+    required bool compact,
+  }) {
+    return Container(
+      padding: EdgeInsets.all(compact ? 8 : 16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            successColor.withValues(alpha: 0.12),
+            successColor.withValues(alpha: 0.04),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: successColor.withValues(alpha: 0.2)),
+        boxShadow: [
+          BoxShadow(
+            color: successColor.withValues(alpha: 0.09),
+            blurRadius: compact ? 10 : 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(compact ? 4 : 8),
+                decoration: BoxDecoration(
+                  color: successColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.assignment_rounded,
+                  color: successColor,
+                  size: compact ? 16 : 20,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: compact ? 4 : 12),
+          Text(
+            totalReportes.toString(),
+            style: TextStyle(
+              fontSize: compact ? 17 : 24,
+              fontWeight: FontWeight.bold,
+              color: successColor,
+            ),
+          ),
+          SizedBox(height: compact ? 2 : 4),
+          Text(
+            'Total de Reportes',
+            style: TextStyle(
+              fontSize: compact ? 9.5 : 12,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          SizedBox(height: compact ? 4 : 10),
+          Text(
+            compact
+                ? 'Eq $reportesEquipo | Op $incidentesOperador | Cam $reportesCamiones'
+                : 'Equipo: $reportesEquipo   Operadores: $incidentesOperador   Camiones: $reportesCamiones',
+            style: TextStyle(
+              fontSize: compact ? 9 : 10.5,
+              color: Colors.grey[700],
+              fontWeight: FontWeight.w700,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          SizedBox(height: compact ? 3 : 10),
+          Text(
+            'Hoy: $hoyTotal',
+            style: TextStyle(
+              color: successColor.withValues(alpha: 0.95),
+              fontSize: compact ? 9 : 10.5,
+              fontWeight: FontWeight.w700,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ),
     );
   }

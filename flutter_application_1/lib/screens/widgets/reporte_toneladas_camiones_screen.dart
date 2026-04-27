@@ -89,6 +89,7 @@ class _ReporteToneladasAdminScreenState
     return Scaffold(
       backgroundColor: _bgColor,
       appBar: AppBar(
+        toolbarHeight: 74,
         title: const Text(
           'Reporte de Toneladas',
           style: TextStyle(fontWeight: FontWeight.bold),
@@ -125,7 +126,7 @@ class _ReporteToneladasAdminScreenState
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [_bluePrimary, _blueSecondary],
+                    colors: [_bluePrimary, Color(0xFF06B6D4)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),

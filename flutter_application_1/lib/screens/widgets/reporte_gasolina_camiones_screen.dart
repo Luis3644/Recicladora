@@ -293,17 +293,18 @@ class _ReporteGasolinaCamionesScreenState
     return Scaffold(
       backgroundColor: _bg,
       appBar: AppBar(
+        toolbarHeight: 74,
         title: const Text(
           'Reporte de Gasolina',
           style: TextStyle(fontWeight: FontWeight.w700),
         ),
-        backgroundColor: _greenPrimary,
+        backgroundColor: const Color(0xFF111827),
         foregroundColor: Colors.white,
         elevation: 0,
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [_greenPrimary, _greenSecondary],
+              colors: [Color(0xFF111827), Color(0xFFF59E0B)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -346,14 +347,14 @@ class _ReporteGasolinaCamionesScreenState
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [_greenPrimary, _greenSecondary],
+                        colors: [Color(0xFF111827), Color(0xFFF59E0B)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
                       borderRadius: BorderRadius.circular(18),
                       boxShadow: [
                         BoxShadow(
-                          color: _greenPrimary.withValues(alpha: 0.24),
+                          color: const Color(0xFF111827).withValues(alpha: 0.24),
                           blurRadius: 18,
                           offset: const Offset(0, 8),
                         ),
@@ -379,7 +380,7 @@ class _ReporteGasolinaCamionesScreenState
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text(
-                                'Control Administrativo de Gasolina',
+                                'Control administrativo de camiones',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.w700,
@@ -388,7 +389,7 @@ class _ReporteGasolinaCamionesScreenState
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                'Registros visibles: ${filtrados.length}',
+                                'Consulta cargas, exporta y revisa movimientos con una vista más limpia.',
                                 style: TextStyle(
                                   color: Colors.white.withValues(alpha: 0.9),
                                   fontWeight: FontWeight.w500,
@@ -409,7 +410,7 @@ class _ReporteGasolinaCamionesScreenState
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFBAE6D3)),
+                    border: Border.all(color: const Color(0xFFF3D7A1)),
                     boxShadow: const [
                       BoxShadow(
                         color: Color(0x14000000),
@@ -431,18 +432,21 @@ class _ReporteGasolinaCamionesScreenState
                               avatar: Icon(
                                 _iconoFiltro(f),
                                 size: 14,
-                                color: selected ? Colors.white : _greenPrimary,
+                                color: selected
+                                    ? Colors.white
+                                    : const Color(0xFF334155),
                               ),
                               label: Text(_labelFiltro(f)),
                               selected: selected,
-                              selectedColor: _greenPrimary,
+                              selectedColor: const Color(0xFFF59E0B),
+                              backgroundColor: const Color(0xFFFAFAF9),
                               labelStyle: TextStyle(
-                                color: selected ? Colors.white : _greenPrimary,
+                                color: selected
+                                    ? Colors.white
+                                    : const Color(0xFF334155),
                                 fontWeight: FontWeight.w700,
                               ),
-                              side: BorderSide(
-                                color: _greenPrimary.withValues(alpha: 0.24),
-                              ),
+                              side: const BorderSide(color: Color(0xFFF3D7A1)),
                               onSelected: (_) => setState(() => _filtro = f),
                             );
                           }).toList(),
@@ -451,7 +455,7 @@ class _ReporteGasolinaCamionesScreenState
                       const SizedBox(width: 8),
                       FilledButton.icon(
                         style: FilledButton.styleFrom(
-                          backgroundColor: _greenPrimary,
+                          backgroundColor: const Color(0xFF111827),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 14,
@@ -461,9 +465,8 @@ class _ReporteGasolinaCamionesScreenState
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        onPressed: _exportando
-                            ? null
-                            : () => _exportarExcel(filtrados),
+                        onPressed:
+                            _exportando ? null : () => _exportarExcel(filtrados),
                         icon: _exportando
                             ? const SizedBox(
                                 width: 14,
@@ -497,7 +500,7 @@ class _ReporteGasolinaCamionesScreenState
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFCDEBDD)),
+                      border: Border.all(color: const Color(0xFFF3D7A1)),
                       boxShadow: const [
                         BoxShadow(
                           color: Color(0x12000000),
@@ -517,7 +520,7 @@ class _ReporteGasolinaCamionesScreenState
                             child: SingleChildScrollView(
                               child: DataTable(
                                 headingRowColor: WidgetStateProperty.all(
-                                  _greenPrimary,
+                                  const Color(0xFF111827),
                                 ),
                                 headingTextStyle: const TextStyle(
                                   color: Colors.white,
@@ -548,47 +551,29 @@ class _ReporteGasolinaCamionesScreenState
                                         Text(
                                           fecha == null
                                               ? '-'
-                                              : DateFormat(
-                                                  'dd/MM/yyyy',
-                                                ).format(fecha),
+                                              : DateFormat('dd/MM/yyyy').format(fecha),
+                                        ),
+                                      ),
+                                      DataCell(Text(_valorMostrado(r, 'folio'))),
+                                      DataCell(
+                                        Text(
+                                          _valorMostrado(r, 'concepto').toUpperCase(),
                                         ),
                                       ),
                                       DataCell(
-                                        Text(_valorMostrado(r, 'folio')),
+                                        Text(_automovilMostrado(r).toUpperCase()),
                                       ),
+                                      DataCell(Text(_valorMostrado(r, 'cantidad'))),
                                       DataCell(
                                         Text(
-                                          _valorMostrado(
-                                            r,
-                                            'concepto',
-                                          ).toUpperCase(),
+                                          _valorMostrado(r, 'unidad').toUpperCase(),
                                         ),
                                       ),
+                                      DataCell(Text(_valorMostrado(r, 'monto'))),
                                       DataCell(
                                         Text(
-                                          _automovilMostrado(r).toUpperCase(),
-                                        ),
-                                      ),
-                                      DataCell(
-                                        Text(_valorMostrado(r, 'cantidad')),
-                                      ),
-                                      DataCell(
-                                        Text(
-                                          _valorMostrado(
-                                            r,
-                                            'unidad',
-                                          ).toUpperCase(),
-                                        ),
-                                      ),
-                                      DataCell(
-                                        Text(_valorMostrado(r, 'monto')),
-                                      ),
-                                      DataCell(
-                                        Text(
-                                          _valorMostrado(
-                                            r,
-                                            'metodo_pago',
-                                          ).toUpperCase(),
+                                          _valorMostrado(r, 'metodo_pago')
+                                              .toUpperCase(),
                                         ),
                                       ),
                                       DataCell(

@@ -22,10 +22,10 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
     with SingleTickerProviderStateMixin {
   // ── Colores ───────────────────────────────────────────────────────────────
   static const Color _primary = Color(0xFF0F172A);
-  static const Color _accent  = Color(0xFF06B6D4);
+  static const Color _accent  = Color(0xFFF97316);
   static const Color _success = Color(0xFF10B981);
   static const Color _danger  = Color(0xFFEF4444);
-  static const Color _bgColor = Color(0xFFF0F9FF);
+  static const Color _bgColor = Color(0xFFFFF7ED);
   static const Color _surface = Color(0xFFFFFFFF);
   static const Color _slate   = Color(0xFF64748B);
   static const Color _border  = Color(0xFFE2E8F0);
@@ -366,6 +366,7 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
         opacity: _fadeCtrl,
         child: Column(
           children: [
+            _buildHeroSection(),
             _buildFiltros(),
             Expanded(child: _buildLista()),
           ],
@@ -377,6 +378,7 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
   // ── AppBar ────────────────────────────────────────────────────────────────
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
+      toolbarHeight: 74,
       title: const Text('Reportes de Operadores',
           style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
       backgroundColor: Colors.transparent,
@@ -385,10 +387,83 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
       flexibleSpace: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [_primary, Color(0xFF1E3A5F)],
+            colors: [_primary, Color(0xFFEA580C)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeroSection() {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) => Transform.translate(
+        offset: Offset(0, 14 * (1 - value)),
+        child: Opacity(opacity: value, child: child),
+      ),
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF0F172A), Color(0xFFF97316)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: _primary.withValues(alpha: 0.16),
+              blurRadius: 18,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+              ),
+              child: const Icon(
+                Icons.report_problem_rounded,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Incidentes de ruta en foco',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Supervisa avisos, fotos y estados con una vista más clara y rápida.',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12.5,
+                      height: 1.25,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -645,21 +720,28 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-                color: color.withOpacity(0.08), shape: BoxShape.circle),
+              color: color.withOpacity(0.08),
+              shape: BoxShape.circle,
+            ),
             child: Icon(icon, size: 48, color: color.withOpacity(0.4)),
           ),
           const SizedBox(height: 14),
-          Text(titulo,
-              style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: _primary.withOpacity(0.5))),
+          Text(
+            titulo,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: _primary.withOpacity(0.5),
+            ),
+          ),
           const SizedBox(height: 4),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 40),
-            child: Text(subtitulo,
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12, color: Colors.grey[400])),
+            child: Text(
+              subtitulo,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+            ),
           ),
         ],
       ),
@@ -696,13 +778,24 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
           ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(18),
           child: IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Barra lateral
-                Container(width: 4, color: visto ? _success : _danger),
+                Container(
+                  width: 5,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: visto
+                          ? [_success, const Color(0xFF22C55E)]
+                          : [_danger, _accent],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ),
+                  ),
+                ),
 
                 Expanded(
                   child: Column(
@@ -714,8 +807,8 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
                           children: [
                             CircleAvatar(
                               radius: 18,
-                              backgroundColor: (visto ? _success : _danger)
-                                  .withOpacity(0.12),
+                                backgroundColor: (visto ? _success : _danger)
+                                  .withOpacity(0.14),
                               child: Icon(
                                 visto
                                     ? Icons.check_circle_rounded
