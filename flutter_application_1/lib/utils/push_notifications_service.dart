@@ -1,5 +1,5 @@
 import 'dart:async';
-
+import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -29,6 +29,15 @@ class PushNotificationsService {
     importance: Importance.high,
   );
 
+  // ── Canal específico para reportes revisados ──────────────────────────────
+  static const AndroidNotificationChannel _channelReportes =
+      AndroidNotificationChannel(
+    'reportes_revisados',
+    'Reportes revisados',
+    description: 'Notificaciones cuando el admin revisa tus reportes.',
+    importance: Importance.high,
+  );
+
   static ({String title, String body})? _extraerContenidoNotificacion(
     RemoteMessage message,
   ) {
@@ -38,7 +47,10 @@ class PushNotificationsService {
             .toString()
             .trim();
     final body =
-        (notification?.body ?? message.data['body'] ?? message.data['mensaje'] ?? '')
+        (notification?.body ??
+                message.data['body'] ??
+                message.data['mensaje'] ??
+                '')
             .toString()
             .trim();
 
@@ -47,29 +59,42 @@ class PushNotificationsService {
   }
 
   static Future<void> showSystemNotificationFromMessage(
-    RemoteMessage message,
-  ) async {
-    if (kIsWeb) return;
-    final contenido = _extraerContenidoNotificacion(message);
-    if (contenido == null) return;
+  RemoteMessage message,
+) async {
+  if (kIsWeb) return;
 
-    await _localNotifications.show(
-      message.hashCode,
-      contenido.title,
-      contenido.body,
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          _channel.id,
-          _channel.name,
-          channelDescription: _channel.description,
-          importance: Importance.high,
-          priority: Priority.high,
-          icon: message.notification?.android?.smallIcon,
-        ),
-        iOS: const DarwinNotificationDetails(),
+  // ✅ Forzar título consistente
+  final body = (message.notification?.body ??
+          message.data['body'] ??
+          message.data['mensaje'] ??
+          '')
+      .toString()
+      .trim();
+
+  if (body.isEmpty) return;
+
+  final tipo = message.data['tipo']?.toString() ?? '';
+  final esReporte = tipo == 'reporte_revisado';
+
+  await _localNotifications.show(
+    message.hashCode,
+    esReporte ? 'Reporte revisado' : 'Mensaje del Administrador', // ✅ título fijo
+    body,
+    NotificationDetails(
+      android: AndroidNotificationDetails(
+        esReporte ? _channelReportes.id : _channel.id,
+        esReporte ? _channelReportes.name : _channel.name,
+        channelDescription: esReporte
+            ? _channelReportes.description
+            : _channel.description,
+        importance: Importance.high,
+        priority: Priority.high,
+        color: esReporte ? const Color(0xFF10B981) : null,
       ),
-    );
-  }
+      iOS: const DarwinNotificationDetails(),
+    ),
+  );
+}
 
   static bool _esParaUsuario(
     Map<String, dynamic> data, {
@@ -94,88 +119,93 @@ class PushNotificationsService {
   }
 
   static Future<void> _showInAppMessageNotification(
-    String id,
-    String mensaje,
-    String enviadoPor,
-  ) async {
-    if (kIsWeb) return;
-    if (mensaje.trim().isEmpty) return;
+  String id,
+  String mensaje,
+  String enviadoPor,
+) async {
+  if (kIsWeb) return;
+  if (mensaje.trim().isEmpty) return;
 
-    final notifId = id.hashCode;
-    await _localNotifications.show(
-      notifId,
-      'Nuevo mensaje de $enviadoPor',
-      mensaje,
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          'admin_notificaciones',
-          'Notificaciones de administracion',
-          channelDescription: 'Mensajes enviados desde el panel de administracion',
-          importance: Importance.max,
-          priority: Priority.high,
-        ),
-        iOS: DarwinNotificationDetails(
-          subtitle: enviadoPor,
-        ),
+  final notifId = id.hashCode;
+  await _localNotifications.show(
+    notifId,
+    'Mensaje del Administrador', // ✅ antes decía: 'Nuevo mensaje de $enviadoPor'
+    mensaje,
+    NotificationDetails(
+      android: AndroidNotificationDetails(
+        'admin_notificaciones',
+        'Notificaciones de administracion',
+        channelDescription:
+            'Mensajes enviados desde el panel de administracion',
+        importance: Importance.max,
+        priority: Priority.high,
       ),
-    );
-  }
+      iOS: DarwinNotificationDetails(subtitle: enviadoPor),
+    ),
+  );
+}
 
   static Future<void> startInAppMessagesListener({
-    required String usuarioDocId,
-    required String rol,
-    required String nombre,
-  }) async {
-    if (usuarioDocId.trim().isEmpty || rol.trim().isEmpty) return;
+  required String usuarioDocId,
+  required String rol,
+  required String nombre,
+}) async {
+  if (usuarioDocId.trim().isEmpty || rol.trim().isEmpty) return;
 
-    await initialize();
+  await initialize();
 
-    _currentUsuarioDocId = usuarioDocId;
-    _currentRol = rol;
-    _currentNombre = nombre;
+  _currentUsuarioDocId = usuarioDocId;
+  _currentRol = rol;
+  _currentNombre = nombre;
 
-    await _inAppMessagesSubscription?.cancel();
-    _notificacionesMostradas.clear();
-    _inicioEscuchaMensajes = DateTime.now();
+  await _inAppMessagesSubscription?.cancel();
+  _notificacionesMostradas.clear();
+  _inicioEscuchaMensajes = DateTime.now();
 
-    _inAppMessagesSubscription = FirebaseFirestore.instance
-        .collection('notificaciones')
-        .orderBy('creadoEn', descending: true)
-        .limit(120)
-        .snapshots()
-        .listen((snapshot) async {
-      for (final doc in snapshot.docs) {
-        final data = doc.data();
+  _inAppMessagesSubscription = FirebaseFirestore.instance
+      .collection('notificaciones')
+      .orderBy('creadoEn', descending: true)
+      .limit(120)
+      .snapshots()
+      .listen((snapshot) async {
+    // ✅ CLAVE: solo mostrar notificación si la app está en foreground
+    final appState = WidgetsBinding.instance.lifecycleState;
+    final estaEnForeground = appState == AppLifecycleState.resumed;
 
-        if (_notificacionesMostradas.contains(doc.id)) continue;
-        if (!_esParaUsuario(
-          data,
-          rol: _currentRol,
-          nombre: _currentNombre,
-          usuarioDocId: _currentUsuarioDocId,
-        )) {
-          continue;
-        }
+    for (final doc in snapshot.docs) {
+      final data = doc.data();
 
-        final creadoEn = data['creadoEn'];
-        DateTime? fecha;
-        if (creadoEn is Timestamp) fecha = creadoEn.toDate();
-        if (creadoEn is DateTime) fecha = creadoEn;
-        if (fecha == null) continue;
+      if (_notificacionesMostradas.contains(doc.id)) continue;
+      if (!_esParaUsuario(
+        data,
+        rol: _currentRol,
+        nombre: _currentNombre,
+        usuarioDocId: _currentUsuarioDocId,
+      )) continue;
 
-        // Evita avisar mensajes viejos al arrancar listener.
-        if (fecha.isBefore(_inicioEscuchaMensajes)) {
-          _notificacionesMostradas.add(doc.id);
-          continue;
-        }
+      final creadoEn = data['creadoEn'];
+      DateTime? fecha;
+      if (creadoEn is Timestamp) fecha = creadoEn.toDate();
+      if (creadoEn is DateTime) fecha = creadoEn;
+      if (fecha == null) continue;
 
-        final mensaje = data['mensaje']?.toString() ?? '';
-        final enviadoPor = data['enviadoPor']?.toString() ?? 'Administracion';
-        await _showInAppMessageNotification(doc.id, mensaje, enviadoPor);
+      if (fecha.isBefore(_inicioEscuchaMensajes)) {
         _notificacionesMostradas.add(doc.id);
+        continue;
       }
-    });
-  }
+
+      // ✅ Solo mostrar notificación local si estamos en foreground
+      // En background/killed, FCM ya se encarga
+      if (estaEnForeground) {
+        final mensaje = data['mensaje']?.toString() ?? '';
+        final enviadoPor = data['enviadoPor']?.toString() ?? 'Administración';
+        await _showInAppMessageNotification(doc.id, mensaje, enviadoPor);
+      }
+
+      _notificacionesMostradas.add(doc.id);
+    }
+  });
+}
 
   static Future<void> initialize() async {
     if (_initialized) return;
@@ -188,9 +218,9 @@ class PushNotificationsService {
 
     try {
       await messaging.setForegroundNotificationPresentationOptions(
-        alert: true,
-        badge: true,
-        sound: true,
+        alert: false,
+        badge: false,
+        sound: false,
       );
     } catch (_) {}
 
@@ -207,16 +237,20 @@ class PushNotificationsService {
         await _localNotifications.initialize(initSettings);
       } catch (_) {}
 
+      // Crear ambos canales
       await _localNotifications
           .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin
-          >()
+              AndroidFlutterLocalNotificationsPlugin>()
           ?.createNotificationChannel(_channel);
 
       await _localNotifications
           .resolvePlatformSpecificImplementation<
-            IOSFlutterLocalNotificationsPlugin
-          >()
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(_channelReportes);
+
+      await _localNotifications
+          .resolvePlatformSpecificImplementation<
+              IOSFlutterLocalNotificationsPlugin>()
           ?.requestPermissions(alert: true, badge: true, sound: true);
     }
 
@@ -225,14 +259,19 @@ class PushNotificationsService {
   }
 
   static void _setupForegroundListener() {
-    if (_foregroundListenerReady) return;
+  if (_foregroundListenerReady) return;
 
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
+  FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
+    final tipo = message.data['tipo']?.toString() ?? '';
+    // Los mensajes de admin ya los muestra el listener de Firestore.
+    // Solo mostramos aquí lo que NO viene de Firestore (ej: reporte_revisado)
+    if (tipo == 'reporte_revisado') {
       await showSystemNotificationFromMessage(message);
-    });
+    }
+  });
 
-    _foregroundListenerReady = true;
-  }
+  _foregroundListenerReady = true;
+}
 
   static Future<void> registerUserToken({
     required String usuarioDocId,
@@ -253,10 +292,10 @@ class PushNotificationsService {
           .collection('usuarios')
           .doc(usuarioDocId)
           .set({
-            'fcm_token': token,
-            'fcm_token_updated_at': FieldValue.serverTimestamp(),
-            'fcm_rol': rol,
-          }, SetOptions(merge: true));
+        'fcm_token': token,
+        'fcm_token_updated_at': FieldValue.serverTimestamp(),
+        'fcm_rol': rol,
+      }, SetOptions(merge: true));
 
       if (rol == 'operador' || rol == 'trabajador') {
         await messaging.subscribeToTopic('rol_$rol');
@@ -273,15 +312,15 @@ class PushNotificationsService {
               .collection('usuarios')
               .doc(_currentUsuarioDocId)
               .set({
-                'fcm_token': nuevoToken,
-                'fcm_token_updated_at': FieldValue.serverTimestamp(),
-                'fcm_rol': _currentRol,
-              }, SetOptions(merge: true));
+            'fcm_token': nuevoToken,
+            'fcm_token_updated_at': FieldValue.serverTimestamp(),
+            'fcm_rol': _currentRol,
+          }, SetOptions(merge: true));
         });
         _tokenRefreshListenerReady = true;
       }
     } catch (_) {
-      // No bloquea el login si FCM no está disponible en la plataforma actual.
+      // No bloquea el login si FCM no está disponible
     }
   }
 }

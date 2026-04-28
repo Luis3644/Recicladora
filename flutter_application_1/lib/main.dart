@@ -18,18 +18,24 @@ import 'screens/login_screen.dart';
 import 'screens/operador_screen.dart';
 import 'screens/jornada_screen.dart';
 import 'screens/widgets_conexion/connection_wrapper.dart';
+import 'screens/mis_reportes_operador.dart';
+
+
+
+
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  await PushNotificationsService.initialize();
-  await PushNotificationsService.showSystemNotificationFromMessage(message);
+  // FCM muestra la notificación automáticamente — no hacer nada más aquí
 }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+ 
   FirebaseFirestore.instance.settings = const Settings(
     persistenceEnabled: true,
     cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
