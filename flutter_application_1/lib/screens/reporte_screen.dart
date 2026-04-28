@@ -7,6 +7,11 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'widgets_conexion/connection_wrapper.dart';
+import '../widgets/jornada_bottom_bar.dart';
+import 'jornada_screen.dart';
+import 'operador_screen.dart'; // RegistrosJornadaScreen está aquí? No, está en jornada_screen.dart según findstr anterior.
+// Wait, findstr said lib\screens\jornada_screen.dart:class RegistrosJornadaScreen extends StatelessWidget {
+// so I just need jornada_screen.dart for JornadaScreen, RegistrosJornadaScreen and PerfilOperadorScreen.
 
 class ReporteScreen extends StatefulWidget {
   final String nombreUsuario;
@@ -162,6 +167,48 @@ class _ReporteScreenState extends State<ReporteScreen>
     }
   }
 
+  void _irAInicio() {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => JornadaScreen(
+          operador: widget.nombreUsuario,
+          camion: widget.camion,
+          placas: widget.placas,
+        ),
+      ),
+    );
+  }
+
+  void _irAHistorial() {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => RegistrosJornadaScreen(
+          operador: widget.nombreUsuario,
+          camion: widget.camion,
+          placas: widget.placas,
+          historial: true,
+        ),
+      ),
+    );
+  }
+
+  void _irAReporte() {
+    // Ya estamos aquí
+    return;
+  }
+
+  void _irAPerfil() {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => PerfilOperadorScreen(
+          operador: widget.nombreUsuario,
+          camion: widget.camion,
+          placas: widget.placas,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ConnectionWrapper(
@@ -172,7 +219,7 @@ class _ReporteScreenState extends State<ReporteScreen>
             "Reportar Incidente",
             style: TextStyle(fontWeight: FontWeight.w700, letterSpacing: 0.3),
           ),
-          automaticallyImplyLeading: true,
+          automaticallyImplyLeading: false,
           backgroundColor: Colors.transparent,
           elevation: 0,
           foregroundColor: Colors.white,
@@ -192,6 +239,13 @@ class _ReporteScreenState extends State<ReporteScreen>
               ],
             ),
           ),
+        ),
+        bottomNavigationBar: JornadaBottomBar(
+          activeIndex: 3,
+          onInicio: _irAInicio,
+          onHistorial: _irAHistorial,
+          onReporte: _irAReporte,
+          onPerfil: _irAPerfil,
         ),
         body: Stack(
           children: [

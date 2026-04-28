@@ -14,6 +14,7 @@ import 'reporte_screen.dart'; // Asegúrate de que esta línea esté presente
 import 'widgets_conexion/connection_wrapper.dart';
 import 'widgets/menu_lateral.dart';
 import 'widgets/notificaciones_drawer.dart';
+import '../widgets/jornada_bottom_bar.dart';
 
 class JornadaScreen extends StatefulWidget {
   final String operador;
@@ -116,6 +117,60 @@ class _JornadaScreenState extends State<JornadaScreen> {
       MaterialPageRoute(
         builder: (_) => RegistroToneladasScreen(
           operador: widget.operador,
+          camion: widget.camion,
+          placas: widget.placas,
+        ),
+      ),
+    );
+  }
+
+  void _irAInicio() {
+    return;
+  }
+
+  void _irARegistros() {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => RegistrosJornadaScreen(
+          operador: widget.operador,
+          camion: widget.camion,
+          placas: widget.placas,
+          historial: false,
+        ),
+      ),
+    );
+  }
+
+  void _irAHistorial() {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => RegistrosJornadaScreen(
+          operador: widget.operador,
+          camion: widget.camion,
+          placas: widget.placas,
+          historial: true,
+        ),
+      ),
+    );
+  }
+
+  void _irAPerfil() {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => PerfilOperadorScreen(
+          operador: widget.operador,
+          camion: widget.camion,
+          placas: widget.placas,
+        ),
+      ),
+    );
+  }
+
+  void _irAReporte() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ReporteScreen(
+          nombreUsuario: widget.operador,
           camion: widget.camion,
           placas: widget.placas,
         ),
@@ -756,9 +811,7 @@ class _JornadaScreenState extends State<JornadaScreen> {
                   color: _accent.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(
-                  Icons.scale_rounded, color: _accent,
-                ),
+                child: const Icon(Icons.scale_rounded, color: _accent),
               ),
               const SizedBox(width: 12),
               const Expanded(
@@ -856,8 +909,11 @@ class _JornadaScreenState extends State<JornadaScreen> {
     );
   }
 
- @override
+  @override
   Widget build(BuildContext context) {
+    final gpsActivoVisual =
+        _compartiendoUbicacionActiva && _servicioUbicacionActivo;
+
     // 1. Iniciamos con PopScope usando la lógica !didPop
     return PopScope(
       canPop: false,
@@ -868,65 +924,72 @@ class _JornadaScreenState extends State<JornadaScreen> {
       },
       child: ConnectionWrapper(
         child: Scaffold(
-          backgroundColor: const Color(0xFFF0F9FF),
+          backgroundColor: const Color(0xFFF1F3F6),
           endDrawer: NotificacionesDrawer(
             rolUsuario: 'operador',
             nombreUsuario: widget.operador,
           ),
           appBar: AppBar(
+            toolbarHeight: 74,
             elevation: 0,
             foregroundColor: Colors.white,
+            titleSpacing: 0,
             title: Row(
-              mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  'Jornada activa',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.3,
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text(
+                        'Jornada activa',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.2,
+                          fontSize: 24,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Icon(Icons.circle, size: 8, color: Color(0xFF22C55E)),
+                          SizedBox(width: 6),
+                          Text(
+                            'En curso',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFFBFDBFE),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 10),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(10),
                   child: Image.asset(
                     'assets/logo circular.jpeg',
-                    height: 36,
-                    width: 36,
+                    height: 38,
+                    width: 38,
                     fit: BoxFit.cover,
                   ),
                 ),
+                const SizedBox(width: 6),
               ],
             ),
-            backgroundColor: Colors.transparent,
+            backgroundColor: const Color(0xFF031A47),
             flexibleSpace: Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [_primary, Color(0xFF1E293B)],
+                  colors: [Color(0xFF031A47), Color(0xFF022A60)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
               ),
             ),
             actions: [
-              IconButton(
-                icon: const Icon(
-                  Icons.warning_rounded,
-                  color: Colors.orangeAccent,
-                ),
-                tooltip: 'Reportar problema',
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => ReporteScreen(
-                        nombreUsuario: widget.operador,
-                        camion: widget.camion,
-                        placas: widget.placas,
-                      ),
-                    ),
-                  );
-                },
-              ),
               Builder(
                 builder: (context) => NotificacionesBellButton(
                   rolUsuario: 'operador',
@@ -942,352 +1005,371 @@ class _JornadaScreenState extends State<JornadaScreen> {
             placas: widget.placas,
             mostrarCerrarSesion: false,
           ),
+          bottomNavigationBar: JornadaBottomBar(
+            activeIndex: 0,
+            onInicio: _irAInicio,
+            onHistorial: _irAHistorial,
+            onReporte: _irAReporte,
+            onPerfil: _irAPerfil,
+          ),
           body: Stack(
             children: [
-              Positioned(
-                top: -120,
-                right: -80,
-                child: Container(
-                  width: 280,
-                  height: 280,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _accent.withValues(alpha: 0.08),
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: -90,
-                left: -70,
-                child: Container(
-                  width: 220,
-                  height: 220,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _success.withValues(alpha: 0.08),
-                  ),
-                ),
-              ),
-              AnimatedOpacity(
-                duration: const Duration(milliseconds: 550),
-                opacity: _contentVisible ? 1 : 0,
-                child: AnimatedSlide(
+              Positioned.fill(
+                child: AnimatedOpacity(
                   duration: const Duration(milliseconds: 550),
-                  offset: _contentVisible ? Offset.zero : const Offset(0, 0.05),
-                  curve: Curves.easeOutCubic,
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(18),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(20),
-                            gradient: LinearGradient(
-                              colors: [
-                                _accent.withValues(alpha: 0.16),
-                                _success.withValues(alpha: 0.08),
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            border: Border.all(
-                              color: _accent.withValues(alpha: 0.24),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: _primary.withValues(alpha: 0.08),
-                                blurRadius: 20,
-                                offset: const Offset(0, 8),
+                  opacity: _contentVisible ? 1 : 0,
+                  child: AnimatedSlide(
+                    duration: const Duration(milliseconds: 550),
+                    offset: _contentVisible
+                        ? Offset.zero
+                        : const Offset(0, 0.05),
+                    curve: Curves.easeOutCubic,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          // ── Tarjeta Datos de Jornada (compacta) ──
+                          Container(
+                            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF05316D), Color(0xFF03275A)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
                               ),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(10),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withValues(alpha: 0.55),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: const Icon(
-                                      Icons.route_rounded,
-                                      color: _primary,
-                                    ),
+                              border: Border.all(
+                                color: const Color(0xFF0B4A95),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.16),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Datos de Jornada',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFFE2E8F0),
                                   ),
-                                  const SizedBox(width: 10),
-                                  const Expanded(
-                                    child: Text(
-                                      "Datos de Jornada",
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w700,
-                                        color: _primary,
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      width: 46,
+                                      height: 46,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        gradient: const LinearGradient(
+                                          colors: [
+                                            Color(0xFF10B981),
+                                            Color(0xFF059669),
+                                          ],
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                        ),
+                                      ),
+                                      child: const Icon(
+                                        Icons.local_shipping_outlined,
+                                        size: 22,
+                                        color: Color(0xFFE8FFF4),
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 14),
-                              Text(
-                                "Operador: ${widget.operador}",
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w600,
-                                  color: _primary,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                "Camión: ${widget.camion}",
-                                style: const TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w600,
-                                  color: _primary,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                "Placas: ${widget.placas}",
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  color: Colors.blueGrey[800],
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 10,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: _compartiendoUbicacionActiva
-                                      ? _success.withValues(alpha: 0.14)
-                                      : _danger.withValues(alpha: 0.10),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: _compartiendoUbicacionActiva
-                                        ? _success.withValues(alpha: 0.35)
-                                        : _danger.withValues(alpha: 0.35),
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      _compartiendoUbicacionActiva
-                                          ? Icons.gps_fixed_rounded
-                                          : Icons.gps_off_rounded,
-                                      color: _compartiendoUbicacionActiva
-                                          ? _success
-                                          : _danger,
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          _DataRowInfo(
+                                            icon: Icons.person_outline_rounded,
+                                            label: 'Operador',
+                                            value: widget.operador,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          _DataRowInfo(
+                                            icon: Icons.local_shipping_outlined,
+                                            label: 'Camión',
+                                            value: widget.camion,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          _DataRowInfo(
+                                            icon: Icons.credit_card_rounded,
+                                            label: 'Placas',
+                                            value: widget.placas,
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                     const SizedBox(width: 8),
+                                    Container(
+                                      width: 82,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 8,
+                                        horizontal: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(50),
+                                        gradient: LinearGradient(
+                                          colors: gpsActivoVisual
+                                              ? const [
+                                                  Color(0xFF14532D),
+                                                  Color(0xFF166534),
+                                                ]
+                                              : const [
+                                                  Color(0xFF5D1B39),
+                                                  Color(0xFF4A1630),
+                                                ],
+                                        ),
+                                      ),
+                                      child: Column(
+                                        children: [
+                                          Icon(
+                                            gpsActivoVisual
+                                                ? Icons.gps_fixed_rounded
+                                                : Icons.gps_off_rounded,
+                                            color: gpsActivoVisual
+                                                ? const Color(0xFF86EFAC)
+                                                : const Color(0xFFF87171),
+                                            size: 26,
+                                          ),
+                                          const SizedBox(height: 3),
+                                          Text(
+                                            gpsActivoVisual
+                                                ? 'GPS\nactivo'
+                                                : 'GPS\napagado',
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              height: 1.2,
+                                              fontWeight: FontWeight.w700,
+                                              color: gpsActivoVisual
+                                                  ? const Color(0xFFBBF7D0)
+                                                  : const Color(0xFFFCA5A5),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Divider(
+                                  color: Colors.white.withValues(alpha: 0.22),
+                                  height: 8,
+                                ),
+                                const SizedBox(height: 2),
+                                Row(
+                                  children: [
                                     Expanded(
                                       child: Text(
-                                        _compartiendoUbicacionActiva
-                                            ? 'Compartiendo ubicación activa'
-                                            : _estadoUbicacion,
+                                        !_servicioUbicacionActivo
+                                            ? 'Ubicación del dispositivo apagada'
+                                            : (!_permisoUbicacionOtorgado
+                                                  ? 'Permiso de ubicación pendiente'
+                                                  : (_compartiendoUbicacionActiva
+                                                        ? 'Compartiendo ubicación activa'
+                                                        : _estadoUbicacion)),
                                         style: const TextStyle(
-                                          fontSize: 13.2,
+                                          fontSize: 12,
+                                          color: Color(0xFFB4CFF2),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Switch.adaptive(
+                                      value: _compartirUbicacion,
+                                      activeColor: Colors.white,
+                                      activeTrackColor: const Color(0xFF22C55E),
+                                      inactiveThumbColor: Colors.white,
+                                      inactiveTrackColor: const Color(
+                                        0xFF3A4F77,
+                                      ),
+                                      onChanged: (value) async {
+                                        setState(
+                                          () => _compartirUbicacion = value,
+                                        );
+                                        if (value) {
+                                          await _iniciarMonitoreoUbicacion();
+                                        } else {
+                                          await _detenerMonitoreoUbicacion(
+                                            motivo:
+                                                'Compartición manualmente desactivada',
+                                          );
+                                        }
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          // ── Tarjeta Registros de Jornada (compacta) ──
+                          Container(
+                            padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEFF1F4),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.05),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      width: 30,
+                                      height: 30,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFDDF3EB),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Icon(
+                                        Icons.assignment_outlined,
+                                        color: Color(0xFF10B981),
+                                        size: 18,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Text(
+                                      'Registros de Jornada',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700,
+                                        color: Color(0xFF1E293B),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 1),
+                                const Padding(
+                                  padding: EdgeInsets.only(left: 38),
+                                  child: Text(
+                                    'Selecciona el tipo de registro que quieres capturar.',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF6B7280),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                _RegistroActionCard(
+                                  onPressed: _abrirRegistroGasolina,
+                                  icon: Icons.local_gas_station_rounded,
+                                  title: 'Registro de Gasolina',
+                                  subtitle:
+                                      'Captura información de carga de combustible.',
+                                  gradient: const [
+                                    Color(0xFF0D6E5E),
+                                    Color(0xFF084F43),
+                                  ],
+                                ),
+                                const SizedBox(height: 7),
+                                _RegistroActionCard(
+                                  onPressed: _abrirRegistroToneladas,
+                                  icon: Icons.scale_outlined,
+                                  title: 'Entrada de material',
+                                  subtitle:
+                                      'Registra la entrada de materiales al equipo.',
+                                  gradient: const [
+                                    Color(0xFF1E3A6E),
+                                    Color(0xFF122548),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          // ── Tarjeta Finalizar Jornada (compacta) ──
+                          Container(
+                            padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F0F1),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.04),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                const Row(
+                                  children: [
+                                    Icon(
+                                      Icons.flag_outlined,
+                                      color: Color(0xFFE53E3E),
+                                      size: 20,
+                                    ),
+                                    SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        'Finalizar jornada',
+                                        style: TextStyle(
+                                          fontSize: 18,
                                           fontWeight: FontWeight.w700,
-                                          color: _primary,
+                                          color: Color(0xFF1F2937),
                                         ),
                                       ),
                                     ),
                                   ],
                                 ),
-                              ),
-                              const SizedBox(height: 8),
-                              SwitchListTile.adaptive(
-                                contentPadding: EdgeInsets.zero,
-                                value: _compartirUbicacion,
-                                onChanged: (value) async {
-                                  setState(() => _compartirUbicacion = value);
-                                  if (value) {
-                                    await _iniciarMonitoreoUbicacion();
-                                  } else {
-                                    await _detenerMonitoreoUbicacion(
-                                      motivo: 'Compartición manualmente desactivada',
-                                    );
-                                  }
-                                },
-                                title: const Text(
-                                  'Compartir ubicación con administración',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: _primary,
-                                  ),
-                                ),
-                                subtitle: Text(
-                                  !_servicioUbicacionActivo
-                                      ? 'Ubicación del dispositivo apagada'
-                                      : (!_permisoUbicacionOtorgado
-                                          ? 'Permiso de ubicación pendiente'
-                                          : 'Monitoreo en tiempo real habilitado'),
-                                  style: TextStyle(
-                                    color: _primary.withValues(alpha: 0.72),
+                                const SizedBox(height: 1),
+                                Text(
+                                  _finalizandoJornada
+                                      ? 'Finalizando...'
+                                      : 'Desliza izquierda a derecha para confirmar',
+                                  style: const TextStyle(
                                     fontSize: 12,
+                                    color: Color(0xFF8E95A3),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 22),
-                        Container(
-                          padding: const EdgeInsets.all(18),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(
-                              color: _primary.withValues(alpha: 0.08),
+                                const SizedBox(height: 8),
+                                _SwipeToConfirmButton(
+                                  text: _finalizandoJornada
+                                      ? 'Finalizando jornada...'
+                                      : 'Desliza para finalizar jornada',
+                                  enabled: !_finalizandoJornada,
+                                  onCompleted: _finalizarPorSwipe,
+                                ),
+                              ],
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: _primary.withValues(alpha: 0.06),
-                                blurRadius: 14,
-                                offset: const Offset(0, 6),
-                              ),
-                            ],
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              const Text(
-                                'Registros de Jornada',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                  color: _primary,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                'Selecciona el tipo de registro que quieres capturar.',
-                                style: TextStyle(
-                                  fontSize: 12.5,
-                                  color: _primary.withValues(alpha: 0.7),
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-                              FilledButton.icon(
-                                onPressed: _abrirRegistroGasolina,
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: _success,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 13,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                ),
-                                icon: const Icon(Icons.local_gas_station_rounded),
-                                label: const Text('Registro de Gasolina'),
-                              ),
-                              const SizedBox(height: 10),
-                              OutlinedButton.icon(
-                                onPressed: _abrirRegistroToneladas,
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: _primary,
-                                  side: BorderSide(
-                                    color: _primary.withValues(alpha: 0.28),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 13,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                ),
-                                icon: const Icon(Icons.scale_rounded),
-                                label: const Text('Entrada de material'),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 22),
-                        Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(
-                              color: _danger.withValues(alpha: 0.25),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: _danger.withValues(alpha: 0.08),
-                                blurRadius: 16,
-                                offset: const Offset(0, 6),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              const Row(
-                                children: [
-                                  Icon(Icons.logout_rounded, color: _danger),
-                                  SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      'Desliza para finalizar jornada',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w700,
-                                        color: _primary,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                _finalizandoJornada
-                                    ? 'Finalizando...'
-                                    : 'Desliza de izquierda a derecha para confirmar',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: _primary.withValues(alpha: 0.68),
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              _SwipeToConfirmButton(
-                                text: _finalizandoJornada
-                                    ? 'Finalizando jornada...'
-                                    : 'Desliza para finalizar jornada',
-                                enabled: !_finalizandoJornada,
-                                onCompleted: _finalizarPorSwipe,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ), // Cierre de Scaffold
-      ), // Cierre de ConnectionWrapper
-    ); // Cierre de PopScope
+                        ], // Column children
+                      ), // Column
+                    ), // Padding
+                  ), // AnimatedSlide
+                ), // AnimatedOpacity
+              ), // Positioned.fill
+            ], // Stack children
+          ), // Stack (body)
+        ), // Scaffold
+      ), // ConnectionWrapper
+    ); // return PopScope
   }
 }
-
-
-
-
-
-
-
 
 class RegistroGasolinaScreen extends StatefulWidget {
   final String operador;
@@ -1343,12 +1425,10 @@ class _RegistroGasolinaScreenState extends State<RegistroGasolinaScreen>
       parent: _entryController,
       curve: Curves.easeOut,
     );
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.06),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(parent: _entryController, curve: Curves.easeOutCubic),
-    );
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.06), end: Offset.zero).animate(
+          CurvedAnimation(parent: _entryController, curve: Curves.easeOutCubic),
+        );
     _entryController.forward();
   }
 
@@ -1377,7 +1457,8 @@ class _RegistroGasolinaScreenState extends State<RegistroGasolinaScreen>
   }
 
   Future<void> _tomarFotoTicket() async {
-    final esMovil = !kIsWeb &&
+    final esMovil =
+        !kIsWeb &&
         (defaultTargetPlatform == TargetPlatform.android ||
             defaultTargetPlatform == TargetPlatform.iOS);
 
@@ -1423,14 +1504,10 @@ class _RegistroGasolinaScreenState extends State<RegistroGasolinaScreen>
       final bytes = await _imagenTicket!.readAsBytes();
       final nombreArchivo =
           '${DateTime.now().millisecondsSinceEpoch}_${widget.operador}.jpg';
-      final storagePath =
-          'tickets_gasolina/${widget.operador}/$nombreArchivo';
+      final storagePath = 'tickets_gasolina/${widget.operador}/$nombreArchivo';
 
       final ref = FirebaseStorage.instance.ref().child(storagePath);
-      await ref.putData(
-        bytes,
-        SettableMetadata(contentType: 'image/jpeg'),
-      );
+      await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
       final url = await ref.getDownloadURL();
 
       if (mounted) {
@@ -1491,7 +1568,10 @@ class _RegistroGasolinaScreenState extends State<RegistroGasolinaScreen>
     );
 
     if (_imagenTicket == null) {
-      _mostrarMensaje('Primero toma la foto del ticket de gasolina.', error: true);
+      _mostrarMensaje(
+        'Primero toma la foto del ticket de gasolina.',
+        error: true,
+      );
       return;
     }
 
@@ -1586,18 +1666,6 @@ class _RegistroGasolinaScreenState extends State<RegistroGasolinaScreen>
     );
   }
 
-
-
-
-
-
-
-
-
-
-
-
-
   @override
   Widget build(BuildContext context) {
     final inputBorder = OutlineInputBorder(
@@ -1624,10 +1692,7 @@ class _RegistroGasolinaScreenState extends State<RegistroGasolinaScreen>
         ),
         title: const Text(
           'Registro de Combustible',
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-            color: Colors.white,
-          ),
+          style: TextStyle(fontWeight: FontWeight.w800, color: Colors.white),
         ),
       ),
       body: Stack(
@@ -1749,7 +1814,9 @@ class _RegistroGasolinaScreenState extends State<RegistroGasolinaScreen>
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           FilledButton.icon(
-                            onPressed: _subiendoImagen ? null : _tomarFotoTicket,
+                            onPressed: _subiendoImagen
+                                ? null
+                                : _tomarFotoTicket,
                             icon: _subiendoImagen
                                 ? const SizedBox(
                                     width: 18,
@@ -1864,13 +1931,18 @@ class _RegistroGasolinaScreenState extends State<RegistroGasolinaScreen>
                             textInputAction: TextInputAction.next,
                             decoration: InputDecoration(
                               hintText: 'Ej: F-00124',
-                              prefixIcon: const Icon(Icons.receipt_long_rounded),
+                              prefixIcon: const Icon(
+                                Icons.receipt_long_rounded,
+                              ),
                               filled: true,
                               fillColor: const Color(0xFFF8FAFC),
                               border: inputBorder,
                               enabledBorder: inputBorder,
                               focusedBorder: inputBorder.copyWith(
-                                borderSide: BorderSide(color: _accent, width: 1.6),
+                                borderSide: BorderSide(
+                                  color: _accent,
+                                  width: 1.6,
+                                ),
                               ),
                             ),
                           ),
@@ -1908,7 +1980,10 @@ class _RegistroGasolinaScreenState extends State<RegistroGasolinaScreen>
                               border: inputBorder,
                               enabledBorder: inputBorder,
                               focusedBorder: inputBorder.copyWith(
-                                borderSide: BorderSide(color: _accent, width: 1.6),
+                                borderSide: BorderSide(
+                                  color: _accent,
+                                  width: 1.6,
+                                ),
                               ),
                             ),
                           ),
@@ -1930,7 +2005,8 @@ class _RegistroGasolinaScreenState extends State<RegistroGasolinaScreen>
                               ),
                             ],
                             onChanged: (value) {
-                              if (value != null) setState(() => _unidad = value);
+                              if (value != null)
+                                setState(() => _unidad = value);
                             },
                             decoration: InputDecoration(
                               prefixIcon: const Icon(Icons.straighten_rounded),
@@ -1939,7 +2015,10 @@ class _RegistroGasolinaScreenState extends State<RegistroGasolinaScreen>
                               border: inputBorder,
                               enabledBorder: inputBorder,
                               focusedBorder: inputBorder.copyWith(
-                                borderSide: BorderSide(color: _accent, width: 1.6),
+                                borderSide: BorderSide(
+                                  color: _accent,
+                                  width: 1.6,
+                                ),
                               ),
                             ),
                           ),
@@ -1988,7 +2067,8 @@ class _RegistroGasolinaScreenState extends State<RegistroGasolinaScreen>
                               ),
                             ],
                             onChanged: (value) {
-                              if (value != null) setState(() => _metodoPago = value);
+                              if (value != null)
+                                setState(() => _metodoPago = value);
                             },
                             decoration: InputDecoration(
                               prefixIcon: const Icon(Icons.payment_rounded),
@@ -1997,7 +2077,10 @@ class _RegistroGasolinaScreenState extends State<RegistroGasolinaScreen>
                               border: inputBorder,
                               enabledBorder: inputBorder,
                               focusedBorder: inputBorder.copyWith(
-                                borderSide: BorderSide(color: _accent, width: 1.6),
+                                borderSide: BorderSide(
+                                  color: _accent,
+                                  width: 1.6,
+                                ),
                               ),
                             ),
                           ),
@@ -2012,7 +2095,9 @@ class _RegistroGasolinaScreenState extends State<RegistroGasolinaScreen>
                             ),
                             decoration: InputDecoration(
                               hintText: '0.00',
-                              prefixIcon: const Icon(Icons.attach_money_rounded),
+                              prefixIcon: const Icon(
+                                Icons.attach_money_rounded,
+                              ),
                               filled: true,
                               fillColor: const Color(0xFFF8FAFC),
                               border: inputBorder,
@@ -2067,9 +2152,7 @@ class _RegistroGasolinaScreenState extends State<RegistroGasolinaScreen>
                           style: OutlinedButton.styleFrom(
                             backgroundColor: const Color(0xFFDC2626),
                             foregroundColor: Colors.white,
-                            side: BorderSide(
-                              color: const Color(0xFFDC2626),
-                            ),
+                            side: BorderSide(color: const Color(0xFFDC2626)),
                             padding: const EdgeInsets.symmetric(vertical: 15),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),
@@ -2170,6 +2253,863 @@ class _InfoPill extends StatelessWidget {
   }
 }
 
+class _DataRowInfo extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _DataRowInfo({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, color: const Color(0xFF22D3EE), size: 18),
+        const SizedBox(width: 8),
+        Expanded(
+          child: RichText(
+            text: TextSpan(
+              style: const TextStyle(
+                fontSize: 15,
+                color: Color(0xFFD1E7FF),
+                height: 1.15,
+              ),
+              children: [
+                TextSpan(
+                  text: '$label\n',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 13,
+                    color: Color(0xFF9EC3F0),
+                  ),
+                ),
+                TextSpan(
+                  text: value,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RegistroActionCard extends StatelessWidget {
+  final VoidCallback onPressed;
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final List<Color> gradient;
+
+  const _RegistroActionCard({
+    required this.onPressed,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.gradient,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(12),
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            gradient: LinearGradient(
+              colors: gradient,
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.18),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: SizedBox(
+              height: 56,
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.20),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Icon(icon, color: Colors.white, size: 22),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          subtitle,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.85),
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: Colors.white70,
+                    size: 28,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+DateTime? _fechaDesdeFirestore(dynamic value) {
+  if (value is Timestamp) return value.toDate();
+  if (value is DateTime) return value;
+  return null;
+}
+
+String _textoSeguro(dynamic value, {String fallback = '-'}) {
+  final text = value?.toString().trim() ?? '';
+  return text.isEmpty ? fallback : text;
+}
+
+String _numeroSeguro(dynamic value) {
+  final parsed = value is num
+      ? value.toDouble()
+      : double.tryParse('${value ?? ''}');
+  if (parsed == null) return '-';
+  return parsed.toStringAsFixed(2);
+}
+
+class RegistrosJornadaScreen extends StatelessWidget {
+  final String operador;
+  final String camion;
+  final String placas;
+  final bool historial;
+
+  const RegistrosJornadaScreen({
+    super.key,
+    required this.operador,
+    required this.camion,
+    required this.placas,
+    required this.historial,
+  });
+
+  void _irAInicio(BuildContext context) {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) =>
+            JornadaScreen(operador: operador, camion: camion, placas: placas),
+      ),
+    );
+  }
+
+  void _irARegistros(BuildContext context) {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => RegistrosJornadaScreen(
+          operador: operador,
+          camion: camion,
+          placas: placas,
+          historial: false,
+        ),
+      ),
+    );
+  }
+
+  void _irAHistorial(BuildContext context) {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => RegistrosJornadaScreen(
+          operador: operador,
+          camion: camion,
+          placas: placas,
+          historial: true,
+        ),
+      ),
+    );
+  }
+
+  void _irAPerfil(BuildContext context) {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => PerfilOperadorScreen(
+          operador: operador,
+          camion: camion,
+          placas: placas,
+        ),
+      ),
+    );
+  }
+
+  void _irAReporte(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ReporteScreen(
+          nombreUsuario: operador,
+          camion: camion,
+          placas: placas,
+        ),
+      ),
+    );
+  }
+
+  Query<Map<String, dynamic>> _consulta(String collection) {
+    return FirebaseFirestore.instance
+        .collection(collection)
+        .where('operador', isEqualTo: operador);
+  }
+
+  Widget _buildRecordsSection({
+    required String title,
+    required IconData icon,
+    required Color accent,
+    required String collection,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: accent, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1F2937),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          StreamBuilder<QuerySnapshot>(
+            stream: _consulta(collection).snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+
+              final docs = snapshot.data?.docs.toList() ?? [];
+              docs.sort((a, b) {
+                final dataA = a.data() as Map<String, dynamic>;
+                final dataB = b.data() as Map<String, dynamic>;
+                final fechaA = _fechaDesdeFirestore(
+                  dataA['fecha'] ??
+                      dataA['fecha_registro'] ??
+                      dataA['creadoEn'],
+                );
+                final fechaB = _fechaDesdeFirestore(
+                  dataB['fecha'] ??
+                      dataB['fecha_registro'] ??
+                      dataB['creadoEn'],
+                );
+                return (fechaB ?? DateTime.fromMillisecondsSinceEpoch(0))
+                    .compareTo(
+                      fechaA ?? DateTime.fromMillisecondsSinceEpoch(0),
+                    );
+              });
+
+              if (docs.isEmpty) {
+                final mensajeVacio = collection == 'registros_gasolina'
+                    ? 'Aún no hay gasolina registrada.'
+                    : 'Aún no hay entradas de material.';
+
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(
+                        icon,
+                        size: 36,
+                        color: accent.withValues(alpha: 0.5),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        mensajeVacio,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Color(0xFF64748B),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return Column(
+                children: docs.map((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  final fecha = _fechaDesdeFirestore(
+                    data['fecha'] ?? data['fecha_registro'] ?? data['creadoEn'],
+                  );
+                  final titulo = collection == 'registros_gasolina'
+                      ? 'Gasolina / Diésel / Gas'
+                      : 'Entrada de material';
+                  final subtitulo = collection == 'registros_gasolina'
+                      ? 'Folio ${_textoSeguro(data['folio'])} · ${_textoSeguro(data['concepto'])} · ${_numeroSeguro(data['cantidad'])} ${_textoSeguro(data['unidad'])} · ${_numeroSeguro(data['monto'])} MXN'
+                      : 'Folio ${_textoSeguro(data['folio'])} · ${_textoSeguro(data['producto'])} · Entrada ${_numeroSeguro(data['peso_entrada'])} · Salida ${_numeroSeguro(data['peso_salida'])} · Neto ${_numeroSeguro(data['peso_neto'])}';
+
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _RegistroItemCard(
+                      accent: accent,
+                      icon: icon,
+                      titulo: titulo,
+                      subtitulo: subtitulo,
+                      fecha: fecha == null
+                          ? _textoSeguro(
+                              data['fecha_texto'] ?? data['fecha_registro'],
+                            )
+                          : DateFormat('dd/MM/yyyy HH:mm').format(fecha),
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final titulo = historial ? 'Historial' : 'Registros';
+    final subtitulo = historial
+        ? 'Consulta el historial reciente de la jornada.'
+        : 'Aquí puedes ver lo que has registrado durante la jornada.';
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF1F3F6),
+      appBar: AppBar(
+        elevation: 0,
+        foregroundColor: Colors.white,
+        backgroundColor: const Color(0xFF031A47),
+        automaticallyImplyLeading: false,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF031A47), Color(0xFF022A60)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        title: Text(
+          titulo,
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+      ),
+      bottomNavigationBar: JornadaBottomBar(
+        activeIndex: historial ? 1 : 0,
+        onInicio: () => _irAInicio(context),
+        onHistorial: () => _irAHistorial(context),
+        onReporte: () => _irAReporte(context),
+        onPerfil: () => _irAPerfil(context),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF05316D), Color(0xFF03275A)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    historial
+                        ? 'Historial de la jornada'
+                        : 'Registros de la jornada',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    subtitulo,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.82),
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            _buildRecordsSection(
+              title: 'Gasolina registrada',
+              icon: Icons.local_gas_station_rounded,
+              accent: const Color(0xFF15A56A),
+              collection: 'registros_gasolina',
+            ),
+            const SizedBox(height: 12),
+            _buildRecordsSection(
+              title: 'Entrada de material',
+              icon: Icons.scale_outlined,
+              accent: const Color(0xFF2D68B2),
+              collection: 'registros_toneladas',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RegistroItemCard extends StatelessWidget {
+  final Color accent;
+  final IconData icon;
+  final String titulo;
+  final String subtitulo;
+  final String fecha;
+
+  const _RegistroItemCard({
+    required this.accent,
+    required this.icon,
+    required this.titulo,
+    required this.subtitulo,
+    required this.fecha,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: accent.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: accent, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  titulo,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF111827),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  subtitulo,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF475569),
+                    height: 1.3,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  fecha,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF64748B),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class PerfilOperadorScreen extends StatelessWidget {
+  final String operador;
+  final String camion;
+  final String placas;
+
+  const PerfilOperadorScreen({
+    super.key,
+    required this.operador,
+    required this.camion,
+    required this.placas,
+  });
+
+  void _irAInicio(BuildContext context) {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) =>
+            JornadaScreen(operador: operador, camion: camion, placas: placas),
+      ),
+    );
+  }
+
+  void _irARegistros(BuildContext context) {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => RegistrosJornadaScreen(
+          operador: operador,
+          camion: camion,
+          placas: placas,
+          historial: false,
+        ),
+      ),
+    );
+  }
+
+  void _irAHistorial(BuildContext context) {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => RegistrosJornadaScreen(
+          operador: operador,
+          camion: camion,
+          placas: placas,
+          historial: true,
+        ),
+      ),
+    );
+  }
+
+  void _irAPerfil(BuildContext context) {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => PerfilOperadorScreen(
+          operador: operador,
+          camion: camion,
+          placas: placas,
+        ),
+      ),
+    );
+  }
+
+  void _irAReporte(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ReporteScreen(
+          nombreUsuario: operador,
+          camion: camion,
+          placas: placas,
+        ),
+      ),
+    );
+  }
+
+  Widget _infoCard({
+    required String label,
+    required String value,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: color, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF64748B),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: Color(0xFF111827),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF1F3F6),
+      appBar: AppBar(
+        elevation: 0,
+        foregroundColor: Colors.white,
+        backgroundColor: const Color(0xFF031A47),
+        automaticallyImplyLeading: false,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF031A47), Color(0xFF022A60)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        title: const Text(
+          'Perfil',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
+      ),
+      bottomNavigationBar: JornadaBottomBar(
+        activeIndex: 2,
+        onInicio: () => _irAInicio(context),
+        onHistorial: () => _irAHistorial(context),
+        onReporte: () => _irAReporte(context),
+        onPerfil: () => _irAPerfil(context),
+      ),
+      body: StreamBuilder<DocumentSnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('usuarios')
+            .doc(operador)
+            .snapshots(),
+        builder: (context, snapshot) {
+          final data = snapshot.data?.data() as Map<String, dynamic>?;
+          final jornadaActiva = data?['jornada_activa'] == true;
+          final gpsActivo = data?['gps_activo'] == true;
+          final estadoGps = _textoSeguro(
+            data?['estado_gps'],
+            fallback: 'Sin estado GPS',
+          );
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(18),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF05316D), Color(0xFF03275A)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Datos del usuario',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Información visible del operador durante la jornada.',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.82),
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _infoCard(
+                  label: 'Operador',
+                  value: operador,
+                  icon: Icons.person_outline_rounded,
+                  color: const Color(0xFF15A56A),
+                ),
+                const SizedBox(height: 10),
+                _infoCard(
+                  label: 'Camión',
+                  value: camion,
+                  icon: Icons.local_shipping_outlined,
+                  color: const Color(0xFF2D68B2),
+                ),
+                const SizedBox(height: 10),
+                _infoCard(
+                  label: 'Placas',
+                  value: placas,
+                  icon: Icons.credit_card_rounded,
+                  color: const Color(0xFF7C3AED),
+                ),
+                const SizedBox(height: 10),
+                _infoCard(
+                  label: 'Jornada',
+                  value: jornadaActiva ? 'Activa' : 'Inactiva',
+                  icon: Icons.route_rounded,
+                  color: jornadaActiva
+                      ? const Color(0xFF10B981)
+                      : const Color(0xFFDC2626),
+                ),
+                const SizedBox(height: 10),
+                _infoCard(
+                  label: 'GPS',
+                  value: gpsActivo ? estadoGps : 'GPS apagado',
+                  icon: gpsActivo
+                      ? Icons.gps_fixed_rounded
+                      : Icons.gps_off_rounded,
+                  color: gpsActivo
+                      ? const Color(0xFF10B981)
+                      : const Color(0xFFDC2626),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Resumen',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1F2937),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        data == null
+                            ? 'No se encontró información adicional del usuario en Firestore.'
+                            : 'Aquí puedes ampliar los datos del perfil si el documento de usuario contiene más campos.',
+                        style: const TextStyle(
+                          color: Color(0xFF64748B),
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 class _SwipeToConfirmButton extends StatefulWidget {
   final String text;
   final bool enabled;
@@ -2221,7 +3161,7 @@ class _SwipeToConfirmButtonState extends State<_SwipeToConfirmButton> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        const knobSize = 54.0;
+        const knobSize = 66.0;
         final double maxDrag = (constraints.maxWidth - knobSize)
             .clamp(0.0, double.infinity)
             .toDouble();
@@ -2230,11 +3170,11 @@ class _SwipeToConfirmButtonState extends State<_SwipeToConfirmButton> {
             .toDouble();
 
         return Container(
-          height: 58,
+          height: 74,
           decoration: BoxDecoration(
-            color: const Color(0xFFFEE2E2),
+            color: const Color(0xFFFDECEC),
             borderRadius: BorderRadius.circular(40),
-            border: Border.all(color: const Color(0xFFFCA5A5)),
+            border: Border.all(color: const Color(0xFFF2B7B7)),
           ),
           child: Stack(
             alignment: Alignment.centerLeft,
@@ -2243,21 +3183,21 @@ class _SwipeToConfirmButtonState extends State<_SwipeToConfirmButton> {
                 duration: const Duration(milliseconds: 120),
                 curve: Curves.easeOut,
                 width: fillWidth,
-                height: 58,
+                height: 74,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFDC2626),
+                  color: const Color(0xFFE11D48).withValues(alpha: 0.20),
                   borderRadius: BorderRadius.circular(40),
                 ),
               ),
               Center(
                 child: AnimatedOpacity(
                   duration: const Duration(milliseconds: 180),
-                  opacity: _dragX > maxDrag * 0.2 ? 0.15 : 1,
+                  opacity: _dragX > maxDrag * 0.2 ? 0.35 : 1,
                   child: Text(
                     widget.text,
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
-                      color: _loading ? Colors.white : const Color(0xFF7F1D1D),
+                      color: const Color(0xFFDF3B3B),
                     ),
                   ),
                 ),
@@ -2283,24 +3223,29 @@ class _SwipeToConfirmButtonState extends State<_SwipeToConfirmButton> {
                     width: knobSize,
                     height: knobSize,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: const Color(0xFFE53935),
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.16),
-                          blurRadius: 10,
-                          offset: const Offset(0, 3),
+                          color: Colors.black.withValues(alpha: 0.22),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
                         ),
                       ],
                     ),
                     child: _loading
                         ? const Padding(
                             padding: EdgeInsets.all(16),
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                            ),
                           )
                         : const Icon(
                             Icons.keyboard_double_arrow_right_rounded,
-                            color: Color(0xFFDC2626),
+                            color: Colors.white,
                             size: 28,
                           ),
                   ),
@@ -2326,16 +3271,9 @@ class RegistroToneladasScreen extends StatefulWidget {
     required this.placas,
   });
 
- 
- 
- 
- 
- 
- 
- 
- 
   @override
-  State<RegistroToneladasScreen> createState() => _RegistroToneladasScreenState();
+  State<RegistroToneladasScreen> createState() =>
+      _RegistroToneladasScreenState();
 }
 
 class _RegistroToneladasScreenState extends State<RegistroToneladasScreen> {
@@ -2346,27 +3284,36 @@ class _RegistroToneladasScreenState extends State<RegistroToneladasScreen> {
 
   String? _productoSeleccionado;
   double _pesoNeto = 0.0;
-  
+
   // Capturamos la fecha y hora al momento de abrir el registro
-  final String _fechaHoraActual = DateFormat('dd/MM/yyyy HH:mm:ss').format(DateTime.now());
+  final String _fechaHoraActual = DateFormat(
+    'dd/MM/yyyy HH:mm:ss',
+  ).format(DateTime.now());
 
   // Lista de productos solicitada
   final List<String> _productos = [
-    'VG20', 
-    'NX', 
-    'SISMO SUCIO', 
-    'NO RECICLABLE', 
-    'CONTAMINADO', 
-    'MIXTO SECURY', 
-    'LAMINADO GLASS'
+    'VG20',
+    'NX',
+    'SISMO SUCIO',
+    'NO RECICLABLE',
+    'CONTAMINADO',
+    'MIXTO SECURY',
+    'LAMINADO GLASS',
   ];
 
   // Función para guardar en Firebase
   Future<void> _guardarEnFirebase() async {
     // Validar que los campos no estén vacíos
-    if (_folioController.text.isEmpty || _productoSeleccionado == null || _entradaController.text.isEmpty || _salidaController.text.isEmpty) {
+    if (_folioController.text.isEmpty ||
+        _productoSeleccionado == null ||
+        _entradaController.text.isEmpty ||
+        _salidaController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor llena todos los campos (Folio, Producto y Pesos)')),
+        const SnackBar(
+          content: Text(
+            'Por favor llena todos los campos (Folio, Producto y Pesos)',
+          ),
+        ),
       );
       return;
     }
@@ -2376,7 +3323,9 @@ class _RegistroToneladasScreenState extends State<RegistroToneladasScreen> {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator(color: Color(0xFF0F766E))),
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(color: Color(0xFF0F766E)),
+        ),
       );
 
       // Guardar en la colección 'registros_toneladas'
@@ -2389,7 +3338,8 @@ class _RegistroToneladasScreenState extends State<RegistroToneladasScreen> {
         'peso_entrada': double.tryParse(_entradaController.text) ?? 0.0,
         'peso_salida': double.tryParse(_salidaController.text) ?? 0.0,
         'peso_neto': _pesoNeto,
-        'fecha_registro': FieldValue.serverTimestamp(), // Para filtros de Admin precisos
+        'fecha_registro':
+            FieldValue.serverTimestamp(), // Para filtros de Admin precisos
         'fecha_texto': _fechaHoraActual,
       });
 
@@ -2397,16 +3347,21 @@ class _RegistroToneladasScreenState extends State<RegistroToneladasScreen> {
       Navigator.pop(context); // Quitar círculo de carga
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(backgroundColor: Colors.green, content: Text('Registro guardado exitosamente')),
+        const SnackBar(
+          backgroundColor: Colors.green,
+          content: Text('Registro guardado exitosamente'),
+        ),
       );
-      
-      Navigator.pop(context); // Regresar a la pantalla anterior o Admin screen
 
+      Navigator.pop(context); // Regresar a la pantalla anterior o Admin screen
     } catch (e) {
       if (!mounted) return;
       Navigator.pop(context); // Quitar círculo de carga
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(backgroundColor: Colors.red, content: Text('Error al guardar en base de datos: $e')),
+        SnackBar(
+          backgroundColor: Colors.red,
+          content: Text('Error al guardar en base de datos: $e'),
+        ),
       );
     }
   }
@@ -2425,7 +3380,10 @@ class _RegistroToneladasScreenState extends State<RegistroToneladasScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7FB),
       appBar: AppBar(
-        title: const Text('Registro de Carga', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Registro de Carga',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: const Color(0xFF0F766E),
         foregroundColor: Colors.white,
         centerTitle: true,
@@ -2442,7 +3400,12 @@ class _RegistroToneladasScreenState extends State<RegistroToneladasScreen> {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: Colors.blueGrey.shade100),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5)],
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 5,
+                  ),
+                ],
               ),
               child: Column(
                 children: [
@@ -2457,7 +3420,13 @@ class _RegistroToneladasScreenState extends State<RegistroToneladasScreen> {
             const SizedBox(height: 16),
 
             // --- CAMPO DE FOLIO (MANUAL) ---
-            const Text(" FOLIO DE PAPELETA", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+            const Text(
+              " FOLIO DE PAPELETA",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1E293B),
+              ),
+            ),
             const SizedBox(height: 5),
             TextField(
               controller: _folioController,
@@ -2468,14 +3437,22 @@ class _RegistroToneladasScreenState extends State<RegistroToneladasScreen> {
                 filled: true,
                 fillColor: Colors.white,
                 prefixIcon: const Icon(Icons.numbers),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
             ),
 
             const SizedBox(height: 16),
 
             // --- SELECTOR DE PRODUCTO ---
-            const Text(" TIPO DE PRODUCTO", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+            const Text(
+              " TIPO DE PRODUCTO",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1E293B),
+              ),
+            ),
             const SizedBox(height: 5),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -2489,14 +3466,24 @@ class _RegistroToneladasScreenState extends State<RegistroToneladasScreen> {
                   value: _productoSeleccionado,
                   hint: const Text("Seleccione el producto"),
                   isExpanded: true,
-                  icon: const Icon(Icons.arrow_drop_down_circle, color: Color(0xFF0F766E)),
+                  icon: const Icon(
+                    Icons.arrow_drop_down_circle,
+                    color: Color(0xFF0F766E),
+                  ),
                   items: _productos.map((String value) {
                     return DropdownMenuItem<String>(
                       value: value,
-                      child: Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      child: Text(
+                        value,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     );
                   }).toList(),
-                  onChanged: (nuevoValor) => setState(() => _productoSeleccionado = nuevoValor),
+                  onChanged: (nuevoValor) =>
+                      setState(() => _productoSeleccionado = nuevoValor),
                 ),
               ),
             ),
@@ -2506,9 +3493,16 @@ class _RegistroToneladasScreenState extends State<RegistroToneladasScreen> {
             // --- PESOS ENTRADA Y SALIDA ---
             Row(
               children: [
-                Expanded(child: _buildInputPeso("PESO ENTRADA (KG)", _entradaController)),
+                Expanded(
+                  child: _buildInputPeso(
+                    "PESO ENTRADA (KG)",
+                    _entradaController,
+                  ),
+                ),
                 const SizedBox(width: 10),
-                Expanded(child: _buildInputPeso("PESO SALIDA (KG)", _salidaController)),
+                Expanded(
+                  child: _buildInputPeso("PESO SALIDA (KG)", _salidaController),
+                ),
               ],
             ),
 
@@ -2524,11 +3518,20 @@ class _RegistroToneladasScreenState extends State<RegistroToneladasScreen> {
               ),
               child: Column(
                 children: [
-                  Text("PESO NETO CALCULADO", 
-                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade800)),
+                  Text(
+                    "PESO NETO CALCULADO",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green.shade800,
+                    ),
+                  ),
                   Text(
                     "${NumberFormat('#,###.##').format(_pesoNeto)} Kg",
-                    style: const TextStyle(fontSize: 42, fontWeight: FontWeight.w900, color: Color(0xFF166534)),
+                    style: const TextStyle(
+                      fontSize: 42,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF166534),
+                    ),
                   ),
                 ],
               ),
@@ -2542,22 +3545,29 @@ class _RegistroToneladasScreenState extends State<RegistroToneladasScreen> {
               child: FilledButton.icon(
                 onPressed: _guardarEnFirebase,
                 icon: const Icon(Icons.cloud_upload),
-                label: const Text("GUARDAR REGISTRO", 
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                label: const Text(
+                  "GUARDAR REGISTRO",
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF0F766E),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   elevation: 4,
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 10),
-            
+
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text("Cancelar", style: TextStyle(color: Colors.grey, fontSize: 16)),
-            )
+              child: const Text(
+                "Cancelar",
+                style: TextStyle(color: Colors.grey, fontSize: 16),
+              ),
+            ),
           ],
         ),
       ),
@@ -2569,8 +3579,24 @@ class _RegistroToneladasScreenState extends State<RegistroToneladasScreen> {
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         children: [
-          Text("$label: ", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.blueGrey)),
-          Expanded(child: Text(valor, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87))),
+          Text(
+            "$label: ",
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              color: Colors.blueGrey,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              valor,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+                color: Colors.black87,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -2580,7 +3606,14 @@ class _RegistroToneladasScreenState extends State<RegistroToneladasScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(etiqueta, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF475569))),
+        Text(
+          etiqueta,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+            color: Color(0xFF475569),
+          ),
+        ),
         const SizedBox(height: 5),
         TextField(
           controller: controller,
@@ -2589,7 +3622,10 @@ class _RegistroToneladasScreenState extends State<RegistroToneladasScreen> {
           decoration: InputDecoration(
             filled: true,
             fillColor: Colors.white,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 15),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 15,
+            ),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
