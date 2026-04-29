@@ -13,7 +13,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/session_manager.dart';
-import '../main.dart'; // ← necesario para rolActualNotifier
+import 'package:flutter_application_1/main.dart';
 import '../utils/push_notifications_service.dart';
 import 'Trabajador_screen.dart';
 import 'admin_screen.dart';

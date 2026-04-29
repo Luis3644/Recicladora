@@ -4,7 +4,6 @@ import 'package:intl/intl.dart';
 
 class MisReportesOperador extends StatefulWidget {
   final String nombreOperador;
-
   const MisReportesOperador({super.key, required this.nombreOperador});
 
   @override
@@ -44,7 +43,9 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
       vsync: this,
       duration: const Duration(milliseconds: 400),
     )..forward();
-    // ✅ Ya no hay _inicializarNotificaciones() — la Cloud Function lo hace
+
+    // Token FCM ya lo maneja PushNotificationsService globalmente.
+    // NO registramos listeners aquí para evitar notificaciones duplicadas.
   }
 
   @override
@@ -94,7 +95,7 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
     }
   }
 
-  Query<Map<String, dynamic>> _buildQueryLista() {
+  Query<Map<String, dynamic>> _buildQuery() {
     Query<Map<String, dynamic>> q = FirebaseFirestore.instance
         .collection('reportes')
         .where('operador', isEqualTo: _operadorActivo)
@@ -109,20 +110,27 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
       hasta = desde.add(const Duration(days: 1));
     } else {
       switch (_filtroPeriodo) {
-        case 'hoy':   desde = DateTime(now.year, now.month, now.day); break;
-        case 'semana':desde = now.subtract(const Duration(days: 7)); break;
-        case 'mes':   desde = DateTime(now.year, now.month, 1); break;
-        case 'año':   desde = DateTime(now.year, 1, 1); break;
-        case 'todo':  desde = null; break;
+        case 'hoy':
+          desde = DateTime(now.year, now.month, now.day); break;
+        case 'semana':
+          desde = now.subtract(const Duration(days: 7)); break;
+        case 'mes':
+          desde = DateTime(now.year, now.month, 1); break;
+        case 'año':
+          desde = DateTime(now.year, 1, 1); break;
+        case 'todo': desde = null; break;
       }
     }
 
-    if (desde != null) q = q.where('fecha', isGreaterThanOrEqualTo: Timestamp.fromDate(desde));
-    if (hasta != null) q = q.where('fecha', isLessThan: Timestamp.fromDate(hasta));
+    if (desde != null) {
+      q = q.where('fecha', isGreaterThanOrEqualTo: Timestamp.fromDate(desde));
+    }
+    if (hasta != null) {
+      q = q.where('fecha', isLessThan: Timestamp.fromDate(hasta));
+    }
     return q;
   }
 
-  // ── Build — limpio, sin StreamBuilder extra de notificaciones ────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -146,9 +154,15 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text('Mis Reportes',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17, letterSpacing: 0.2)),
+              style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 17,
+                  letterSpacing: 0.2)),
           Text(_operadorActivo,
-              style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.6), fontWeight: FontWeight.w400)),
+              style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.white.withOpacity(0.6),
+                  fontWeight: FontWeight.w400)),
         ],
       ),
       backgroundColor: Colors.transparent,
@@ -161,7 +175,13 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          boxShadow: [BoxShadow(color: _primary.withOpacity(0.4), blurRadius: 24, offset: const Offset(0, 8))],
+          boxShadow: [
+            BoxShadow(
+              color: _primary.withOpacity(0.4),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
       ),
     );
@@ -175,11 +195,11 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
-            _chip('hoy',    'Hoy',     Icons.today_rounded),
-            _chip('semana', '7 días',  Icons.date_range_rounded),
-            _chip('mes',    _labelMes, Icons.calendar_month_rounded),
-            _chip('año',    _labelAno, Icons.calendar_today_rounded),
-            _chip('todo',   'Todos',   Icons.all_inclusive_rounded),
+            _chip('hoy',    'Hoy',      Icons.today_rounded),
+            _chip('semana', '7 días',   Icons.date_range_rounded),
+            _chip('mes',    _labelMes,  Icons.calendar_month_rounded),
+            _chip('año',    _labelAno,  Icons.calendar_today_rounded),
+            _chip('todo',   'Todos',    Icons.all_inclusive_rounded),
             const SizedBox(width: 8),
             Container(width: 1, height: 24, color: Colors.white12),
             const SizedBox(width: 8),
@@ -189,23 +209,30 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
                 duration: const Duration(milliseconds: 200),
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                 decoration: BoxDecoration(
-                  color: (_filtroPeriodo == 'fecha' && _filtroFecha != null) ? Colors.amber : Colors.white12,
+                  color: (_filtroPeriodo == 'fecha' && _filtroFecha != null)
+                      ? Colors.amber : Colors.white12,
                   borderRadius: BorderRadius.circular(22),
                   border: Border.all(
-                    color: (_filtroPeriodo == 'fecha' && _filtroFecha != null) ? Colors.amber : Colors.white24,
+                    color: (_filtroPeriodo == 'fecha' && _filtroFecha != null)
+                        ? Colors.amber : Colors.white24,
                   ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.event_rounded, size: 14,
-                        color: (_filtroPeriodo == 'fecha' && _filtroFecha != null) ? _primary : Colors.white70),
+                        color: (_filtroPeriodo == 'fecha' && _filtroFecha != null)
+                            ? _primary : Colors.white70),
                     const SizedBox(width: 6),
                     Text(
                       (_filtroPeriodo == 'fecha' && _filtroFecha != null)
                           ? DateFormat('dd/MM/yy').format(_filtroFecha!) : 'Fecha',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
-                          color: (_filtroPeriodo == 'fecha' && _filtroFecha != null) ? _primary : Colors.white70),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: (_filtroPeriodo == 'fecha' && _filtroFecha != null)
+                            ? _primary : Colors.white70,
+                      ),
                     ),
                   ],
                 ),
@@ -220,7 +247,10 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
   Widget _chip(String valor, String label, IconData icon) {
     final sel = _filtroPeriodo == valor;
     return GestureDetector(
-      onTap: () { setState(() { _filtroPeriodo = valor; _filtroFecha = null; }); _refresh(); },
+      onTap: () {
+        setState(() { _filtroPeriodo = valor; _filtroFecha = null; });
+        _refresh();
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         margin: const EdgeInsets.only(right: 8),
@@ -235,8 +265,11 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
           children: [
             Icon(icon, size: 13, color: sel ? Colors.white : Colors.white60),
             const SizedBox(width: 6),
-            Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
-                color: sel ? Colors.white : Colors.white60)),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: sel ? Colors.white : Colors.white60)),
           ],
         ),
       ),
@@ -246,14 +279,16 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
   Widget _buildLista() {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       key: ValueKey('$_operadorActivo-$_filtroPeriodo-$_filtroFecha'),
-      stream: _buildQueryLista().snapshots(),
+      stream: _buildQuery().snapshots(),
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator(color: _accent));
         }
         if (snap.hasError) {
-          return _estadoVacio(icon: Icons.cloud_off_rounded, color: _danger,
-              titulo: 'Error al cargar', subtitulo: snap.error.toString());
+          return _estadoVacio(
+            icon: Icons.cloud_off_rounded, color: _danger,
+            titulo: 'Error al cargar', subtitulo: snap.error.toString(),
+          );
         }
         final docs = snap.data?.docs ?? [];
         if (docs.isEmpty) {
@@ -282,12 +317,14 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
         children: [
           Container(
             padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(color: color.withOpacity(0.08), shape: BoxShape.circle),
+            decoration: BoxDecoration(
+                color: color.withOpacity(0.08), shape: BoxShape.circle),
             child: Icon(icon, size: 48, color: color.withOpacity(0.5)),
           ),
           const SizedBox(height: 16),
-          Text(titulo, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700,
-              color: _primary.withOpacity(0.6))),
+          Text(titulo,
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700,
+                  color: _primary.withOpacity(0.6))),
           const SizedBox(height: 6),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 40),
@@ -309,7 +346,8 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
       duration: Duration(milliseconds: 280 + (index * 50)),
       curve: Curves.easeOutCubic,
       builder: (context, val, child) => Transform.translate(
-        offset: Offset(0, 16 * (1 - val)), child: Opacity(opacity: val, child: child),
+        offset: Offset(0, 16 * (1 - val)),
+        child: Opacity(opacity: val, child: child),
       ),
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
@@ -317,15 +355,20 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
           color: _surface,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-              color: visto ? _success.withOpacity(0.3) : _pending.withOpacity(0.4), width: 1.5),
-          boxShadow: [BoxShadow(color: _primary.withOpacity(0.06), blurRadius: 16, offset: const Offset(0, 5))],
+            color: visto ? _success.withOpacity(0.3) : _pending.withOpacity(0.4),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(color: _primary.withOpacity(0.06),
+                blurRadius: 16, offset: const Offset(0, 5)),
+          ],
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Estado ───────────────────────────────────────────────
+              // Estado
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
@@ -333,7 +376,8 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
                   color: visto ? _success.withOpacity(0.10) : _pending.withOpacity(0.10),
                   border: Border(
                     left: BorderSide(color: visto ? _success : _pending, width: 6),
-                    bottom: BorderSide(color: (visto ? _success : _pending).withOpacity(0.2)),
+                    bottom: BorderSide(
+                        color: (visto ? _success : _pending).withOpacity(0.2)),
                   ),
                 ),
                 child: Row(
@@ -341,9 +385,14 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                          color: (visto ? _success : _pending).withOpacity(0.15), shape: BoxShape.circle),
-                      child: Icon(visto ? Icons.check_circle_rounded : Icons.watch_later_rounded,
-                          color: visto ? _success : _pending, size: 32),
+                        color: (visto ? _success : _pending).withOpacity(0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        visto ? Icons.check_circle_rounded : Icons.watch_later_rounded,
+                        color: visto ? _success : _pending,
+                        size: 32,
+                      ),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -351,17 +400,25 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            visto ? '✅ El admin ya revisó tu reporte' : '⏳ Aún no lo ha visto el admin',
-                            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900,
-                                color: visto ? _success : _pending, height: 1.3),
+                            visto
+                                ? '✅ El admin ya revisó tu reporte'
+                                : '⏳ Aún no lo ha visto el admin',
+                            style: TextStyle(
+                              fontSize: 17, fontWeight: FontWeight.w900,
+                              color: visto ? _success : _pending,
+                              height: 1.3,
+                            ),
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            visto ? 'Tu reporte fue revisado por el administrador.'
-                                  : 'Tu reporte está en espera de revisión.',
-                            style: TextStyle(fontSize: 13,
-                                color: (visto ? _success : _pending).withOpacity(0.8),
-                                fontWeight: FontWeight.w500),
+                            visto
+                                ? 'Tu reporte fue revisado por el administrador.'
+                                : 'Tu reporte está en espera de revisión.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: (visto ? _success : _pending).withOpacity(0.8),
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ],
                       ),
@@ -369,23 +426,32 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
                   ],
                 ),
               ),
-              // ── Fecha ────────────────────────────────────────────────
+
+              // Fecha
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                 child: Row(
                   children: [
                     Icon(Icons.access_time_rounded, size: 14, color: Colors.grey[400]),
                     const SizedBox(width: 5),
-                    Text(fecha != null ? DateFormat('dd/MM/yyyy  HH:mm').format(fecha) : '—',
-                        style: TextStyle(fontSize: 12, color: Colors.grey[500], fontWeight: FontWeight.w500)),
+                    Text(
+                      fecha != null
+                          ? DateFormat('dd/MM/yyyy  HH:mm').format(fecha) : '—',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[500],
+                          fontWeight: FontWeight.w500),
+                    ),
                   ],
                 ),
               ),
+
               const SizedBox(height: 14),
-              const Padding(padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: Divider(color: Color(0xFFE2E8F0), height: 1)),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: Divider(color: Color(0xFFE2E8F0), height: 1),
+              ),
               const SizedBox(height: 14),
-              // ── Descripción ──────────────────────────────────────────
+
+              // Descripción
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
                 child: Text('DESCRIPCIÓN DEL INCIDENTE',
@@ -403,16 +469,21 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: const Color(0xFFE2E8F0)),
                   ),
-                  child: Text(data['mensaje'] ?? 'Sin descripción',
-                      style: const TextStyle(fontSize: 17, color: _primary,
-                          fontWeight: FontWeight.w500, height: 1.6)),
+                  child: Text(
+                    data['mensaje'] ?? 'Sin descripción',
+                    style: const TextStyle(fontSize: 17, color: _primary,
+                        fontWeight: FontWeight.w500, height: 1.6),
+                  ),
                 ),
               ),
-              // ── Fotos ────────────────────────────────────────────────
+
+              // Fotos
               if (fotos.isNotEmpty) ...[
                 const SizedBox(height: 16),
-                const Padding(padding: EdgeInsets.symmetric(horizontal: 16),
-                    child: Divider(color: Color(0xFFE2E8F0), height: 1)),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: Divider(color: Color(0xFFE2E8F0), height: 1),
+                ),
                 const SizedBox(height: 14),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
@@ -426,7 +497,6 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
                   child: Column(
                     children: fotos.asMap().entries.map((e) {
                       final idx = e.key + 1;
-                      final url = e.value;
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 8),
                         child: SizedBox(
@@ -440,10 +510,13 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
                                   borderRadius: BorderRadius.circular(12)),
                               padding: const EdgeInsets.symmetric(vertical: 14),
                             ),
-                            onPressed: () => _verFoto(url),
+                            onPressed: () => _verFoto(e.value),
                             icon: const Icon(Icons.photo_rounded, size: 20),
-                            label: Text(fotos.length == 1 ? 'Ver fotografía' : 'Ver fotografía $idx',
-                                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                            label: Text(
+                              fotos.length == 1 ? 'Ver fotografía' : 'Ver fotografía $idx',
+                              style: const TextStyle(
+                                  fontSize: 15, fontWeight: FontWeight.w700),
+                            ),
                           ),
                         ),
                       );
@@ -466,25 +539,33 @@ class _MisReportesOperadorState extends State<MisReportesOperador>
       barrierLabel: 'Cerrar',
       barrierColor: Colors.black87,
       transitionDuration: const Duration(milliseconds: 250),
-      transitionBuilder: (_, anim, __, child) => FadeTransition(opacity: anim, child: child),
+      transitionBuilder: (_, anim, __, child) =>
+          FadeTransition(opacity: anim, child: child),
       pageBuilder: (ctx, _, __) => Scaffold(
         backgroundColor: Colors.black,
         appBar: AppBar(
-          backgroundColor: Colors.black, elevation: 0, foregroundColor: Colors.white,
+          backgroundColor: Colors.black,
+          elevation: 0,
+          foregroundColor: Colors.white,
           leading: IconButton(
-              icon: const Icon(Icons.close_rounded), onPressed: () => Navigator.pop(ctx)),
+            icon: const Icon(Icons.close_rounded),
+            onPressed: () => Navigator.pop(ctx),
+          ),
           title: const Text('Evidencia fotográfica',
               style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
         ),
         body: Center(
           child: InteractiveViewer(
-            minScale: 0.5, maxScale: 4.0,
+            minScale: 0.5,
+            maxScale: 4.0,
             child: Image.network(url, fit: BoxFit.contain,
-              loadingBuilder: (_, child, prog) =>
-                  prog == null ? child : const CircularProgressIndicator(color: Colors.white),
-              errorBuilder: (_, __, ___) =>
-                  const Icon(Icons.broken_image_rounded, color: Colors.white38, size: 64),
-            ),
+                loadingBuilder: (_, child, prog) {
+                  if (prog == null) return child;
+                  return const CircularProgressIndicator(color: Colors.white);
+                },
+                errorBuilder: (_, __, ___) =>
+                    const Icon(Icons.broken_image_rounded,
+                        color: Colors.white38, size: 64)),
           ),
         ),
       ),

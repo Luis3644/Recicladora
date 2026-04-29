@@ -19,40 +19,41 @@ import 'screens/operador_screen.dart';
 import 'screens/jornada_screen.dart';
 import 'screens/widgets_conexion/connection_wrapper.dart';
 import 'screens/mis_reportes_operador.dart';
+import 'screens/widgets/lista_incidentes_admin.dart';
 
-
-
-
-
+// ── Background handler ────────────────────────────────────────────────────────
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  // FCM muestra la notificación automáticamente — no hacer nada más aquí
+  // FCM muestra la notificación automáticamente en background/killed
+  // NO hacer nada más aquí para evitar notificaciones duplicadas
 }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
- 
+
   FirebaseFirestore.instance.settings = const Settings(
     persistenceEnabled: true,
     cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
   );
+
   FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+
   final FirebaseAnalytics analytics = FirebaseAnalytics.instance;
   await analytics.logEvent(
-    name: "super_prueba",
-    parameters: {"timestamp": DateTime.now().toIso8601String()},
+    name: 'super_prueba',
+    parameters: {'timestamp': DateTime.now().toIso8601String()},
   );
+
   await PushNotificationsService.initialize();
   await initializeDateFormatting('es_ES', null);
   runApp(const MyApp());
 }
 
-// ── Estado global del rol — lo necesitamos para saber si es operador ─────────
-// Usamos un ValueNotifier para que el builder de MaterialApp lo escuche.
+// ── Estado global del rol ─────────────────────────────────────────────────────
 final ValueNotifier<String?> rolActualNotifier = ValueNotifier<String?>(null);
 
 class MyApp extends StatelessWidget {
@@ -63,6 +64,10 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Recicladora App',
+
+      // ── Navigator key para navegar desde notificaciones ──────────────────
+      navigatorKey: PushNotificationsService.navigatorKey,
+
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
@@ -79,10 +84,27 @@ class MyApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      // ── CLAVE: builder se ejecuta en CADA pantalla de toda la app ──────────
-      // Si el rol es 'operador', envolvemos con ConnectionWrapper.
-      // Esto cubre TODAS las pantallas sin importar cuántas navegaciones haya.
-      // Admin y trabajador nunca ven la pantalla de sin conexión.
+
+      // ── Rutas nombradas para navegación desde notificaciones ─────────────
+      // /incidentes  → admin toca notificación de nuevo reporte
+      // /mis_reportes → operador toca notificación de reporte revisado
+      onGenerateRoute: (settings) {
+        if (settings.name == '/incidentes') {
+          return MaterialPageRoute(
+            builder: (_) => const ListaIncidentesAdmin(),
+          );
+        }
+        if (settings.name == '/mis_reportes') {
+          return MaterialPageRoute(
+            builder: (_) => MisReportesOperador(
+              nombreOperador: PushNotificationsService.currentNombre,
+            ),
+          );
+        }
+        return null;
+      },
+
+      // ── ConnectionWrapper solo para operadores ───────────────────────────
       builder: (context, child) {
         return ValueListenableBuilder<String?>(
           valueListenable: rolActualNotifier,
@@ -94,11 +116,13 @@ class MyApp extends StatelessWidget {
           },
         );
       },
+
       home: const AppSplashScreen(child: SessionBootstrapScreen()),
     );
   }
 }
 
+// ── Splash screen ─────────────────────────────────────────────────────────────
 class AppSplashScreen extends StatefulWidget {
   const AppSplashScreen({super.key, required this.child});
   final Widget child;
@@ -137,7 +161,7 @@ class _AppSplashScreenState extends State<AppSplashScreen> {
     if (_showChild) return widget.child;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final usarPc = _usarSplashPc(constraints);
+        final usarPc    = _usarSplashPc(constraints);
         final imagePath = usarPc
             ? 'assets/splash screen pc.jpeg'
             : 'assets/imagen splassh screen movil.jpeg';
@@ -151,6 +175,7 @@ class _AppSplashScreenState extends State<AppSplashScreen> {
   }
 }
 
+// ── Session Bootstrap ─────────────────────────────────────────────────────────
 class SessionBootstrapScreen extends StatelessWidget {
   const SessionBootstrapScreen({super.key});
 
@@ -169,8 +194,8 @@ class SessionBootstrapScreen extends StatelessWidget {
         if (!_rolValido(sesionGuardada.rol)) {
           await SessionManager.limpiarSesion();
         } else {
-          rol = sesionGuardada.rol;
-          nombre = sesionGuardada.nombre;
+          rol          = sesionGuardada.rol;
+          nombre       = sesionGuardada.nombre;
           usuarioDocId = sesionGuardada.usuarioDocId;
         }
       }
@@ -180,10 +205,10 @@ class SessionBootstrapScreen extends StatelessWidget {
         if (currentUser == null) return const LoginScreen();
 
         final userDoc = await _obtenerPerfilUsuarioFirebase(currentUser);
-        final data = userDoc?.data();
-        rol = data?['rol']?.toString();
-        nombre = data?['nombre']?.toString() ?? '';
-        usuarioDocId = userDoc?.id;
+        final data    = userDoc?.data();
+        rol          = data?['rol']?.toString();
+        nombre       = data?['nombre']?.toString() ?? '';
+        usuarioDocId  = userDoc?.id;
 
         if (rol == null || rol.isEmpty) {
           await FirebaseAuth.instance.signOut();
@@ -191,26 +216,25 @@ class SessionBootstrapScreen extends StatelessWidget {
         }
 
         await SessionManager.guardarSesion(
-          rol: rol,
-          nombre: nombre,
+          rol:          rol,
+          nombre:       nombre,
           usuarioDocId: userDoc!.id,
           dispositivoId: data?['sesion_dispositivo_id'] ?? 'bootstrap-device',
         );
       }
 
-      // ── Notificar el rol al builder global ──────────────────────────────
-      // Esto activa/desactiva ConnectionWrapper en toda la app
+      // Notificar rol al builder global (activa/desactiva ConnectionWrapper)
       rolActualNotifier.value = rol;
 
       if (rol != null && usuarioDocId != null && usuarioDocId.isNotEmpty) {
         await PushNotificationsService.registerUserToken(
           usuarioDocId: usuarioDocId,
-          rol: rol,
+          rol:          rol,
         );
         await PushNotificationsService.startInAppMessagesListener(
           usuarioDocId: usuarioDocId,
-          rol: rol,
-          nombre: nombre ?? '',
+          rol:          rol,
+          nombre:       nombre ?? '',
         );
       }
 
@@ -228,8 +252,8 @@ class SessionBootstrapScreen extends StatelessWidget {
         if (data?['jornada_activa'] == true) {
           return JornadaScreen(
             operador: nombre!,
-            camion: data?['camion_actual'] ?? '',
-            placas: data?['placas_actuales'] ?? 'S/P',
+            camion:   data?['camion_actual'] ?? '',
+            placas:   data?['placas_actuales'] ?? 'S/P',
           );
         }
         return OperadorScreen(nombreUsuario: nombre!);
