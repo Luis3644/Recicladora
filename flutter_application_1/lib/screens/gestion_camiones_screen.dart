@@ -6,6 +6,21 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 
+// ─── Helper responsive ───────────────────────────────────────────────────────
+class _R {
+  final bool isDesktop;
+  const _R(this.isDesktop);
+
+  factory _R.of(BuildContext ctx) =>
+      _R(MediaQuery.of(ctx).size.width >= 768);
+
+  // Escala valores: desktop usa 75 % del valor móvil si no se pasa desktop
+  double s(double mobile, [double? desktop]) =>
+      isDesktop ? (desktop ?? mobile * 0.75) : mobile;
+
+  double get maxContentWidth => isDesktop ? 1100.0 : double.infinity;
+}
+
 class GestionCamionesScreen extends StatefulWidget {
   const GestionCamionesScreen({super.key});
 
@@ -47,60 +62,392 @@ class _GestionCamionesScreenState extends State<GestionCamionesScreen>
     super.dispose();
   }
 
-  Future<void> _cambiarEstado(String camionId, String nuevoEstado) async {
-    await FirebaseFirestore.instance
-        .collection('camiones')
-        .doc(camionId)
-        .update({'estado': nuevoEstado});
+  Color _getEstadoColor(String estado) {
+    switch (estado) {
+      case 'Disponible':        return _success;
+      case 'En Mantenimiento':  return _warning;
+      case 'Fuera de Servicio': return _danger;
+      default:                  return _accent;
+    }
+  }
+
+  IconData _getEstadoIcon(String estado) {
+    switch (estado) {
+      case 'Disponible':        return Icons.check_circle_rounded;
+      case 'En Mantenimiento':  return Icons.build_circle_rounded;
+      case 'Fuera de Servicio': return Icons.cancel_rounded;
+      default:                  return Icons.help_rounded;
+    }
+  }
+
+  Future<void> _cambiarEstadoConDialogo(
+      String camionId, String estadoActual, String tipoCamion) async {
+    String? nuevoEstado = estadoActual;
+
+    final resultado = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        final r = _R.of(ctx);
+        return StatefulBuilder(
+          builder: (ctx2, setLocal) => Dialog(
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(r.s(24))),
+            elevation: 0,
+            backgroundColor: Colors.transparent,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                    maxWidth: r.isDesktop ? 480 : double.infinity),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: _surface,
+                    borderRadius: BorderRadius.circular(r.s(24)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _primary.withOpacity(0.18),
+                        blurRadius: 40,
+                        offset: const Offset(0, 16),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Header
+                      Container(
+                        width: double.infinity,
+                        padding: EdgeInsets.fromLTRB(
+                            r.s(24), r.s(24), r.s(24), r.s(20)),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [_primary, Color(0xFF1E3A5F)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.vertical(
+                              top: Radius.circular(r.s(24))),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(children: [
+                              Container(
+                                padding: EdgeInsets.all(r.s(10)),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.15),
+                                  borderRadius:
+                                      BorderRadius.circular(r.s(12)),
+                                ),
+                                child: Icon(Icons.local_shipping_rounded,
+                                    color: Colors.white, size: r.s(22)),
+                              ),
+                              SizedBox(width: r.s(12)),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text('Modificar Estado',
+                                        style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: r.s(18),
+                                            fontWeight: FontWeight.w800)),
+                                    Text(tipoCamion,
+                                        style: TextStyle(
+                                            color: Colors.white
+                                                .withOpacity(0.7),
+                                            fontSize: r.s(13))),
+                                  ],
+                                ),
+                              ),
+                            ]),
+                            SizedBox(height: r.s(16)),
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: r.s(12), vertical: r.s(8)),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.12),
+                                borderRadius:
+                                    BorderRadius.circular(r.s(10)),
+                                border: Border.all(
+                                    color: Colors.white.withOpacity(0.2)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(_getEstadoIcon(estadoActual),
+                                      color: _getEstadoColor(estadoActual),
+                                      size: r.s(16)),
+                                  SizedBox(width: r.s(8)),
+                                  Text('Estado actual: $estadoActual',
+                                      style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: r.s(13),
+                                          fontWeight: FontWeight.w600)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Opciones
+                      Padding(
+                        padding: EdgeInsets.all(r.s(20)),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Selecciona el nuevo estado:',
+                                style: TextStyle(
+                                    fontSize: r.s(13),
+                                    fontWeight: FontWeight.w600,
+                                    color: _slate)),
+                            SizedBox(height: r.s(14)),
+                            ...[
+                              ('Disponible', _success,
+                                  Icons.check_circle_rounded,
+                                  'Listo para ser asignado'),
+                              ('En Mantenimiento', _warning,
+                                  Icons.build_circle_rounded,
+                                  'En taller o revisión'),
+                              ('Fuera de Servicio', _danger,
+                                  Icons.cancel_rounded,
+                                  'No disponible temporalmente'),
+                            ].map((item) {
+                              final (label, color, icon, desc) = item;
+                              final sel = nuevoEstado == label;
+                              return GestureDetector(
+                                onTap: () =>
+                                    setLocal(() => nuevoEstado = label),
+                                child: AnimatedContainer(
+                                  duration:
+                                      const Duration(milliseconds: 180),
+                                  margin:
+                                      EdgeInsets.only(bottom: r.s(10)),
+                                  padding: EdgeInsets.all(r.s(14)),
+                                  decoration: BoxDecoration(
+                                    color: sel
+                                        ? color.withOpacity(0.08)
+                                        : const Color(0xFFF8FAFC),
+                                    borderRadius:
+                                        BorderRadius.circular(r.s(14)),
+                                    border: Border.all(
+                                        color: sel
+                                            ? color
+                                            : const Color(0xFFE2E8F0),
+                                        width: sel ? 2 : 1),
+                                  ),
+                                  child: Row(children: [
+                                    Container(
+                                      padding: EdgeInsets.all(r.s(8)),
+                                      decoration: BoxDecoration(
+                                          color: color.withOpacity(0.12),
+                                          shape: BoxShape.circle),
+                                      child: Icon(icon,
+                                          color: color, size: r.s(20)),
+                                    ),
+                                    SizedBox(width: r.s(12)),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(label,
+                                              style: TextStyle(
+                                                  fontSize: r.s(15),
+                                                  fontWeight:
+                                                      FontWeight.w700,
+                                                  color: sel
+                                                      ? color
+                                                      : _primary)),
+                                          Text(desc,
+                                              style: TextStyle(
+                                                  fontSize: r.s(12),
+                                                  color: _slate)),
+                                        ],
+                                      ),
+                                    ),
+                                    if (sel)
+                                      Icon(Icons.check_circle_rounded,
+                                          color: color, size: r.s(22)),
+                                  ]),
+                                ),
+                              );
+                            }),
+                          ],
+                        ),
+                      ),
+                      // Botones
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(
+                            r.s(20), 0, r.s(20), r.s(20)),
+                        child: Row(children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: _slate,
+                                side: const BorderSide(
+                                    color: Color(0xFFE2E8F0)),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius:
+                                        BorderRadius.circular(r.s(12))),
+                                padding: EdgeInsets.symmetric(
+                                    vertical: r.s(14)),
+                              ),
+                              onPressed: () => Navigator.pop(ctx2),
+                              child: Text('Cancelar',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: r.s(14))),
+                            ),
+                          ),
+                          SizedBox(width: r.s(10)),
+                          Expanded(
+                            flex: 2,
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _primary,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius:
+                                        BorderRadius.circular(r.s(12))),
+                                padding: EdgeInsets.symmetric(
+                                    vertical: r.s(14)),
+                              ),
+                              onPressed: () =>
+                                  Navigator.pop(ctx2, nuevoEstado),
+                              icon: Icon(Icons.check_rounded,
+                                  size: r.s(18)),
+                              label: Text('Aceptar nuevo estado',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: r.s(13))),
+                            ),
+                          ),
+                        ]),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    if (resultado != null && resultado != estadoActual) {
+      await FirebaseFirestore.instance
+          .collection('camiones')
+          .doc(camionId)
+          .update({'estado': resultado});
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(children: [
+              Icon(_getEstadoIcon(resultado),
+                  color: Colors.white, size: 18),
+              const SizedBox(width: 8),
+              Text('Estado actualizado: $resultado',
+                  style:
+                      const TextStyle(fontWeight: FontWeight.w600)),
+            ]),
+            backgroundColor: _getEstadoColor(resultado),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _eliminarCamion(String camionId, String tipo) async {
     final confirmar = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: _danger.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.delete_outline_rounded,
-                  color: _danger, size: 22),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text('Eliminar "$tipo"',
-                  style: const TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w800)),
-            ),
-          ],
-        ),
-        content: const Text(
-          'Esta acción no se puede deshacer.',
-          style: TextStyle(fontSize: 13, color: _slate),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _danger,
-              foregroundColor: Colors.white,
+          context: context,
+          builder: (ctx) {
+            final r = _R.of(ctx);
+            return Dialog(
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
-            ),
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Eliminar',
-                style: TextStyle(fontWeight: FontWeight.w700)),
-          ),
-        ],
-      ),
-    ) ?? false;
+                  borderRadius: BorderRadius.circular(r.s(20))),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                    maxWidth: r.isDesktop ? 400 : double.infinity),
+                child: Padding(
+                  padding: EdgeInsets.all(r.s(24)),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: EdgeInsets.all(r.s(16)),
+                        decoration: BoxDecoration(
+                            color: _danger.withOpacity(0.1),
+                            shape: BoxShape.circle),
+                        child: Icon(Icons.delete_outline_rounded,
+                            color: _danger, size: r.s(32)),
+                      ),
+                      SizedBox(height: r.s(16)),
+                      Text('Eliminar "$tipo"',
+                          style: TextStyle(
+                              fontSize: r.s(17),
+                              fontWeight: FontWeight.w800),
+                          textAlign: TextAlign.center),
+                      SizedBox(height: r.s(8)),
+                      Text(
+                          'Esta acción no se puede deshacer.\n¿Estás seguro?',
+                          style:
+                              TextStyle(fontSize: r.s(13), color: _slate),
+                          textAlign: TextAlign.center),
+                      SizedBox(height: r.s(20)),
+                      Row(children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: _slate,
+                              side: const BorderSide(
+                                  color: Color(0xFFE2E8F0)),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius:
+                                      BorderRadius.circular(r.s(10))),
+                              padding: EdgeInsets.symmetric(
+                                  vertical: r.s(12)),
+                            ),
+                            onPressed: () =>
+                                Navigator.of(context).pop(false),
+                            child: Text('Cancelar',
+                                style: TextStyle(fontSize: r.s(14))),
+                          ),
+                        ),
+                        SizedBox(width: r.s(10)),
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _danger,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius:
+                                      BorderRadius.circular(r.s(10))),
+                              padding: EdgeInsets.symmetric(
+                                  vertical: r.s(12)),
+                            ),
+                            onPressed: () =>
+                                Navigator.of(context).pop(true),
+                            child: Text('Eliminar',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: r.s(14))),
+                          ),
+                        ),
+                      ]),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ) ??
+        false;
 
     if (confirmar) {
       await FirebaseFirestore.instance
@@ -131,36 +478,22 @@ class _GestionCamionesScreenState extends State<GestionCamionesScreen>
     );
   }
 
-  Color _getEstadoColor(String estado) {
-    switch (estado) {
-      case 'Disponible':        return _success;
-      case 'En Mantenimiento':  return _warning;
-      case 'Fuera de Servicio': return _danger;
-      default:                  return _accent;
-    }
-  }
-
-  IconData _getEstadoIcon(String estado) {
-    switch (estado) {
-      case 'Disponible':        return Icons.check_circle_rounded;
-      case 'En Mantenimiento':  return Icons.build_circle_rounded;
-      case 'Fuera de Servicio': return Icons.cancel_rounded;
-      default:                  return Icons.help_rounded;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
+    final r = _R.of(context);
+
     return Scaffold(
       backgroundColor: _bgColor,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Gestión de Camiones',
-          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+          style: TextStyle(
+              fontWeight: FontWeight.w800, fontSize: r.s(17)),
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: Colors.white,
+        toolbarHeight: r.s(56),
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: const LinearGradient(
@@ -170,37 +503,38 @@ class _GestionCamionesScreenState extends State<GestionCamionesScreen>
             ),
             boxShadow: [
               BoxShadow(
-                color: _primary.withOpacity(0.3),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
-              ),
+                  color: _primary.withOpacity(0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8)),
             ],
           ),
         ),
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 12),
+            padding: EdgeInsets.only(right: r.s(12)),
             child: ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
                 backgroundColor: _accent,
                 foregroundColor: Colors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20)),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    borderRadius: BorderRadius.circular(r.s(20))),
+                padding: EdgeInsets.symmetric(
+                    horizontal: r.s(16), vertical: r.s(8)),
               ),
               onPressed: () => _mostrarFormularioCamion(),
-              icon: const Icon(Icons.add_rounded, size: 18),
-              label: const Text('Agregar',
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+              icon: Icon(Icons.add_rounded, size: r.s(18)),
+              label: Text('Agregar',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w700, fontSize: r.s(13))),
             ),
           ),
         ],
       ),
       body: StreamBuilder<QuerySnapshot>(
-        stream:
-            FirebaseFirestore.instance.collection('camiones').snapshots(),
+        stream: FirebaseFirestore.instance
+            .collection('camiones')
+            .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(
@@ -213,23 +547,24 @@ class _GestionCamionesScreenState extends State<GestionCamionesScreen>
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(24),
+                    padding: EdgeInsets.all(r.s(28)),
                     decoration: BoxDecoration(
-                      color: _accent.withOpacity(0.08),
-                      shape: BoxShape.circle,
-                    ),
+                        color: _accent.withOpacity(0.08),
+                        shape: BoxShape.circle),
                     child: Icon(Icons.local_shipping_outlined,
-                        size: 56, color: _accent.withOpacity(0.5)),
+                        size: r.s(60),
+                        color: _accent.withOpacity(0.5)),
                   ),
-                  const SizedBox(height: 16),
-                  const Text('No hay camiones registrados',
+                  SizedBox(height: r.s(20)),
+                  Text('No hay camiones registrados',
                       style: TextStyle(
-                          fontSize: 16,
+                          fontSize: r.s(18),
                           fontWeight: FontWeight.w700,
                           color: _primary)),
-                  const SizedBox(height: 8),
+                  SizedBox(height: r.s(8)),
                   Text('Toca "Agregar" para registrar el primero',
-                      style: TextStyle(fontSize: 13, color: Colors.grey[500])),
+                      style: TextStyle(
+                          fontSize: r.s(14), color: Colors.grey[500])),
                 ],
               ),
             );
@@ -240,276 +575,310 @@ class _GestionCamionesScreenState extends State<GestionCamionesScreen>
           return AnimatedOpacity(
             opacity: _contentVisible ? 1 : 0,
             duration: const Duration(milliseconds: 600),
-            child: ListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
-              itemCount: camiones.length,
-              itemBuilder: (context, index) {
-                final doc  = camiones[index];
-                final data = doc.data() as Map<String, dynamic>;
-                final camionId = doc.id;
-                final tipo   = data['tipo']   ?? 'Sin tipo';
-                final modelo = data['modelo'] ?? '—';
-                final placas = data['placas'] ?? '—';
-                final foto   = data['foto']   ?? '';
-                final estado = data['estado'] ?? 'Disponible';
-                final estadoColor = _getEstadoColor(estado);
-
-                return TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0.0, end: 1.0),
-                  duration: Duration(milliseconds: 300 + index * 80),
-                  curve: Curves.easeOutCubic,
-                  builder: (context, value, child) => Transform.translate(
-                    offset: Offset(0, 20 * (1 - value)),
-                    child: Opacity(opacity: value, child: child),
-                  ),
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    decoration: BoxDecoration(
-                      color: _surface,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: _primary.withOpacity(0.06),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: IntrinsicHeight(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            // Barra lateral de color
-                            Container(width: 4, color: estadoColor),
-
-                            // Foto cuadrada
-                            if (foto.isNotEmpty)
-                              SizedBox(
-                                width: 90,
-                                child: Image.network(
-                                  foto,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Container(
-                                    width: 90,
-                                    color: Colors.grey[100],
-                                    child: Icon(Icons.broken_image_rounded,
-                                        color: Colors.grey[400], size: 28),
-                                  ),
-                                ),
-                              )
-                            else
-                              Container(
-                                width: 90,
-                                color: _accent.withOpacity(0.07),
-                                child: Icon(Icons.local_shipping_rounded,
-                                    color: _accent.withOpacity(0.4), size: 32),
-                              ),
-
-                            // Info
-                            Expanded(
-                              child: Padding(
-                                padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    // Tipo + badge estado
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            tipo,
-                                            style: const TextStyle(
-                                              fontSize: 15,
-                                              fontWeight: FontWeight.w800,
-                                              color: _primary,
-                                            ),
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 7, vertical: 3),
-                                          decoration: BoxDecoration(
-                                            color:
-                                                estadoColor.withOpacity(0.1),
-                                            borderRadius:
-                                                BorderRadius.circular(6),
-                                            border: Border.all(
-                                                color: estadoColor
-                                                    .withOpacity(0.25)),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(_getEstadoIcon(estado),
-                                                  size: 10,
-                                                  color: estadoColor),
-                                              const SizedBox(width: 3),
-                                              Text(
-                                                estado,
-                                                style: TextStyle(
-                                                  fontSize: 9,
-                                                  fontWeight: FontWeight.w800,
-                                                  color: estadoColor,
-                                                  letterSpacing: 0.3,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    // Modelo y placas en una línea
-                                    Row(
-                                      children: [
-                                        Icon(Icons.build_rounded,
-                                            size: 11, color: _slate),
-                                        const SizedBox(width: 3),
-                                        Text(modelo,
-                                            style: TextStyle(
-                                                fontSize: 11, color: _slate)),
-                                        const SizedBox(width: 10),
-                                        Icon(Icons.pin_rounded,
-                                            size: 11, color: _accent),
-                                        const SizedBox(width: 3),
-                                        Text(placas,
-                                            style: const TextStyle(
-                                                fontSize: 11,
-                                                color: _accent,
-                                                fontWeight: FontWeight.w600)),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    // Dropdown estado + botones
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: SizedBox(
-                                            height: 32,
-                                            child: DropdownButtonFormField<
-                                                String>(
-                                              value: [
-                                                'Disponible',
-                                                'En Mantenimiento',
-                                                'Fuera de Servicio'
-                                              ].contains(estado)
-                                                  ? estado
-                                                  : 'Disponible',
-                                              isDense: true,
-                                              decoration: InputDecoration(
-                                                contentPadding:
-                                                    const EdgeInsets.symmetric(
-                                                        horizontal: 10,
-                                                        vertical: 0),
-                                                border: OutlineInputBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                  borderSide: BorderSide(
-                                                      color: Colors.grey
-                                                          .shade300),
-                                                ),
-                                                enabledBorder:
-                                                    OutlineInputBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                  borderSide: BorderSide(
-                                                      color: Colors.grey
-                                                          .shade300),
-                                                ),
-                                              ),
-                                              style: const TextStyle(
-                                                  fontSize: 11,
-                                                  color: _primary,
-                                                  fontWeight: FontWeight.w600),
-                                              items: const [
-                                                DropdownMenuItem(
-                                                    value: 'Disponible',
-                                                    child:
-                                                        Text('Disponible')),
-                                                DropdownMenuItem(
-                                                    value: 'En Mantenimiento',
-                                                    child: Text(
-                                                        'Mantenimiento')),
-                                                DropdownMenuItem(
-                                                    value: 'Fuera de Servicio',
-                                                    child: Text('Fuera srv.')),
-                                              ],
-                                              onChanged: (value) {
-                                                if (value != null) {
-                                                  _cambiarEstado(
-                                                      camionId, value);
-                                                }
-                                              },
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        // Editar
-                                        GestureDetector(
-                                          onTap: () =>
-                                              _mostrarFormularioCamion(
-                                                  camionId: camionId,
-                                                  data: data),
-                                          child: Container(
-                                            padding: const EdgeInsets.all(7),
-                                            decoration: BoxDecoration(
-                                              color:
-                                                  _accent.withOpacity(0.1),
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                            child: const Icon(
-                                                Icons.edit_rounded,
-                                                size: 16,
-                                                color: _accent),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        // Eliminar
-                                        GestureDetector(
-                                          onTap: () =>
-                                              _eliminarCamion(camionId, tipo),
-                                          child: Container(
-                                            padding: const EdgeInsets.all(7),
-                                            decoration: BoxDecoration(
-                                              color:
-                                                  _danger.withOpacity(0.1),
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                            child: const Icon(
-                                                Icons.delete_rounded,
-                                                size: 16,
-                                                color: _danger),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
+            child: r.isDesktop
+                ? _buildDesktopGrid(camiones, r)
+                : _buildMobileList(camiones, r),
           );
         },
       ),
     );
   }
+
+  // ── Lista móvil — tarjetas con altura natural (mainAxisSize.min) ────────────
+  Widget _buildMobileList(List<QueryDocumentSnapshot> docs, _R r) {
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+      itemCount: docs.length,
+      itemBuilder: (ctx, i) => _buildCard(docs[i], i, r),
+    );
+  }
+
+  // ── Grid desktop — 2 columnas, altura fija por childAspectRatio ─────────────
+  Widget _buildDesktopGrid(List<QueryDocumentSnapshot> docs, _R r) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: r.maxContentWidth),
+        child: GridView.builder(
+          padding: EdgeInsets.fromLTRB(r.s(24), r.s(24), r.s(24), r.s(40)),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: r.s(18),
+            mainAxisSpacing: r.s(18),
+            childAspectRatio: 1.6,
+          ),
+          itemCount: docs.length,
+          itemBuilder: (ctx, i) => _buildCard(docs[i], i, r),
+        ),
+      ),
+    );
+  }
+
+  // ── Tarjeta compartida ───────────────────────────────────────────────────────
+  // En móvil: altura natural (Column con mainAxisSize.min + foto con altura fija)
+  // En desktop: rellena la celda del grid (Column sin mainAxisSize.min)
+  Widget _buildCard(QueryDocumentSnapshot doc, int index, _R r) {
+    final data      = doc.data() as Map<String, dynamic>;
+    final camionId  = doc.id;
+    final tipo      = data['tipo']   ?? 'Sin tipo';
+    final modelo    = data['modelo'] ?? '—';
+    final placas    = data['placas'] ?? '—';
+    final foto      = data['foto']   ?? '';
+    final estado    = data['estado'] ?? 'Disponible';
+    final estadoColor = _getEstadoColor(estado);
+
+    // Altura de la foto: fija siempre para que no rompa el layout
+    final fotoH = r.isDesktop ? r.s(130.0) : 160.0;
+
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: Duration(milliseconds: 300 + index * 80),
+      curve: Curves.easeOutCubic,
+      builder: (ctx, value, child) => Transform.translate(
+        offset: Offset(0, 24 * (1 - value)),
+        child: Opacity(opacity: value, child: child),
+      ),
+      child: Container(
+        margin: r.isDesktop ? EdgeInsets.zero : const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          color: _surface,
+          borderRadius: BorderRadius.circular(r.s(20)),
+          border: Border.all(
+              color: estadoColor.withOpacity(0.25), width: 1.5),
+          boxShadow: [
+            BoxShadow(
+                color: _primary.withOpacity(0.07),
+                blurRadius: r.s(16),
+                offset: Offset(0, r.s(6))),
+          ],
+        ),
+        // En desktop llenamos la celda; en móvil altura natural
+        child: r.isDesktop
+            ? _cardContent(foto, tipo, modelo, placas, estado,
+                estadoColor, camionId, data, fotoH, r,
+                expand: true)
+            : _cardContent(foto, tipo, modelo, placas, estado,
+                estadoColor, camionId, data, fotoH, r,
+                expand: false),
+      ),
+    );
+  }
+
+  Widget _cardContent(
+    String foto,
+    String tipo,
+    String modelo,
+    String placas,
+    String estado,
+    Color estadoColor,
+    String camionId,
+    Map<String, dynamic> data,
+    double fotoH,
+    _R r, {
+    required bool expand,
+  }) {
+    final fotoWidget = ClipRRect(
+      borderRadius:
+          BorderRadius.vertical(top: Radius.circular(r.s(20))),
+      child: SizedBox(
+        height: fotoH,
+        width: double.infinity,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            foto.isNotEmpty
+                ? Image.network(foto,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) =>
+                        _fotoPlaceholder(r))
+                : _fotoPlaceholder(r),
+            // Gradiente oscuro abajo
+            Positioned(
+              bottom: 0, left: 0, right: 0,
+              child: Container(
+                height: r.s(70),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [
+                      Colors.black.withOpacity(0.65),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // Tipo + placas
+            Positioned(
+              bottom: r.s(10), left: r.s(14), right: r.s(14),
+              child: Row(children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(tipo,
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: r.s(17),
+                              fontWeight: FontWeight.w800,
+                              shadows: const [
+                                Shadow(
+                                    color: Colors.black45,
+                                    blurRadius: 4)
+                              ])),
+                      Text(modelo,
+                          style: TextStyle(
+                              color: Colors.white.withOpacity(0.8),
+                              fontSize: r.s(12))),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: EdgeInsets.symmetric(
+                      horizontal: r.s(10), vertical: r.s(5)),
+                  decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(r.s(8))),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.pin_rounded,
+                          size: r.s(12), color: _accent),
+                      SizedBox(width: r.s(4)),
+                      Text(placas,
+                          style: TextStyle(
+                              fontSize: r.s(12),
+                              fontWeight: FontWeight.w800,
+                              color: _primary)),
+                    ],
+                  ),
+                ),
+              ]),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final estadoWidget = Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(
+          horizontal: r.s(16), vertical: r.s(9)),
+      decoration: BoxDecoration(
+        color: estadoColor.withOpacity(0.08),
+        border: Border(
+          top: BorderSide(color: estadoColor.withOpacity(0.2)),
+          bottom: BorderSide(color: estadoColor.withOpacity(0.2)),
+        ),
+      ),
+      child: Row(children: [
+        Icon(_getEstadoIcon(estado), color: estadoColor, size: r.s(19)),
+        SizedBox(width: r.s(9)),
+        Text(estado,
+            style: TextStyle(
+                fontSize: r.s(13),
+                fontWeight: FontWeight.w700,
+                color: estadoColor)),
+        const Spacer(),
+        Text('Estado actual',
+            style: TextStyle(fontSize: r.s(10), color: _slate)),
+      ]),
+    );
+
+    final botonesWidget = Padding(
+      padding: EdgeInsets.all(r.s(11)),
+      child: Row(children: [
+        Expanded(
+          flex: 3,
+          child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: estadoColor,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(r.s(12))),
+              padding: EdgeInsets.symmetric(vertical: r.s(10)),
+            ),
+            onPressed: () =>
+                _cambiarEstadoConDialogo(camionId, estado, tipo),
+            icon: Icon(Icons.swap_horiz_rounded, size: r.s(16)),
+            label: Text('Cambiar Estado',
+                style: TextStyle(
+                    fontWeight: FontWeight.w700, fontSize: r.s(12))),
+          ),
+        ),
+        SizedBox(width: r.s(8)),
+        Expanded(
+          flex: 2,
+          child: OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _accent,
+              side: BorderSide(color: _accent.withOpacity(0.5)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(r.s(12))),
+              padding: EdgeInsets.symmetric(vertical: r.s(10)),
+            ),
+            onPressed: () =>
+                _mostrarFormularioCamion(camionId: camionId, data: data),
+            icon: Icon(Icons.edit_rounded, size: r.s(15)),
+            label: Text('Editar',
+                style: TextStyle(
+                    fontWeight: FontWeight.w700, fontSize: r.s(12))),
+          ),
+        ),
+        SizedBox(width: r.s(8)),
+        Container(
+          decoration: BoxDecoration(
+            color: _danger.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(r.s(12)),
+            border: Border.all(color: _danger.withOpacity(0.3)),
+          ),
+          child: IconButton(
+            onPressed: () => _eliminarCamion(camionId, tipo),
+            icon: Icon(Icons.delete_rounded,
+                color: _danger, size: r.s(20)),
+            tooltip: 'Eliminar',
+            padding: EdgeInsets.all(r.s(8)),
+            constraints: BoxConstraints(
+                minWidth: r.s(40), minHeight: r.s(40)),
+          ),
+        ),
+      ]),
+    );
+
+    if (expand) {
+      // Desktop: rellena la celda del grid
+      return Column(
+        children: [
+          fotoWidget,
+          estadoWidget,
+          botonesWidget,
+        ],
+      );
+    } else {
+      // Móvil: altura natural, no usa Expanded
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          fotoWidget,
+          estadoWidget,
+          botonesWidget,
+        ],
+      );
+    }
+  }
+
+  Widget _fotoPlaceholder(_R r) => Container(
+        color: _accent.withOpacity(0.07),
+        child: Center(
+          child: Icon(Icons.local_shipping_rounded,
+              color: _accent.withOpacity(0.3), size: r.s(56)),
+        ),
+      );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Formulario Agregar / Editar Camión
+// Formulario Agregar / Editar Camión — responsive
 // ─────────────────────────────────────────────────────────────────────────────
 class CamionFormScreen extends StatefulWidget {
   final String? camionId;
@@ -525,31 +894,32 @@ class _CamionFormScreenState extends State<CamionFormScreen> {
   final _tipoCtrl   = TextEditingController();
   final _modeloCtrl = TextEditingController();
   final _placasCtrl = TextEditingController();
-  final _fotoCtrl   = TextEditingController(); // URL manual (opcional)
+  final _fotoCtrl   = TextEditingController();
 
-  String  _estado            = 'Disponible';
-  bool    _guardando         = false;
-  bool    _subiendoFoto      = false;
+  String _estado       = 'Disponible';
+  bool   _guardando    = false;
+  bool   _subiendoFoto = false;
 
-  // Imagen seleccionada de galería
-  File?       _imagenArchivo;    // Android/iOS
-  Uint8List?  _imagenBytes;      // Web
-  String?     _imagenPreviewUrl; // URL subida a Storage
+  File?      _imagenArchivo;
+  Uint8List? _imagenBytes;
+  String?    _imagenPreviewUrl;
 
   static const Color _primary = Color(0xFF0F172A);
   static const Color _accent  = Color(0xFF06B6D4);
   static const Color _success = Color(0xFF10B981);
+  static const Color _warning = Color(0xFFF59E0B);
+  static const Color _danger  = Color(0xFFDC2626);
   static const Color _slate   = Color(0xFF64748B);
 
   @override
   void initState() {
     super.initState();
     if (widget.data != null) {
-      _tipoCtrl.text   = widget.data!['tipo']   ?? '';
-      _modeloCtrl.text = widget.data!['modelo'] ?? '';
-      _placasCtrl.text = widget.data!['placas'] ?? '';
-      _fotoCtrl.text   = widget.data!['foto']   ?? '';
-      _estado          = widget.data!['estado'] ?? 'Disponible';
+      _tipoCtrl.text    = widget.data!['tipo']   ?? '';
+      _modeloCtrl.text  = widget.data!['modelo'] ?? '';
+      _placasCtrl.text  = widget.data!['placas'] ?? '';
+      _fotoCtrl.text    = widget.data!['foto']   ?? '';
+      _estado           = widget.data!['estado'] ?? 'Disponible';
       _imagenPreviewUrl = widget.data!['foto']?.toString();
     }
   }
@@ -563,7 +933,24 @@ class _CamionFormScreenState extends State<CamionFormScreen> {
     super.dispose();
   }
 
-  // ── Seleccionar imagen de galería ─────────────────────────────────────────
+  Color _getEstadoColor(String e) {
+    switch (e) {
+      case 'Disponible':        return _success;
+      case 'En Mantenimiento':  return _warning;
+      case 'Fuera de Servicio': return _danger;
+      default:                  return _accent;
+    }
+  }
+
+  IconData _getEstadoIcon(String e) {
+    switch (e) {
+      case 'Disponible':        return Icons.check_circle_rounded;
+      case 'En Mantenimiento':  return Icons.build_circle_rounded;
+      case 'Fuera de Servicio': return Icons.cancel_rounded;
+      default:                  return Icons.help_rounded;
+    }
+  }
+
   Future<void> _seleccionarImagen() async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(
@@ -571,11 +958,10 @@ class _CamionFormScreenState extends State<CamionFormScreen> {
     if (picked == null) return;
 
     setState(() => _subiendoFoto = true);
-
     try {
-      final nombreArchivo =
+      final nombre =
           'camiones/${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final ref = FirebaseStorage.instance.ref().child(nombreArchivo);
+      final ref = FirebaseStorage.instance.ref().child(nombre);
 
       if (kIsWeb) {
         final bytes = await picked.readAsBytes();
@@ -590,381 +976,531 @@ class _CamionFormScreenState extends State<CamionFormScreen> {
       final url = await ref.getDownloadURL();
       setState(() {
         _imagenPreviewUrl = url;
-        _fotoCtrl.text    = url; // guarda la URL en el campo
+        _fotoCtrl.text    = url;
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('Error al subir imagen: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+            backgroundColor: Colors.red));
       }
     } finally {
       if (mounted) setState(() => _subiendoFoto = false);
     }
   }
 
-  // ── Guardar camión en Firestore con TODOS los campos ──────────────────────
   Future<void> _guardar() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _guardando = true);
 
-    // Determinar URL final de la foto
     final fotoUrl = _imagenPreviewUrl ?? _fotoCtrl.text.trim();
-
     final data = {
-      'tipo':               _tipoCtrl.text.trim(),
-      'modelo':             _modeloCtrl.text.trim(),
-      'placas':             _placasCtrl.text.trim(),
-      'foto':               fotoUrl,
-      'estado':             _estado,
-      // Campos extra que existen en tu base de datos
-      'activo':             true,
-      'ocupado':            false,
-      'operador':           '',
+      'tipo':                _tipoCtrl.text.trim(),
+      'modelo':              _modeloCtrl.text.trim(),
+      'placas':              _placasCtrl.text.trim(),
+      'foto':                fotoUrl,
+      'estado':              _estado,
+      'activo':              true,
+      'ocupado':             false,
+      'operador':            '',
       'capacidad_toneladas': 0,
     };
 
     try {
       if (widget.camionId != null) {
-        // Editar — no sobreescribe ocupado/operador si ya tienen valor
         await FirebaseFirestore.instance
             .collection('camiones')
             .doc(widget.camionId)
             .update({
-          'tipo':    data['tipo'],
-          'modelo':  data['modelo'],
-          'placas':  data['placas'],
-          'foto':    data['foto'],
-          'estado':  data['estado'],
-          'activo':  true,
+          'tipo':   data['tipo'],
+          'modelo': data['modelo'],
+          'placas': data['placas'],
+          'foto':   data['foto'],
+          'estado': data['estado'],
+          'activo': true,
         });
       } else {
-        // Nuevo camión — todos los campos
         await FirebaseFirestore.instance.collection('camiones').add(data);
       }
-
       if (mounted) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(widget.camionId != null
-                ? 'Camión actualizado correctamente'
-                : 'Camión agregado correctamente'),
-            backgroundColor: _success,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(widget.camionId != null
+              ? 'Camión actualizado correctamente'
+              : 'Camión agregado correctamente'),
+          backgroundColor: _success,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12)),
+        ));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Error: $e'), backgroundColor: Colors.red));
       }
     } finally {
       if (mounted) setState(() => _guardando = false);
     }
   }
 
-  // ── Preview de la imagen ──────────────────────────────────────────────────
-  Widget _buildImagenPreview() {
-    return GestureDetector(
-      onTap: _seleccionarImagen,
-      child: Container(
-        height: 140,
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: const Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: _subiendoFoto
-                ? _accent
-                : const Color(0xFFE2E8F0),
-            width: _subiendoFoto ? 2 : 1,
-          ),
-        ),
-        child: _subiendoFoto
-            ? const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(color: _accent),
-                    SizedBox(height: 10),
-                    Text('Subiendo imagen...',
-                        style: TextStyle(fontSize: 12, color: _slate)),
-                  ],
-                ),
-              )
-            : _imagenPreviewUrl != null && _imagenPreviewUrl!.isNotEmpty
-                ? Stack(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(13),
-                        child: _imagenArchivo != null && !kIsWeb
-                            ? Image.file(_imagenArchivo!,
-                                width: double.infinity,
-                                height: 140,
-                                fit: BoxFit.cover)
-                            : _imagenBytes != null && kIsWeb
-                                ? Image.memory(_imagenBytes!,
-                                    width: double.infinity,
-                                    height: 140,
-                                    fit: BoxFit.cover)
-                                : Image.network(_imagenPreviewUrl!,
-                                    width: double.infinity,
-                                    height: 140,
-                                    fit: BoxFit.cover),
-                      ),
-                      Positioned(
-                        bottom: 8,
-                        right: 8,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: Colors.black54,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.edit_rounded,
-                                  color: Colors.white, size: 12),
-                              SizedBox(width: 4),
-                              Text('Cambiar',
-                                  style: TextStyle(
-                                      color: Colors.white, fontSize: 11)),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  )
-                : Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.add_photo_alternate_rounded,
-                          size: 36, color: _accent.withOpacity(0.6)),
-                      const SizedBox(height: 8),
-                      const Text('Toca para subir foto',
-                          style: TextStyle(
-                              fontSize: 13,
-                              color: _slate,
-                              fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 4),
-                      Text('Desde tu galería',
-                          style: TextStyle(
-                              fontSize: 11, color: Colors.grey[400])),
-                    ],
-                  ),
-      ),
-    );
-  }
-
-  InputDecoration _inputDec(String label, IconData icon) {
-    return InputDecoration(
-      labelText: label,
-      prefixIcon: Icon(icon, size: 18),
-      filled: true,
-      fillColor: const Color(0xFFF8FAFC),
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: _accent, width: 1.5),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.92,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Column(
-        children: [
-          // Handle
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.grey[300],
-              borderRadius: BorderRadius.circular(4),
-            ),
+    final r = _R.of(context);
+    final esEdicion = widget.camionId != null;
+    final screenH = MediaQuery.of(context).size.height;
+
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          // En desktop limita el ancho; en móvil ocupa todo
+          maxWidth: r.isDesktop ? 640 : double.infinity,
+          maxHeight: screenH * 0.94,
+        ),
+        child: Container(
+          height: screenH * 0.94,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius:
+                BorderRadius.vertical(top: Radius.circular(r.s(28))),
           ),
-          // Título
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: _accent.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
+          child: Column(
+            children: [
+              // Handle
+              Container(
+                margin: EdgeInsets.only(top: r.s(12)),
+                width: r.s(44),
+                height: r.s(4),
+                decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(r.s(4))),
+              ),
+              // Header
+              Container(
+                margin:
+                    EdgeInsets.fromLTRB(r.s(16), r.s(16), r.s(16), 0),
+                padding: EdgeInsets.all(r.s(20)),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [_primary, Color(0xFF1E3A5F)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  child: Icon(
-                    widget.camionId != null
-                        ? Icons.edit_rounded
-                        : Icons.add_rounded,
-                    color: _accent,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  widget.camionId != null ? 'Editar Camión' : 'Agregar Camión',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: _primary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Divider(height: 20, color: Color(0xFFE2E8F0)),
-
-          // Formulario
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Imagen
-                    const Text('FOTO DEL CAMIÓN',
-                        style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            color: _slate,
-                            letterSpacing: 0.8)),
-                    const SizedBox(height: 8),
-                    _buildImagenPreview(),
-                    const SizedBox(height: 16),
-
-                    // Tipo
-                    TextFormField(
-                      controller: _tipoCtrl,
-                      decoration: _inputDec(
-                          'Tipo de camión', Icons.local_shipping_rounded),
-                      validator: (v) =>
-                          (v?.isEmpty ?? true) ? 'Campo requerido' : null,
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Modelo
-                    TextFormField(
-                      controller: _modeloCtrl,
-                      decoration:
-                          _inputDec('Modelo / Año', Icons.build_rounded),
-                      validator: (v) =>
-                          (v?.isEmpty ?? true) ? 'Campo requerido' : null,
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Placas
-                    TextFormField(
-                      controller: _placasCtrl,
-                      textCapitalization: TextCapitalization.characters,
-                      decoration: _inputDec('Placas', Icons.pin_rounded),
-                      validator: (v) =>
-                          (v?.isEmpty ?? true) ? 'Campo requerido' : null,
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Estado
-                    DropdownButtonFormField<String>(
-                      value: _estado,
-                      decoration:
-                          _inputDec('Estado', Icons.flag_rounded),
-                      items: const [
-                        DropdownMenuItem(
-                            value: 'Disponible',
-                            child: Text('Disponible')),
-                        DropdownMenuItem(
-                            value: 'En Mantenimiento',
-                            child: Text('En Mantenimiento')),
-                        DropdownMenuItem(
-                            value: 'Fuera de Servicio',
-                            child: Text('Fuera de Servicio')),
-                      ],
-                      onChanged: (v) => setState(() => _estado = v!),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Botón guardar
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _success,
-                          foregroundColor: Colors.white,
-                          elevation: 2,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14)),
-                        ),
-                        onPressed: _guardando ? null : _guardar,
-                        icon: _guardando
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                    color: Colors.white, strokeWidth: 2.5))
-                            : const Icon(Icons.save_rounded),
-                        label: Text(
-                          _guardando
-                              ? 'Guardando...'
-                              : widget.camionId != null
-                                  ? 'ACTUALIZAR CAMIÓN'
-                                  : 'GUARDAR CAMIÓN',
-                          style: const TextStyle(
-                              fontSize: 15, fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-
-                    // Cancelar
-                    SizedBox(
-                      width: double.infinity,
-                      child: TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('Cancelar',
-                            style: TextStyle(color: _slate)),
-                      ),
-                    ),
+                  borderRadius: BorderRadius.circular(r.s(20)),
+                  boxShadow: [
+                    BoxShadow(
+                        color: _primary.withOpacity(0.25),
+                        blurRadius: r.s(16),
+                        offset: Offset(0, r.s(8)))
                   ],
                 ),
+                child: Row(children: [
+                  Container(
+                    padding: EdgeInsets.all(r.s(12)),
+                    decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(r.s(14))),
+                    child: Icon(
+                      esEdicion
+                          ? Icons.edit_rounded
+                          : Icons.add_circle_outline_rounded,
+                      color: Colors.white,
+                      size: r.s(24),
+                    ),
+                  ),
+                  SizedBox(width: r.s(14)),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          esEdicion
+                              ? 'Editar Camión'
+                              : 'Agregar Camión',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: r.s(20),
+                              fontWeight: FontWeight.w800),
+                        ),
+                        Text(
+                          esEdicion
+                              ? 'Modifica la información del camión'
+                              : 'Registra un nuevo camión a la flota',
+                          style: TextStyle(
+                              color: Colors.white.withOpacity(0.7),
+                              fontSize: r.s(13)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ]),
               ),
-            ),
+              // Formulario scrollable
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(
+                      r.s(16), r.s(20), r.s(16), r.s(24)),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Foto
+                        _label('📷  Foto del camión', r),
+                        SizedBox(height: r.s(10)),
+                        GestureDetector(
+                          onTap: _seleccionarImagen,
+                          child: Container(
+                            height: r.s(180),
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius:
+                                  BorderRadius.circular(r.s(18)),
+                              border: Border.all(
+                                color: _subiendoFoto
+                                    ? _accent
+                                    : const Color(0xFFE2E8F0),
+                                width: _subiendoFoto ? 2 : 1.5,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                    color: Colors.black.withOpacity(0.04),
+                                    blurRadius: r.s(8),
+                                    offset: Offset(0, r.s(3)))
+                              ],
+                            ),
+                            child: ClipRRect(
+                              borderRadius:
+                                  BorderRadius.circular(r.s(17)),
+                              child: _subiendoFoto
+                                  ? Center(
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          const CircularProgressIndicator(
+                                              color: _accent),
+                                          SizedBox(height: r.s(12)),
+                                          Text('Subiendo imagen...',
+                                              style: TextStyle(
+                                                  color: _slate,
+                                                  fontSize: r.s(13))),
+                                        ],
+                                      ),
+                                    )
+                                  : _imagenPreviewUrl != null &&
+                                          _imagenPreviewUrl!.isNotEmpty
+                                      ? Stack(
+                                          fit: StackFit.expand,
+                                          children: [
+                                            _imagenArchivo != null &&
+                                                    !kIsWeb
+                                                ? Image.file(
+                                                    _imagenArchivo!,
+                                                    fit: BoxFit.cover)
+                                                : _imagenBytes != null &&
+                                                        kIsWeb
+                                                    ? Image.memory(
+                                                        _imagenBytes!,
+                                                        fit: BoxFit.cover)
+                                                    : Image.network(
+                                                        _imagenPreviewUrl!,
+                                                        fit: BoxFit.cover),
+                                            Positioned(
+                                              bottom: r.s(10),
+                                              right: r.s(10),
+                                              child: Container(
+                                                padding: EdgeInsets.symmetric(
+                                                    horizontal: r.s(12),
+                                                    vertical: r.s(6)),
+                                                decoration: BoxDecoration(
+                                                    color: Colors.black54,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            r.s(10))),
+                                                child: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    Icon(
+                                                        Icons.edit_rounded,
+                                                        color: Colors.white,
+                                                        size: r.s(14)),
+                                                    SizedBox(
+                                                        width: r.s(5)),
+                                                    Text('Cambiar foto',
+                                                        style: TextStyle(
+                                                            color: Colors
+                                                                .white,
+                                                            fontSize:
+                                                                r.s(12),
+                                                            fontWeight:
+                                                                FontWeight
+                                                                    .w600)),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        )
+                                      : Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Container(
+                                              padding:
+                                                  EdgeInsets.all(r.s(16)),
+                                              decoration: BoxDecoration(
+                                                  color: _accent
+                                                      .withOpacity(0.1),
+                                                  shape: BoxShape.circle),
+                                              child: Icon(
+                                                  Icons
+                                                      .add_photo_alternate_rounded,
+                                                  size: r.s(36),
+                                                  color: _accent),
+                                            ),
+                                            SizedBox(height: r.s(10)),
+                                            Text('Toca para subir foto',
+                                                style: TextStyle(
+                                                    fontSize: r.s(15),
+                                                    fontWeight:
+                                                        FontWeight.w700,
+                                                    color: _primary)),
+                                            SizedBox(height: r.s(4)),
+                                            Text('Desde tu galería',
+                                                style: TextStyle(
+                                                    fontSize: r.s(12),
+                                                    color: Colors
+                                                        .grey[400])),
+                                          ],
+                                        ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: r.s(24)),
+
+                        // Datos
+                        _label('🚛  Datos del camión', r),
+                        SizedBox(height: r.s(12)),
+                        _tarjeta(
+                          r,
+                          child: Column(children: [
+                            _campo(_tipoCtrl, 'Tipo de camión',
+                                'Ej: Pipa, Caja seca, Plataforma...',
+                                Icons.local_shipping_rounded, r),
+                            SizedBox(height: r.s(14)),
+                            _campo(_modeloCtrl, 'Modelo / Año',
+                                'Ej: Kenworth T680 2022',
+                                Icons.build_rounded, r),
+                            SizedBox(height: r.s(14)),
+                            _campo(_placasCtrl, 'Placas',
+                                'Ej: ABC-123-D', Icons.pin_rounded, r,
+                                caps: TextCapitalization.characters),
+                          ]),
+                        ),
+                        SizedBox(height: r.s(24)),
+
+                        // Estado
+                        _label('🔖  Estado del camión', r),
+                        SizedBox(height: r.s(12)),
+                        _tarjeta(
+                          r,
+                          child: Column(children: [
+                            ...[
+                              ('Disponible', _success,
+                                  Icons.check_circle_rounded),
+                              ('En Mantenimiento', _warning,
+                                  Icons.build_circle_rounded),
+                              ('Fuera de Servicio', _danger,
+                                  Icons.cancel_rounded),
+                            ].map((item) {
+                              final (label, color, icon) = item;
+                              final sel = _estado == label;
+                              return GestureDetector(
+                                onTap: () =>
+                                    setState(() => _estado = label),
+                                child: AnimatedContainer(
+                                  duration:
+                                      const Duration(milliseconds: 180),
+                                  margin:
+                                      EdgeInsets.only(bottom: r.s(10)),
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: r.s(14),
+                                      vertical: r.s(12)),
+                                  decoration: BoxDecoration(
+                                    color: sel
+                                        ? color.withOpacity(0.08)
+                                        : const Color(0xFFF8FAFC),
+                                    borderRadius:
+                                        BorderRadius.circular(r.s(12)),
+                                    border: Border.all(
+                                        color: sel
+                                            ? color
+                                            : const Color(0xFFE2E8F0),
+                                        width: sel ? 2 : 1),
+                                  ),
+                                  child: Row(children: [
+                                    Icon(icon,
+                                        color: sel ? color : _slate,
+                                        size: r.s(22)),
+                                    SizedBox(width: r.s(12)),
+                                    Text(label,
+                                        style: TextStyle(
+                                            fontSize: r.s(15),
+                                            fontWeight: FontWeight.w700,
+                                            color:
+                                                sel ? color : _primary)),
+                                    const Spacer(),
+                                    if (sel)
+                                      Icon(Icons.check_circle_rounded,
+                                          color: color, size: r.s(20)),
+                                  ]),
+                                ),
+                              );
+                            }),
+                          ]),
+                        ),
+                        SizedBox(height: r.s(32)),
+
+                        // Guardar
+                        SizedBox(
+                          width: double.infinity,
+                          height: r.s(56),
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor:
+                                  esEdicion ? _accent : _success,
+                              foregroundColor: Colors.white,
+                              elevation: 3,
+                              shadowColor:
+                                  (esEdicion ? _accent : _success)
+                                      .withOpacity(0.4),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius:
+                                      BorderRadius.circular(r.s(16))),
+                            ),
+                            onPressed: _guardando ? null : _guardar,
+                            icon: _guardando
+                                ? SizedBox(
+                                    width: r.s(22),
+                                    height: r.s(22),
+                                    child: const CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2.5))
+                                : Icon(
+                                    esEdicion
+                                        ? Icons.update_rounded
+                                        : Icons.save_rounded,
+                                    size: r.s(22)),
+                            label: Text(
+                              _guardando
+                                  ? 'Guardando...'
+                                  : esEdicion
+                                      ? 'ACTUALIZAR CAMIÓN'
+                                      : 'GUARDAR CAMIÓN',
+                              style: TextStyle(
+                                  fontSize: r.s(15),
+                                  fontWeight: FontWeight.w800),
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: r.s(10)),
+                        SizedBox(
+                          width: double.infinity,
+                          height: r.s(48),
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: _slate,
+                              side: const BorderSide(
+                                  color: Color(0xFFE2E8F0)),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius:
+                                      BorderRadius.circular(r.s(16))),
+                            ),
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: Text('Cancelar',
+                                style: TextStyle(
+                                    fontSize: r.s(14),
+                                    fontWeight: FontWeight.w600)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
+    );
+  }
+
+  Widget _label(String t, _R r) => Text(t,
+      style: TextStyle(
+          fontSize: r.s(15),
+          fontWeight: FontWeight.w800,
+          color: const Color(0xFF0F172A)));
+
+  Widget _tarjeta(_R r, {required Widget child}) => Container(
+        padding: EdgeInsets.all(r.s(18)),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(r.s(18)),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: r.s(8),
+                offset: Offset(0, r.s(3)))
+          ],
+        ),
+        child: child,
+      );
+
+  Widget _campo(
+    TextEditingController ctrl,
+    String label,
+    String hint,
+    IconData icon,
+    _R r, {
+    TextCapitalization caps = TextCapitalization.sentences,
+  }) {
+    return TextFormField(
+      controller: ctrl,
+      textCapitalization: caps,
+      style: TextStyle(
+          fontSize: r.s(15),
+          fontWeight: FontWeight.w600,
+          color: const Color(0xFF0F172A)),
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        hintStyle:
+            TextStyle(color: Colors.grey[400], fontSize: r.s(13)),
+        prefixIcon: Icon(icon, size: r.s(20), color: _accent),
+        filled: true,
+        fillColor: const Color(0xFFF8FAFC),
+        contentPadding: EdgeInsets.symmetric(
+            horizontal: r.s(14), vertical: r.s(14)),
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(r.s(12)),
+            borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+        enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(r.s(12)),
+            borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+        focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(r.s(12)),
+            borderSide: const BorderSide(color: _accent, width: 2)),
+        errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(r.s(12)),
+            borderSide: const BorderSide(color: Color(0xFFDC2626))),
+      ),
+      validator: (v) => (v?.trim().isEmpty ?? true)
+          ? 'Este campo es requerido'
+          : null,
     );
   }
 }
