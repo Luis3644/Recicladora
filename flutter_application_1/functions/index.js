@@ -13,10 +13,6 @@ function _getToken(docData) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. Notifica al OPERADOR cuando su reporte es marcado como visto
-//    FIX: busca por fcm_token guardado en el doc del reporte directamente,
-//         no por nombre (evita el problema de múltiples operadores).
-//    FIX: excluye al usuario que hizo el cambio (el admin) para que no
-//         se notifique a sí mismo.
 // ─────────────────────────────────────────────────────────────────────────────
 exports.notificarReporteRevisado = onDocumentUpdated(
   "reportes/{reporteId}",
@@ -24,7 +20,6 @@ exports.notificarReporteRevisado = onDocumentUpdated(
     const antes   = event.data.before.data();
     const despues = event.data.after.data();
 
-    // Solo actuar si visto pasó de false/null → true
     if (antes.visto === true || despues.visto !== true) return null;
 
     const nombreOperador = (despues.operador || "").toString().trim();
@@ -35,22 +30,20 @@ exports.notificarReporteRevisado = onDocumentUpdated(
       return null;
     }
 
-    // FIX 1: Buscar TODOS los usuarios con ese nombre y rol operador
-    // (antes solo buscaba 1, fallaba si había variaciones)
-    const usuariosSnap = await admin.firestore()
+    // Buscar por nombre + rol operador
+    let usuariosSnap = await admin.firestore()
       .collection("usuarios")
       .where("nombre", "==", nombreOperador)
-      .where("rol", "==", "operador")  // ← filtra solo operadores, evita al admin
+      .where("rol", "==", "operador")
       .get();
 
-    // FIX 1b: Si no encontró por nombre+rol, buscar solo por nombre
+    // Fallback: buscar solo por nombre excluyendo admins
     let docs = usuariosSnap.docs;
     if (docs.length === 0) {
       const fallback = await admin.firestore()
         .collection("usuarios")
         .where("nombre", "==", nombreOperador)
         .get();
-      // Excluir admins del fallback
       docs = fallback.docs.filter(d => d.data().rol !== "admin");
     }
 
@@ -59,47 +52,41 @@ exports.notificarReporteRevisado = onDocumentUpdated(
       return null;
     }
 
-    // Enviar a TODOS los dispositivos del operador (puede tener 2 teléfonos)
     const envios = [];
     for (const doc of docs) {
       const token = _getToken(doc.data());
-      if (!token) {
-        logger.info(`Sin token FCM para ${doc.id} (${nombreOperador})`);
-        continue;
-      }
-
-      const message = {
-        token,
-        notification: {
-          title: "✅ Tu reporte fue revisado",
-          body:  "El administrador ya revisó tu reporte. Toca para verlo.",
-        },
-        android: {
-          priority: "high",
-          ttl: 86400000,
-          directBootOk: true,
-          notification: {
-            color:                "#10B981",
-            channelId:            "reportes_revisados",
-            clickAction:          "FLUTTER_NOTIFICATION_CLICK",
-            defaultVibrateTimings: true,
-            defaultSound:         true,
-          },
-        },
-        apns: {
-          payload: { aps: { sound: "default", badge: 1 } },
-        },
-        data: {
-          reporteId,
-          tipo:     "reporte_revisado",
-          operador: nombreOperador,
-        },
-      };
+      if (!token) continue;
 
       envios.push(
-        admin.messaging().send(message)
-          .then(() => logger.info(`✅ Notificación enviada a ${doc.id} (${nombreOperador})`))
-          .catch(err => logger.error(`Error enviando a ${doc.id}:`, err))
+        admin.messaging().send({
+          token,
+          notification: {
+            title: "✅ Tu reporte fue revisado",
+            body:  "El administrador ya revisó tu reporte. Toca para verlo.",
+          },
+          android: {
+            priority: "high",
+            ttl: 86400000,
+            directBootOk: true,
+            notification: {
+              color:                "#10B981",
+              channelId:            "reportes_revisados",
+              clickAction:          "FLUTTER_NOTIFICATION_CLICK",
+              defaultVibrateTimings: true,
+              defaultSound:         true,
+            },
+          },
+          apns: {
+            payload: { aps: { sound: "default", badge: 1 } },
+          },
+          data: {
+            reporteId,
+            tipo:     "reporte_revisado",
+            operador: nombreOperador,
+          },
+        })
+        .then(() => logger.info(`✅ Notificado a ${doc.id} (${nombreOperador})`))
+        .catch(err => logger.error(`Error enviando a ${doc.id}:`, err))
       );
     }
 
@@ -110,18 +97,14 @@ exports.notificarReporteRevisado = onDocumentUpdated(
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 2. Notifica a los ADMINS cuando un operador envía un reporte nuevo
-//    FIX: guarda el uid del operador en el reporte y lo excluye del envío
-//         para que el admin no reciba su propia notificación si él mismo
-//         creó un reporte de prueba.
-//    (El escenario real es: operador crea reporte → admins reciben notif)
 // ─────────────────────────────────────────────────────────────────────────────
 exports.notificarReporteNuevo = onDocumentCreated(
   "reportes/{reporteId}",
   async (event) => {
-    const data       = event.data.data();
-    const operador   = (data.operador || "Un operador").toString().trim();
-    const mensaje    = (data.mensaje  || "Sin descripción").toString().trim();
-    const reporteId  = event.params.reporteId;
+    const data      = event.data.data();
+    const operador  = (data.operador || "Un operador").toString().trim();
+    const mensaje   = (data.mensaje  || "Sin descripción").toString().trim();
+    const reporteId = event.params.reporteId;
 
     const adminsSnap = await admin.firestore()
       .collection("usuarios")
@@ -142,37 +125,35 @@ exports.notificarReporteNuevo = onDocumentCreated(
       const token = _getToken(adminDoc.data());
       if (!token) continue;
 
-      const message = {
-        token,
-        notification: {
-          title: `🚨 Nuevo reporte de ${operador}`,
-          body:  cuerpo,
-        },
-        android: {
-          priority: "high",
-          ttl: 86400000,
-          directBootOk: true,
-          notification: {
-            color:                "#F97316",
-            channelId:            "nuevos_reportes",
-            clickAction:          "FLUTTER_NOTIFICATION_CLICK",
-            defaultVibrateTimings: true,
-            defaultSound:         true,
-          },
-        },
-        apns: {
-          payload: { aps: { sound: "default", badge: 1 } },
-        },
-        data: {
-          reporteId,
-          tipo:     "reporte_nuevo",
-          operador,
-        },
-      };
-
       envios.push(
-        admin.messaging().send(message)
-          .catch(err => logger.error(`Error enviando a admin ${adminDoc.id}:`, err))
+        admin.messaging().send({
+          token,
+          notification: {
+            title: `🚨 Nuevo reporte de ${operador}`,
+            body:  cuerpo,
+          },
+          android: {
+            priority: "high",
+            ttl: 86400000,
+            directBootOk: true,
+            notification: {
+              color:                "#F97316",
+              channelId:            "nuevos_reportes",
+              clickAction:          "FLUTTER_NOTIFICATION_CLICK",
+              defaultVibrateTimings: true,
+              defaultSound:         true,
+            },
+          },
+          apns: {
+            payload: { aps: { sound: "default", badge: 1 } },
+          },
+          data: {
+            reporteId,
+            tipo:     "reporte_nuevo",
+            operador,
+          },
+        })
+        .catch(err => logger.error(`Error enviando a admin ${adminDoc.id}:`, err))
       );
     }
 
@@ -184,14 +165,17 @@ exports.notificarReporteNuevo = onDocumentCreated(
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 3. Mensajes masivos desde colección 'notificaciones'
-//    FIX: no envía al que creó la notificación (enviadoPorDocId)
+//    FIX: usa send() individual en lugar de sendEachForMulticast()
+//         para que el campo data.tipo llegue correctamente a Flutter
+//         y el filtro if (tipo == 'admin_mensaje') return; funcione.
 // ─────────────────────────────────────────────────────────────────────────────
 exports.sendPushOnAdminNotification = onDocumentCreated(
   "notificaciones/{notificacionId}",
   async (event) => {
-    const notificacion      = event.data.data() || {};
-    const mensaje           = (notificacion.mensaje || "").toString().trim();
-    const enviadoPorDocId   = (notificacion.enviadoPorDocId || "").toString().trim();
+    const notificacion    = event.data.data() || {};
+    const mensaje         = (notificacion.mensaje || "").toString().trim();
+    const enviadoPorDocId = (notificacion.enviadoPorDocId || "").toString().trim();
+
     if (!mensaje) return;
 
     const tipo = notificacion.destinoTipo || "todos";
@@ -210,7 +194,7 @@ exports.sendPushOnAdminNotification = onDocumentCreated(
         .get();
       destinatariosSnap = snap.docs;
     } else {
-      // todos los operadores y trabajadores
+      // todos: operadores y trabajadores
       const snap = await admin.firestore()
         .collection("usuarios")
         .where("rol", "in", ["operador", "trabajador"])
@@ -218,45 +202,62 @@ exports.sendPushOnAdminNotification = onDocumentCreated(
       destinatariosSnap = snap.docs;
     }
 
-    // FIX: excluir al remitente de la lista de destinatarios
-    const tokens = [...new Set(
-      destinatariosSnap
-        .filter(doc => doc.id !== enviadoPorDocId) // ← excluir quien envió
-        .map(doc => _getToken(doc.data()))
-        .filter(t => t.length > 0)
-    )];
+    // Excluir al remitente y obtener tokens únicos
+    const tokensVistos = new Set();
+    const destinatarios = destinatariosSnap
+      .filter(doc => doc.id !== enviadoPorDocId)
+      .filter(doc => {
+        const t = _getToken(doc.data());
+        if (!t || tokensVistos.has(t)) return false;
+        tokensVistos.add(t);
+        return true;
+      });
 
-    if (!tokens.length) {
-      logger.info("No hay tokens para enviar notificación masiva");
+    if (!destinatarios.length) {
+      logger.info("No hay destinatarios para enviar notificación masiva");
       return;
     }
 
-    const payload = {
-      tokens,
-      notification: {
-        title: "📢 Mensaje de administración",
-        body:  mensaje,
-      },
-      android: {
-        priority: "high",
-        ttl: 86400000,
-        directBootOk: true,
-        notification: {
-          channelId:            "admin_notificaciones",
-          defaultVibrateTimings: true,
-          defaultSound:         true,
-        },
-      },
-      apns: {
-        payload: { aps: { sound: "default", badge: 1 } },
-      },
-    };
+    // ── FIX CLAVE: enviar con send() individual ────────────────────────────
+    // sendEachForMulticast no propaga data.tipo correctamente cuando viene
+    // junto con notification{}, por lo que Flutter no puede filtrar el mensaje
+    // y se muestra duplicado. Con send() individual sí llega el campo tipo.
+    const envios = [];
+    for (const doc of destinatarios) {
+      const token = _getToken(doc.data());
 
-    try {
-      const result = await admin.messaging().sendEachForMulticast(payload);
-      logger.info(`📢 Push masivo: ${result.successCount} enviados, ${result.failureCount} fallidos`);
-    } catch (error) {
-      logger.error("Error en sendPushOnAdminNotification:", error);
+      envios.push(
+        admin.messaging().send({
+          token,
+          notification: {
+            title: "📢 Mensaje de administración",
+            body:  mensaje,
+          },
+          android: {
+            priority: "high",
+            ttl: 86400000,
+            directBootOk: true,
+            notification: {
+              channelId:             "admin_notificaciones",
+              defaultVibrateTimings: true,
+              defaultSound:          true,
+            },
+          },
+          apns: {
+            payload: { aps: { sound: "default", badge: 1 } },
+          },
+          // ── data.tipo llega correctamente con send() individual ────────────
+          data: {
+            tipo: "admin_mensaje",
+          },
+        })
+        .catch(err => logger.error(`Error enviando a ${doc.id}:`, err))
+      );
     }
+
+    const resultados = await Promise.allSettled(envios);
+    const exitosos   = resultados.filter(r => r.status === "fulfilled").length;
+    const fallidos   = resultados.filter(r => r.status === "rejected").length;
+    logger.info(`📢 Push masivo: ${exitosos} enviados, ${fallidos} fallidos`);
   }
 );

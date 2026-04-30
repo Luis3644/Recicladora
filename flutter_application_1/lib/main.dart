@@ -25,8 +25,7 @@ import 'screens/widgets/lista_incidentes_admin.dart';
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  // FCM muestra la notificación automáticamente en background/killed
-  // NO hacer nada más aquí para evitar notificaciones duplicadas
+  // FCM muestra la notificación automáticamente — no hacer nada más aquí
 }
 
 void main() async {
@@ -64,10 +63,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Recicladora App',
-
-      // ── Navigator key para navegar desde notificaciones ──────────────────
       navigatorKey: PushNotificationsService.navigatorKey,
-
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
@@ -85,9 +81,7 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
 
-      // ── Rutas nombradas para navegación desde notificaciones ─────────────
-      // /incidentes  → admin toca notificación de nuevo reporte
-      // /mis_reportes → operador toca notificación de reporte revisado
+      // ── Rutas nombradas para tap en notificaciones ───────────────────────
       onGenerateRoute: (settings) {
         if (settings.name == '/incidentes') {
           return MaterialPageRoute(
@@ -104,7 +98,6 @@ class MyApp extends StatelessWidget {
         return null;
       },
 
-      // ── ConnectionWrapper solo para operadores ───────────────────────────
       builder: (context, child) {
         return ValueListenableBuilder<String?>(
           valueListenable: rolActualNotifier,
@@ -176,12 +169,42 @@ class _AppSplashScreenState extends State<AppSplashScreen> {
 }
 
 // ── Session Bootstrap ─────────────────────────────────────────────────────────
-class SessionBootstrapScreen extends StatelessWidget {
+class SessionBootstrapScreen extends StatefulWidget {
   const SessionBootstrapScreen({super.key});
 
+  @override
+  State<SessionBootstrapScreen> createState() => _SessionBootstrapScreenState();
+}
+
+class _SessionBootstrapScreenState extends State<SessionBootstrapScreen> {
   static const Duration _firebaseTimeout = Duration(seconds: 10);
 
   String _normalizarCorreo(String value) => value.trim().toLowerCase();
+
+  // ── FIX: guardamos el tipo pendiente de navegación (app killed) ───────────
+  // getInitialMessage() solo funciona UNA vez al arrancar la app.
+  // Lo leemos aquí antes de que el navigator esté listo, lo guardamos,
+  // y lo consumimos DESPUÉS de que el usuario ya esté en su pantalla.
+  String? _tipoPendiente;
+
+  @override
+  void initState() {
+    super.initState();
+    _leerMensajeInicial();
+  }
+
+  // Lee el mensaje que abrió la app (si la app estaba killed)
+  Future<void> _leerMensajeInicial() async {
+    try {
+      final message = await FirebaseMessaging.instance.getInitialMessage();
+      if (message != null) {
+        final tipo = message.data['tipo']?.toString() ?? '';
+        if (tipo.isNotEmpty) {
+          _tipoPendiente = tipo;
+        }
+      }
+    } catch (_) {}
+  }
 
   Future<Widget> _resolverPantallaInicial() async {
     try {
@@ -216,14 +239,13 @@ class SessionBootstrapScreen extends StatelessWidget {
         }
 
         await SessionManager.guardarSesion(
-          rol:          rol,
-          nombre:       nombre,
-          usuarioDocId: userDoc!.id,
+          rol:           rol,
+          nombre:        nombre,
+          usuarioDocId:  userDoc!.id,
           dispositivoId: data?['sesion_dispositivo_id'] ?? 'bootstrap-device',
         );
       }
 
-      // Notificar rol al builder global (activa/desactiva ConnectionWrapper)
       rolActualNotifier.value = rol;
 
       if (rol != null && usuarioDocId != null && usuarioDocId.isNotEmpty) {
@@ -238,10 +260,14 @@ class SessionBootstrapScreen extends StatelessWidget {
         );
       }
 
-      if (rol == 'admin')      return const AdminScreen();
-      if (rol == 'trabajador') return const TrabajadorScreen();
+      // ── Resolver pantalla destino ─────────────────────────────────────────
+      Widget pantallaDestino;
 
-      if (rol == 'operador') {
+      if (rol == 'admin') {
+        pantallaDestino = const AdminScreen();
+      } else if (rol == 'trabajador') {
+        pantallaDestino = const TrabajadorScreen();
+      } else if (rol == 'operador') {
         final jornadaDoc = await FirebaseFirestore.instance
             .collection('usuarios')
             .doc(nombre)
@@ -250,16 +276,31 @@ class SessionBootstrapScreen extends StatelessWidget {
 
         final data = jornadaDoc.data();
         if (data?['jornada_activa'] == true) {
-          return JornadaScreen(
+          pantallaDestino = JornadaScreen(
             operador: nombre!,
             camion:   data?['camion_actual'] ?? '',
             placas:   data?['placas_actuales'] ?? 'S/P',
           );
+        } else {
+          pantallaDestino = OperadorScreen(nombreUsuario: nombre!);
         }
-        return OperadorScreen(nombreUsuario: nombre!);
+      } else {
+        return const LoginScreen();
       }
 
-      return const LoginScreen();
+      // ── FIX: consumir navegación pendiente DESPUÉS de resolver la sesión ──
+      // En este punto el usuario ya sabe a qué pantalla va.
+      // Esperamos 500ms para que el widget árbol esté completamente montado
+      // antes de intentar navegar encima.
+      if (_tipoPendiente != null && _tipoPendiente!.isNotEmpty) {
+        final tipo = _tipoPendiente!;
+        _tipoPendiente = null;
+        Future.delayed(const Duration(milliseconds: 500), () {
+          PushNotificationsService.navegarSegunTipo(tipo);
+        });
+      }
+
+      return pantallaDestino;
     } catch (_) {
       return const LoginScreen();
     }

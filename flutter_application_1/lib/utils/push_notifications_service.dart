@@ -55,6 +55,7 @@ class PushNotificationsService {
 
   // ── Navegación al tocar la notificación ──────────────────────────────────
   static void _navegarSegunTipo(String tipo) {
+      
     final nav = navigatorKey.currentState;
     if (nav == null) return;
 
@@ -66,6 +67,10 @@ class PushNotificationsService {
       nav.pushNamedAndRemoveUntil('/mis_reportes', (route) => route.isFirst);
     }
   }
+static void navegarSegunTipo(String tipo) {
+  _navegarSegunTipo(tipo);
+}
+  
 
   // ── Mostrar notificación local desde FCM (foreground) ─────────────────────
   static Future<void> showSystemNotificationFromMessage(
@@ -158,7 +163,7 @@ class PushNotificationsService {
 
     await _localNotifications.show(
       id.hashCode,
-      '📢 Mensaje de $enviadoPor',
+      '📢 Mensaje de administración',
       mensaje,
       const NotificationDetails(
         android: AndroidNotificationDetails(
@@ -306,24 +311,31 @@ class PushNotificationsService {
     _initialized = true;
   }
 
-  // ── Listener FCM foreground ───────────────────────────────────────────────
-  static void _setupForegroundListener() {
-    if (_foregroundListenerReady) return;
 
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
-  final tipo = message.data['tipo']?.toString() ?? '';
 
-  // El admin NO ve notificaciones de "reporte_revisado" (son para el operador)
-  if (_currentRol == 'admin' && tipo == 'reporte_revisado') return;
 
-  // El operador NO ve notificaciones de "reporte_nuevo" (son para los admins)
-  if (_currentRol == 'operador' && tipo == 'reporte_nuevo') return;
+static void _setupForegroundListener() {
+  if (_foregroundListenerReady) return;
 
-  await showSystemNotificationFromMessage(message);
-});
+  FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
+    final tipo = message.data['tipo']?.toString() ?? '';
 
-    _foregroundListenerReady = true;
-  }
+    // El admin NO ve notificaciones de "reporte_revisado" (son para el operador)
+    if (_currentRol == 'admin' && tipo == 'reporte_revisado') return;
+
+    // El operador NO ve notificaciones de "reporte_nuevo" (son para los admins)
+    if (_currentRol == 'operador' && tipo == 'reporte_nuevo') return;
+
+    // ← Agrega esta línea:
+    // Mensajes admin a operadores/trabajadores ya los muestra
+    // el listener de Firestore — ignorar aquí para evitar duplicado
+    if (tipo == 'admin_mensaje') return;
+
+    await showSystemNotificationFromMessage(message);
+  });
+
+  _foregroundListenerReady = true;
+}
 
   // ── Registrar token FCM ───────────────────────────────────────────────────
   static Future<void> registerUserToken({
