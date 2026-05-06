@@ -6,7 +6,7 @@
       "request": "launch",
       "type": "dart",
       "program": "lib/main.dart",
-      "cwd": "C:\\FlutterProjects\\Recicladora\\flutter_application_1"
+       "cwd": "${workspaceFolder}/flutter_application_1"
     }
   ]
 }
