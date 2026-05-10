@@ -2,11 +2,12 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Recicladora App",
+      "name": "Flutter Android (Tu Celular)",
       "request": "launch",
       "type": "dart",
       "program": "lib/main.dart",
-       "cwd": "${workspaceFolder}/flutter_application_1"
+      "cwd": "${workspaceFolder}/flutter_application_1",
+      "flutterMode": "debug"
     }
   ]
 }
