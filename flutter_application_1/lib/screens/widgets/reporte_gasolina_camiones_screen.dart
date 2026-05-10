@@ -22,12 +22,76 @@ class ReporteGasolinaCamionesScreen extends StatefulWidget {
 
 class _ReporteGasolinaCamionesScreenState
     extends State<ReporteGasolinaCamionesScreen> {
-  static const Color _greenPrimary = Color(0xFF0F766E);
-  static const Color _greenSecondary = Color(0xFF10B981);
-  static const Color _bg = Color(0xFFF1FBF7);
+  static const Color _greenPrimary = Color(0xFF0F3D2E);
+  static const Color _greenSecondary = Color(0xFF1B8A5A);
+  static const Color _greenAccent = Color(0xFF34D399);
+  static const Color _bg = Color(0xFFF4FAF6);
 
   _FiltroPeriodo _filtro = _FiltroPeriodo.todos;
+  DateTime? _fechaInicio;
+  DateTime? _fechaFin;
   bool _exportando = false;
+
+  DateTime _soloFecha(DateTime fecha) {
+    return DateTime(fecha.year, fecha.month, fecha.day);
+  }
+
+  String _formatearFecha(DateTime? fecha) {
+    if (fecha == null) return '--/--/----';
+    return DateFormat('dd/MM/yyyy').format(fecha);
+  }
+
+  Future<void> _seleccionarFecha({required bool esInicio}) async {
+    final ahora = DateTime.now();
+    final fechaInicial = esInicio
+        ? (_fechaInicio ?? _fechaFin ?? ahora)
+        : (_fechaFin ?? _fechaInicio ?? ahora);
+    final primeraFecha = esInicio
+        ? DateTime(2020)
+        : (_fechaInicio != null ? _soloFecha(_fechaInicio!) : DateTime(2020));
+    final ultimaFecha = esInicio
+        ? (_fechaFin != null ? _soloFecha(_fechaFin!) : ahora)
+        : ahora;
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _soloFecha(fechaInicial),
+      firstDate: primeraFecha,
+      lastDate: ultimaFecha,
+      locale: const Locale('es', 'MX'),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: _greenPrimary,
+            onPrimary: Colors.white,
+            surface: Colors.white,
+            onSurface: _greenPrimary,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+
+    if (picked == null) return;
+
+    setState(() {
+      if (esInicio) {
+        _fechaInicio = _soloFecha(picked);
+        if (_fechaFin != null && _fechaFin!.isBefore(_fechaInicio!)) {
+          _fechaFin = null;
+        }
+      } else {
+        _fechaFin = _soloFecha(picked);
+      }
+    });
+  }
+
+  void _limpiarFiltrosFecha() {
+    setState(() {
+      _fechaInicio = null;
+      _fechaFin = null;
+    });
+  }
 
   String _mensajeDescargaPorPlataforma() {
     if (kIsWeb) {
@@ -74,13 +138,33 @@ class _ReporteGasolinaCamionesScreenState
     }
   }
 
+  bool _coincideRangoFechas(DateTime fecha) {
+    final fechaNormalizada = _soloFecha(fecha);
+    final inicio = _fechaInicio == null ? null : _soloFecha(_fechaInicio!);
+    final fin = _fechaFin == null ? null : _soloFecha(_fechaFin!);
+
+    if (inicio != null && fechaNormalizada.isBefore(inicio)) {
+      return false;
+    }
+
+    if (fin != null && fechaNormalizada.isAfter(fin)) {
+      return false;
+    }
+
+    return true;
+  }
+
   List<QueryDocumentSnapshot<Map<String, dynamic>>> _filtrarRegistros(
     List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
   ) {
     return docs.where((doc) {
       final fecha = _toDate(doc.data()['fecha']);
-      if (fecha == null) return _filtro == _FiltroPeriodo.todos;
-      return _coincidePeriodo(fecha);
+      if (fecha == null) {
+        return _filtro == _FiltroPeriodo.todos &&
+            _fechaInicio == null &&
+            _fechaFin == null;
+      }
+      return _coincidePeriodo(fecha) && _coincideRangoFechas(fecha);
     }).toList();
   }
 
@@ -112,6 +196,14 @@ class _ReporteGasolinaCamionesScreenState
   bool _tieneTicket(Map<String, dynamic> registro) {
     final ticket = registro['ticket_url'];
     return ticket != null && ticket.toString().trim().isNotEmpty;
+  }
+  
+  String _ticketMostrado(Map<String, dynamic> registro) {
+    final ticket = registro['ticket_url'];
+    if (ticket == null || ticket.toString().trim().isEmpty) {
+      return 'Sin ticket';
+    }
+    return ticket.toString();
   }
 
   Future<void> _copiarDatosRegistro(Map<String, dynamic> registro) async {
@@ -186,6 +278,7 @@ class _ReporteGasolinaCamionesScreenState
         ex.TextCellValue('KG/LT'),
         ex.TextCellValue('MONTO'),
         ex.TextCellValue('METODO DE PAGO'),
+        ex.TextCellValue('TICKET'),
       ]);
 
       final fechaFormat = DateFormat('dd/MM/yyyy');
@@ -202,6 +295,7 @@ class _ReporteGasolinaCamionesScreenState
           ex.TextCellValue(_valorMostrado(r, 'unidad').toUpperCase()),
           ex.TextCellValue(_valorMostrado(r, 'monto')),
           ex.TextCellValue(_valorMostrado(r, 'metodo_pago').toUpperCase()),
+          ex.TextCellValue(_ticketMostrado(r)),
         ]);
       }
 
@@ -298,13 +392,13 @@ class _ReporteGasolinaCamionesScreenState
           'Reporte de Gasolina',
           style: TextStyle(fontWeight: FontWeight.w700),
         ),
-        backgroundColor: const Color(0xFF111827),
+        backgroundColor: _greenPrimary,
         foregroundColor: Colors.white,
         elevation: 0,
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [Color(0xFF111827), Color(0xFFF59E0B)],
+              colors: [_greenPrimary, _greenSecondary],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -347,14 +441,14 @@ class _ReporteGasolinaCamionesScreenState
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [Color(0xFF111827), Color(0xFFF59E0B)],
+                        colors: [_greenPrimary, _greenSecondary],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
                       borderRadius: BorderRadius.circular(18),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF111827).withValues(alpha: 0.24),
+                          color: _greenPrimary.withValues(alpha: 0.22),
                           blurRadius: 18,
                           offset: const Offset(0, 8),
                         ),
@@ -410,7 +504,7 @@ class _ReporteGasolinaCamionesScreenState
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFF3D7A1)),
+                    border: Border.all(color: const Color(0xFFB7E4C7)),
                     boxShadow: const [
                       BoxShadow(
                         color: Color(0x14000000),
@@ -432,53 +526,141 @@ class _ReporteGasolinaCamionesScreenState
                               avatar: Icon(
                                 _iconoFiltro(f),
                                 size: 14,
-                                color: selected
-                                    ? Colors.white
-                                    : const Color(0xFF334155),
+                                color: selected ? Colors.white : _greenPrimary,
                               ),
                               label: Text(_labelFiltro(f)),
                               selected: selected,
-                              selectedColor: const Color(0xFFF59E0B),
-                              backgroundColor: const Color(0xFFFAFAF9),
+                              selectedColor: _greenPrimary,
+                              backgroundColor: const Color(0xFFF7FBF8),
                               labelStyle: TextStyle(
-                                color: selected
-                                    ? Colors.white
-                                    : const Color(0xFF334155),
+                                color: selected ? Colors.white : _greenPrimary,
                                 fontWeight: FontWeight.w700,
                               ),
-                              side: const BorderSide(color: Color(0xFFF3D7A1)),
+                              side: const BorderSide(color: Color(0xFFB7E4C7)),
                               onSelected: (_) => setState(() => _filtro = f),
                             );
                           }).toList(),
                         ),
                       ),
                       const SizedBox(width: 8),
-                      FilledButton.icon(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF111827),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 12,
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          FilledButton.icon(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: _greenPrimary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            onPressed: _exportando
+                                ? null
+                                : () => _exportarExcel(filtrados),
+                            icon: _exportando
+                                ? const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.download_rounded),
+                            label: Text(_exportando ? 'Exportando' : 'Excel'),
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF7FBF8),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFD1E7DB)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Filtro por rango de fechas',
+                        style: TextStyle(
+                          color: _greenPrimary,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          OutlinedButton.icon(
+                            onPressed: () => _seleccionarFecha(esInicio: true),
+                            icon: const Icon(Icons.date_range_rounded),
+                            label: Text(
+                              'Inicio: ${_formatearFecha(_fechaInicio)}',
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: _greenPrimary,
+                              side: const BorderSide(color: Color(0xFF9FD3B7)),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: () => _seleccionarFecha(esInicio: false),
+                            icon: const Icon(Icons.event_available_rounded),
+                            label: Text('Fin: ${_formatearFecha(_fechaFin)}'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: _greenPrimary,
+                              side: const BorderSide(color: Color(0xFF9FD3B7)),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                          TextButton.icon(
+                            onPressed:
+                                (_fechaInicio != null || _fechaFin != null)
+                                ? _limpiarFiltrosFecha
+                                : null,
+                            icon: const Icon(Icons.cleaning_services_rounded),
+                            label: const Text('Limpiar rango'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: _greenSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_fechaInicio != null || _fechaFin != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Mostrando registros entre ${_formatearFecha(_fechaInicio)} y ${_formatearFecha(_fechaFin)}.',
+                          style: const TextStyle(
+                            color: Color(0xFF4B5563),
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
-                        onPressed:
-                            _exportando ? null : () => _exportarExcel(filtrados),
-                        icon: _exportando
-                            ? const SizedBox(
-                                width: 14,
-                                height: 14,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Icon(Icons.download_rounded),
-                        label: Text(_exportando ? 'Exportando' : 'Excel'),
-                      ),
+                      ],
                     ],
                   ),
                 ),
@@ -500,7 +682,7 @@ class _ReporteGasolinaCamionesScreenState
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFF3D7A1)),
+                      border: Border.all(color: const Color(0xFFB7E4C7)),
                       boxShadow: const [
                         BoxShadow(
                           color: Color(0x12000000),
@@ -513,6 +695,10 @@ class _ReporteGasolinaCamionesScreenState
                         ? const Center(
                             child: Text(
                               'No hay registros para el periodo seleccionado.',
+                              style: TextStyle(
+                                color: Color(0xFF166534),
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           )
                         : SingleChildScrollView(
@@ -520,7 +706,7 @@ class _ReporteGasolinaCamionesScreenState
                             child: SingleChildScrollView(
                               child: DataTable(
                                 headingRowColor: WidgetStateProperty.all(
-                                  const Color(0xFF111827),
+                                  _greenPrimary,
                                 ),
                                 headingTextStyle: const TextStyle(
                                   color: Colors.white,
@@ -551,29 +737,47 @@ class _ReporteGasolinaCamionesScreenState
                                         Text(
                                           fecha == null
                                               ? '-'
-                                              : DateFormat('dd/MM/yyyy').format(fecha),
-                                        ),
-                                      ),
-                                      DataCell(Text(_valorMostrado(r, 'folio'))),
-                                      DataCell(
-                                        Text(
-                                          _valorMostrado(r, 'concepto').toUpperCase(),
+                                              : DateFormat(
+                                                  'dd/MM/yyyy',
+                                                ).format(fecha),
                                         ),
                                       ),
                                       DataCell(
-                                        Text(_automovilMostrado(r).toUpperCase()),
+                                        Text(_valorMostrado(r, 'folio')),
                                       ),
-                                      DataCell(Text(_valorMostrado(r, 'cantidad'))),
                                       DataCell(
                                         Text(
-                                          _valorMostrado(r, 'unidad').toUpperCase(),
+                                          _valorMostrado(
+                                            r,
+                                            'concepto',
+                                          ).toUpperCase(),
                                         ),
                                       ),
-                                      DataCell(Text(_valorMostrado(r, 'monto'))),
                                       DataCell(
                                         Text(
-                                          _valorMostrado(r, 'metodo_pago')
-                                              .toUpperCase(),
+                                          _automovilMostrado(r).toUpperCase(),
+                                        ),
+                                      ),
+                                      DataCell(
+                                        Text(_valorMostrado(r, 'cantidad')),
+                                      ),
+                                      DataCell(
+                                        Text(
+                                          _valorMostrado(
+                                            r,
+                                            'unidad',
+                                          ).toUpperCase(),
+                                        ),
+                                      ),
+                                      DataCell(
+                                        Text(_valorMostrado(r, 'monto')),
+                                      ),
+                                      DataCell(
+                                        Text(
+                                          _valorMostrado(
+                                            r,
+                                            'metodo_pago',
+                                          ).toUpperCase(),
                                         ),
                                       ),
                                       DataCell(
@@ -594,7 +798,8 @@ class _ReporteGasolinaCamionesScreenState
                                           spacing: 4,
                                           children: [
                                             IconButton(
-                                              tooltip: 'Revisar ticket y capturar',
+                                              tooltip:
+                                                  'Revisar ticket y capturar',
                                               onPressed: () =>
                                                   _abrirRevisionRegistro(doc),
                                               icon: const Icon(
@@ -725,7 +930,10 @@ class _RevisionTicketGasolinaDialogState
     final cantidad = _cantidadController.text.trim();
     final monto = _montoController.text.trim();
 
-    if (folio.isEmpty || automovil.isEmpty || cantidad.isEmpty || monto.isEmpty) {
+    if (folio.isEmpty ||
+        automovil.isEmpty ||
+        cantidad.isEmpty ||
+        monto.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Completa todos los campos.')),
       );
@@ -780,12 +988,13 @@ class _RevisionTicketGasolinaDialogState
             children: [
               Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Revision de ticket de gasolina',
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
+                        color: Color(0xFF0F3D2E),
                       ),
                     ),
                   ),
@@ -859,10 +1068,14 @@ class _RevisionTicketGasolinaDialogState
                                 value: 'diesel',
                                 child: Text('Diesel'),
                               ),
-                              DropdownMenuItem(value: 'gas', child: Text('Gas')),
+                              DropdownMenuItem(
+                                value: 'gas',
+                                child: Text('Gas'),
+                              ),
                             ],
                             onChanged: (value) {
-                              if (value != null) setState(() => _concepto = value);
+                              if (value != null)
+                                setState(() => _concepto = value);
                             },
                             decoration: const InputDecoration(
                               labelText: 'Concepto',
@@ -902,7 +1115,8 @@ class _RevisionTicketGasolinaDialogState
                               ),
                             ],
                             onChanged: (value) {
-                              if (value != null) setState(() => _unidad = value);
+                              if (value != null)
+                                setState(() => _unidad = value);
                             },
                             decoration: const InputDecoration(
                               labelText: 'Unidad',
@@ -995,7 +1209,9 @@ class _RevisionTicketGasolinaDialogState
                               ),
                             )
                           : const Icon(Icons.save_rounded),
-                      label: Text(_guardando ? 'Guardando...' : 'Guardar datos'),
+                      label: Text(
+                        _guardando ? 'Guardando...' : 'Guardar datos',
+                      ),
                     ),
                   ),
                 ],
