@@ -24,10 +24,10 @@ class _ReportesCamionesAdminScreenState
     with SingleTickerProviderStateMixin {
   static const Color _primary = Color(0xFF0F172A);
   static const Color _accent  = Color(0xFF06B6D4);
-  static const Color _success = Color(0xFF10B981);
+    static const Color _success = Color(0xFF991B1B);
   static const Color _danger  = Color(0xFFEF4444);
   static const Color _warning = Color(0xFFF59E0B);
-  static const Color _bgColor = Color(0xFFF0F9FF);
+    static const Color _bgColor = Color(0xFFF8FAFC);
   static const Color _surface = Color(0xFFFFFFFF);
   static const Color _slate   = Color(0xFF64748B);
   static const Color _border  = Color(0xFFE2E8F0);
@@ -284,15 +284,21 @@ class _ReportesCamionesAdminScreenState
 
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
-      title: const Text('Reportes de Camiones',
-          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+      title: const Text(
+        'Reportes de Camiones',
+        style: TextStyle(
+          fontWeight: FontWeight.w800,
+          fontSize: 18,
+          color: Colors.white,
+        ),
+      ),
       backgroundColor: Colors.transparent,
       elevation: 0,
       foregroundColor: Colors.white,
       flexibleSpace: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [_primary, Color(0xFF1E3A5F)],
+            colors: [Color(0xFF0A0A0A), Color(0xFF7F1D1D), Color(0xFFDC2626)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -307,8 +313,24 @@ class _ReportesCamionesAdminScreenState
         _filtroFecha != null;
 
     return Container(
-      color: _primary,
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+      margin: const EdgeInsets.symmetric(horizontal: 14),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0A0A0A), Color(0xFF7F1D1D)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFF991B1B)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x1A000000),
+            blurRadius: 14,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -332,11 +354,11 @@ class _ReportesCamionesAdminScreenState
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                     decoration: BoxDecoration(
                       color: (_filtroPeriodo == 'fecha' && _filtroFecha != null)
-                          ? Colors.amber : Colors.white12,
+                          ? const Color(0xFFFEE2E2) : Colors.white12,
                       borderRadius: BorderRadius.circular(22),
                       border: Border.all(
                         color: (_filtroPeriodo == 'fecha' && _filtroFecha != null)
-                            ? Colors.amber : Colors.white24,
+                            ? const Color(0xFFFCA5A5) : Colors.white24,
                       ),
                     ),
                     child: Row(
@@ -344,7 +366,7 @@ class _ReportesCamionesAdminScreenState
                       children: [
                         Icon(Icons.event_rounded, size: 14,
                             color: (_filtroPeriodo == 'fecha' && _filtroFecha != null)
-                                ? _primary : Colors.white70),
+                            ? const Color(0xFF7F1D1D) : Colors.white70),
                         const SizedBox(width: 6),
                         Text(
                           (_filtroPeriodo == 'fecha' && _filtroFecha != null)
@@ -352,7 +374,7 @@ class _ReportesCamionesAdminScreenState
                           style: TextStyle(
                             fontSize: 13, fontWeight: FontWeight.w700,
                             color: (_filtroPeriodo == 'fecha' && _filtroFecha != null)
-                                ? _primary : Colors.white70,
+                              ? const Color(0xFF7F1D1D) : Colors.white70,
                           ),
                         ),
                       ],
@@ -421,12 +443,14 @@ class _ReportesCamionesAdminScreenState
       ),
     );
   }
-
   Widget _chip(String valor, String label, IconData icon) {
     final sel = _filtroPeriodo == valor;
     return GestureDetector(
       onTap: () {
-        setState(() { _filtroPeriodo = valor; _filtroFecha = null; });
+        setState(() {
+          _filtroPeriodo = valor;
+          _filtroFecha = null;
+        });
         _refresh();
       },
       child: AnimatedContainer(
@@ -434,18 +458,25 @@ class _ReportesCamionesAdminScreenState
         margin: const EdgeInsets.only(right: 7),
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
         decoration: BoxDecoration(
-          color: sel ? _accent : Colors.white10,
+          color: sel ? const Color(0xFFDC2626) : Colors.white10,
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: sel ? _accent : Colors.white24),
+          border: Border.all(
+            color: sel ? const Color(0xFFDC2626) : Colors.white24,
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 13, color: sel ? Colors.white : Colors.white60),
             const SizedBox(width: 5),
-            Text(label, style: TextStyle(
-                fontSize: 13, fontWeight: FontWeight.w700,
-                color: sel ? Colors.white : Colors.white60)),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: sel ? Colors.white : Colors.white60,
+              ),
+            ),
           ],
         ),
       ),
@@ -461,20 +492,20 @@ class _ReportesCamionesAdminScreenState
         margin: const EdgeInsets.only(right: 7),
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
         decoration: BoxDecoration(
-          color: sel ? Colors.white : Colors.white10,
+          color: sel ? const Color(0xFFDC2626) : Colors.white10,
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: sel ? Colors.white : Colors.white24),
+          border: Border.all(color: sel ? const Color(0xFFDC2626) : Colors.white24),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               sel ? Icons.pin_rounded : Icons.pin_outlined,
-              size: 13, color: sel ? _primary : Colors.white60),
+              size: 13, color: sel ? Colors.white : Colors.white60),
             const SizedBox(width: 5),
             Text(label, style: TextStyle(
                 fontSize: 13, fontWeight: FontWeight.w700,
-                color: sel ? _primary : Colors.white60)),
+                color: sel ? Colors.white : Colors.white60)),
           ],
         ),
       ),
@@ -543,13 +574,13 @@ class _ReportesCamionesAdminScreenState
     String   estadoLabel;
     switch (estado) {
       case 'resuelto':
-        estadoColor = _success; estadoIcon = Icons.check_circle_rounded;
+        estadoColor = const Color(0xFF991B1B); estadoIcon = Icons.check_circle_rounded;
         estadoLabel = 'RESUELTO'; break;
       case 'en proceso':
-        estadoColor = _warning; estadoIcon = Icons.timelapse_rounded;
+        estadoColor = const Color(0xFFDC2626); estadoIcon = Icons.timelapse_rounded;
         estadoLabel = 'EN PROCESO'; break;
       default:
-        estadoColor = _danger; estadoIcon = Icons.error_rounded;
+        estadoColor = const Color(0xFF7F1D1D); estadoIcon = Icons.error_rounded;
         estadoLabel = 'PENDIENTE';
     }
 
@@ -625,13 +656,13 @@ class _ReportesCamionesAdminScreenState
                         spacing: 6, runSpacing: 6,
                         children: [
                           _miniTag(Icons.directions_bus_rounded,
-                              data['tipo'] ?? '—', _accent),
+                            data['tipo'] ?? '—', const Color(0xFFDC2626)),
                           _miniTag(Icons.build_rounded,
                               data['modelo'] ?? '—', _slate),
                           _miniTag(Icons.pin_rounded,
-                              data['placas'] ?? '—', _success),
+                            data['placas'] ?? '—', const Color(0xFF991B1B)),
                           _miniTag(Icons.person_rounded,
-                              data['operador'] ?? '—', _warning),
+                            data['operador'] ?? '—', const Color(0xFF7F1D1D)),
                         ],
                       ),
                       const SizedBox(height: 10),

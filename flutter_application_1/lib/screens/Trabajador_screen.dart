@@ -249,6 +249,7 @@ class _TrabajadorScreen extends State<TrabajadorScreen> {
             title: const Text('Panel trabajador'),
             onTap: () => Navigator.of(context).pop(),
           ),
+          // Sesiones UI removed per UX request; session logic remains.
           const Spacer(),
           ListTile(
             leading: const Icon(Icons.logout_rounded, color: Colors.red),

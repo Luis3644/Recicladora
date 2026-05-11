@@ -22,10 +22,10 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
     with SingleTickerProviderStateMixin {
   // ── Colores ───────────────────────────────────────────────────────────────
   static const Color _primary = Color(0xFF0F172A);
-  static const Color _accent  = Color(0xFFF97316);
-  static const Color _success = Color(0xFF10B981);
+  static const Color _accent  = Color(0xFF8B5CF6);
+  static const Color _success = Color(0xFFA855F7);
   static const Color _danger  = Color(0xFFEF4444);
-  static const Color _bgColor = Color(0xFFFFF7ED);
+  static const Color _bgColor = Color(0xFFF8FAFC);
   static const Color _surface = Color(0xFFFFFFFF);
   static const Color _slate   = Color(0xFF64748B);
   static const Color _border  = Color(0xFFE2E8F0);
@@ -379,15 +379,21 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       toolbarHeight: 74,
-      title: const Text('Reportes de Operadores',
-          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+      title: const Text(
+        'Reportes de Operadores',
+        style: TextStyle(
+          fontWeight: FontWeight.w800,
+          fontSize: 18,
+          color: Colors.white,
+        ),
+      ),
       backgroundColor: Colors.transparent,
       elevation: 0,
       foregroundColor: Colors.white,
       flexibleSpace: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [_primary, Color(0xFFEA580C)],
+            colors: [Color(0xFF0A0A0A), Color(0xFF2E1065), Color(0xFF8B5CF6)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -410,7 +416,7 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Color(0xFF0F172A), Color(0xFFF97316)],
+            colors: [Color(0xFF0A0A0A), Color(0xFF3B0764), Color(0xFF8B5CF6)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -428,9 +434,9 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.16),
+                color: Colors.white.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
               ),
               child: const Icon(
                 Icons.report_problem_rounded,
@@ -455,7 +461,7 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
                   Text(
                     'Supervisa avisos, fotos y estados con una vista más clara y rápida.',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: Color(0xFFE9D5FF),
                       fontSize: 12.5,
                       height: 1.25,
                     ),
@@ -476,8 +482,24 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
         _filtroFecha != null;
 
     return Container(
-      color: _primary,
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+      margin: const EdgeInsets.symmetric(horizontal: 14),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0A0A0A), Color(0xFF2E1065)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFF4C1D95)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 14,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -504,12 +526,12 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
                         horizontal: 14, vertical: 9),
                     decoration: BoxDecoration(
                       color: (_filtroPeriodo == 'fecha' && _filtroFecha != null)
-                          ? Colors.amber
+                          ? const Color(0xFFE9D5FF)
                           : Colors.white12,
                       borderRadius: BorderRadius.circular(22),
                       border: Border.all(
                         color: (_filtroPeriodo == 'fecha' && _filtroFecha != null)
-                            ? Colors.amber
+                            ? const Color(0xFFE9D5FF)
                             : Colors.white24,
                       ),
                     ),
@@ -519,7 +541,7 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
                         Icon(Icons.event_rounded,
                             size: 14,
                             color: (_filtroPeriodo == 'fecha' && _filtroFecha != null)
-                                ? _primary
+                            ? const Color(0xFF2E1065)
                                 : Colors.white70),
                         const SizedBox(width: 6),
                         Text(
@@ -530,7 +552,7 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
                             color: (_filtroPeriodo == 'fecha' && _filtroFecha != null)
-                                ? _primary
+                              ? const Color(0xFF2E1065)
                                 : Colors.white70,
                           ),
                         ),
@@ -564,12 +586,12 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
                               horizontal: 14, vertical: 9),
                           decoration: BoxDecoration(
                             color: _filtroOperador != null
-                                ? _accent
+                                ? const Color(0xFF8B5CF6)
                                 : Colors.white10,
                             borderRadius: BorderRadius.circular(22),
                             border: Border.all(
                               color: _filtroOperador != null
-                                  ? _accent
+                                  ? const Color(0xFF8B5CF6)
                                   : Colors.white24,
                             ),
                           ),
@@ -622,21 +644,21 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
                     padding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 9),
                     decoration: BoxDecoration(
-                      color: _danger.withOpacity(0.15),
+                      color: const Color(0xFF7C3AED).withOpacity(0.16),
                       borderRadius: BorderRadius.circular(22),
-                      border: Border.all(color: _danger.withOpacity(0.35)),
+                      border: Border.all(color: const Color(0xFF7C3AED).withOpacity(0.35)),
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.close_rounded,
-                            size: 13, color: Colors.redAccent),
+                            size: 13, color: Color(0xFFE9D5FF)),
                         SizedBox(width: 5),
                         Text('Limpiar',
                             style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
-                                color: Colors.redAccent)),
+                                color: Color(0xFFE9D5FF))),
                       ],
                     ),
                   ),
@@ -769,12 +791,12 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
           color: _surface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-              color: visto ? _border : _danger.withOpacity(0.2)),
+              color: visto ? _border : const Color(0xFFE9D5FF)),
           boxShadow: [
             BoxShadow(
-                color: _primary.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 3)),
+                color: const Color(0xFF0A0A0A).withOpacity(0.06),
+                blurRadius: 12,
+                offset: const Offset(0, 4)),
           ],
         ),
         child: ClipRRect(
@@ -789,8 +811,8 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: visto
-                          ? [_success, const Color(0xFF22C55E)]
-                          : [_danger, _accent],
+                          ? [const Color(0xFF8B5CF6), const Color(0xFF6D28D9)]
+                          : [const Color(0xFF0A0A0A), const Color(0xFF8B5CF6)],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                     ),
@@ -813,7 +835,7 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
                                 visto
                                     ? Icons.check_circle_rounded
                                     : Icons.report_problem_rounded,
-                                color: visto ? _success : _danger,
+                                color: visto ? const Color(0xFF8B5CF6) : const Color(0xFF8B5CF6),
                                 size: 18,
                               ),
                             ),
@@ -827,7 +849,7 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
                                     style: const TextStyle(
                                         fontWeight: FontWeight.w800,
                                         fontSize: 14,
-                                        color: _primary),
+                                        color: Color(0xFF0F172A)),
                                   ),
                                   const SizedBox(height: 3),
                                   Row(
@@ -840,7 +862,7 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
                                               ? DateFormat('dd/MM/yy · HH:mm')
                                                   .format(fecha)
                                               : '—',
-                                          _accent),
+                                          const Color(0xFF7C3AED)),
                                     ],
                                   ),
                                 ],
@@ -870,7 +892,7 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
                       const Padding(
                         padding: EdgeInsets.symmetric(
                             horizontal: 12, vertical: 10),
-                        child: Divider(height: 1, color: Color(0xFFE2E8F0)),
+                        child: Divider(height: 1, color: Color(0xFFE9D5FF)),
                       ),
 
                       // ── Badge estado + placas ─────────────────────
@@ -989,18 +1011,22 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
                                     foregroundColor: _slate,
                                     side: const BorderSide(color: _border),
                                     shape: RoundedRectangleBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(9)),
+                                      borderRadius: BorderRadius.circular(9),
+                                    ),
                                     padding: EdgeInsets.zero,
                                   ),
                                   onPressed: () => _marcarVisto(docId, false),
                                   icon: const Icon(
-                                      Icons.remove_circle_outline_rounded,
-                                      size: 14),
-                                  label: const Text('Marcar no visto',
-                                      style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600)),
+                                    Icons.remove_circle_outline_rounded,
+                                    size: 14,
+                                  ),
+                                  label: const Text(
+                                    'Marcar no visto',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
                                 )
                               : ElevatedButton.icon(
                                   style: ElevatedButton.styleFrom(
@@ -1008,18 +1034,22 @@ class _ListaIncidentesAdminState extends State<ListaIncidentesAdmin>
                                     foregroundColor: Colors.white,
                                     elevation: 0,
                                     shape: RoundedRectangleBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(9)),
+                                      borderRadius: BorderRadius.circular(9),
+                                    ),
                                     padding: EdgeInsets.zero,
                                   ),
                                   onPressed: () => _marcarVisto(docId, true),
                                   icon: const Icon(
-                                      Icons.check_circle_rounded,
-                                      size: 14),
-                                  label: const Text('Marcar como visto',
-                                      style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w700)),
+                                    Icons.check_circle_rounded,
+                                    size: 14,
+                                  ),
+                                  label: const Text(
+                                    'Marcar como visto',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
                                 ),
                         ),
                       ),

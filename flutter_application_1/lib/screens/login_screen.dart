@@ -682,6 +682,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<bool> _validarYRegistrarSesionUnica(
     DocumentSnapshot<Map<String, dynamic>> userDoc,
   ) async {
+    // Nuevo comportamiento: permitir hasta 2 sesiones simultáneas por cuenta.
     final data = userDoc.data() ?? {};
     final uidAuth = _auth.currentUser?.uid ?? '';
     final emailAuth = _auth.currentUser?.email == null
@@ -691,41 +692,183 @@ class _LoginScreenState extends State<LoginScreen> {
     final dispositivoActualNombre = _nombreDispositivoActual();
     _dispositivoIdActual = dispositivoId;
 
-    final sesionActiva = data['sesion_activa'] == true;
-    final dispositivoRemoto = data['sesion_dispositivo_id']?.toString() ?? '';
+    final sesionesRef = _firestore
+        .collection('usuarios')
+        .doc(userDoc.id)
+        .collection('sesiones');
 
-    if (sesionActiva &&
-        dispositivoRemoto.isNotEmpty &&
-        dispositivoRemoto != dispositivoId) {
-      await _auth.signOut();
-      await _googleSignIn.signOut();
-      await SessionManager.limpiarSesion();
-
-      await _mostrarDialogoSesionActivaBloqueada(
-        nombre: data['nombre']?.toString() ?? 'Sin nombre',
-        rol: data['rol']?.toString() ?? 'sin rol',
-      );
-      return false;
-    }
-
+    // Asegurar campos básicos en el documento de usuario
     await _firestore
         .collection('usuarios')
         .doc(userDoc.id)
         .set({
-          if (uidAuth.isNotEmpty &&
-              (data['uid'] == null ||
-                  data['uid'].toString().trim().isEmpty))
-            'uid': uidAuth,
-          if (emailAuth.isNotEmpty) 'email': emailAuth,
-          'email_normalizado': emailAuth,
-          'proveedor_auth': _obtenerProveedorAuth(_auth.currentUser),
-          'auth_providers': _obtenerAuthProviders(_auth.currentUser),
-          'sesion_activa': true,
-          'sesion_dispositivo_id': dispositivoId,
-          'sesion_dispositivo_nombre': dispositivoActualNombre,
-          'sesion_ultimo_inicio': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true))
-        .timeout(_firebaseTimeout);
+      if (uidAuth.isNotEmpty &&
+          (data['uid'] == null || data['uid'].toString().trim().isEmpty))
+        'uid': uidAuth,
+      if (emailAuth.isNotEmpty) 'email': emailAuth,
+      'email_normalizado': emailAuth,
+      'proveedor_auth': _obtenerProveedorAuth(_auth.currentUser),
+      'auth_providers': _obtenerAuthProviders(_auth.currentUser),
+    }, SetOptions(merge: true));
+
+    final snap = await sesionesRef.get();
+    final sesiones = snap.docs
+        .map((d) => {
+              'id': d.id,
+              'dispositivo_id': d.data()['dispositivo_id'] ?? d.id,
+              'dispositivo_nombre': d.data()['dispositivo_nombre'] ?? d.id,
+              'inicio': d.data()['inicio'],
+              'last_active': d.data()['last_active'],
+            })
+        .toList();
+
+    // Si ya existe sesión para este dispositivo, actualizar timestamps y continuar
+    final existeActual = sesiones.any((s) => s['dispositivo_id'] == dispositivoId);
+    if (existeActual) {
+      await sesionesRef.doc(dispositivoId).set({
+        'last_active': FieldValue.serverTimestamp(),
+        'dispositivo_nombre': dispositivoActualNombre,
+      }, SetOptions(merge: true));
+      return true;
+    }
+
+    // Si hay menos de 2 sesiones, y ya existe una distinta -> mostrar aviso
+    if (sesiones.length < 2) {
+      if (sesiones.length == 1 && !existeActual) {
+        // Mostrar alerta simple con 2 botones: Mantener sesión o Cerrar en el otro dispositivo
+        final otra = sesiones.first;
+        final otraId = otra['dispositivo_id']?.toString() ?? '';
+        final otraNombre = otra['dispositivo_nombre']?.toString() ?? otraId;
+
+        final opcion = await showDialog<String?>(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogCtx) => AlertDialog(
+            title: const Text('Sesión activa en otro dispositivo'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Tu cuenta está activa en: $otraNombre'),
+                const SizedBox(height: 8),
+                const Text('¿Deseas mantener la sesión en ambos dispositivos, o cerrar la sesión en el otro dispositivo?'),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogCtx).pop('mantener'),
+                child: const Text('Mantener sesión'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogCtx).pop('cerrar_otro'),
+                child: const Text('Cerrar en otro dispositivo'),
+              ),
+            ],
+          ),
+        );
+
+        if (opcion == 'mantener') {
+          // crear la segunda sesión y permitir
+          await sesionesRef.doc(dispositivoId).set({
+            'dispositivo_id': dispositivoId,
+            'dispositivo_nombre': dispositivoActualNombre,
+            'inicio': FieldValue.serverTimestamp(),
+            'last_active': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+          return true;
+        }
+
+        if (opcion == 'cerrar_otro') {
+          // cerrar la otra sesión y crear la actual
+          try {
+            if (otraId.isNotEmpty) await sesionesRef.doc(otraId).delete();
+          } catch (_) {}
+
+          await sesionesRef.doc(dispositivoId).set({
+            'dispositivo_id': dispositivoId,
+            'dispositivo_nombre': dispositivoActualNombre,
+            'inicio': FieldValue.serverTimestamp(),
+            'last_active': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+          return true;
+        }
+
+        // si el usuario cierra el dialog sin elegir o cancela
+        await _auth.signOut();
+        await _googleSignIn.signOut();
+        await SessionManager.limpiarSesion();
+        return false;
+      }
+
+      // Si no existe sesión previa (sesiones.length == 0) o ya existe la actual, crearla
+      await sesionesRef.doc(dispositivoId).set({
+        'dispositivo_id': dispositivoId,
+        'dispositivo_nombre': dispositivoActualNombre,
+        'inicio': FieldValue.serverTimestamp(),
+        'last_active': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      return true;
+    }
+
+    // Hay 2 sesiones distintas ya abiertas: mostrar diálogo y ofrecer cerrar una remota
+    if (!mounted) return false;
+
+    final cerrar = await showDialog<String?>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) {
+        return AlertDialog(
+          title: const Text('Cuenta abierta en otros dispositivos'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Tu cuenta ya tiene 2 sesiones abiertas. Puedes cerrar una sesión remota para iniciar aquí.',
+              ),
+              const SizedBox(height: 12),
+              ...sesiones.map((s) {
+                final name = s['dispositivo_nombre']?.toString() ?? s['dispositivo_id'];
+                return ListTile(
+                  title: Text(name),
+                  subtitle: Text(s['inicio']?.toString() ?? ''),
+                  trailing: FilledButton(
+                    onPressed: () => Navigator.of(dialogCtx).pop(s['dispositivo_id'] as String),
+                    child: const Text('Cerrar en ese dispositivo'),
+                  ),
+                );
+              }).toList(),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () => Navigator.of(dialogCtx).pop(null),
+                child: const Text('Cancelar inicio de sesión'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (cerrar == null) {
+      // usuario cancela: cerrar sesión local y no permitir login
+      await _auth.signOut();
+      await _googleSignIn.signOut();
+      await SessionManager.limpiarSesion();
+      return false;
+    }
+
+    // Usuario eligió cerrar una sesión remota
+    try {
+      await sesionesRef.doc(cerrar).delete();
+    } catch (_) {}
+
+    // Crear la sesión actual
+    await sesionesRef.doc(dispositivoId).set({
+      'dispositivo_id': dispositivoId,
+      'dispositivo_nombre': dispositivoActualNombre,
+      'inicio': FieldValue.serverTimestamp(),
+      'last_active': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
 
     return true;
   }

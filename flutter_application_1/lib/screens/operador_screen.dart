@@ -8,6 +8,7 @@ import 'jornada_screen.dart';
 import 'confirmar_camion_screen.dart';
 import 'login_screen.dart';
 import 'widgets/notificaciones_drawer.dart';
+ 
 
 // ConnectionWrapper ya NO se importa aquí — se aplica globalmente desde main.dart
 
@@ -358,9 +359,7 @@ class _OperadorScreenState extends State<OperadorScreen> {
               },
             ),
 
-            
-
-
+            // Sesiones UI removed per UX request; session logic unchanged.
 
             const Spacer(),
             const Padding(

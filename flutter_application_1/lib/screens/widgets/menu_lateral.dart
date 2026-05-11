@@ -1,25 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../config/session_manager.dart';
 import '../login_screen.dart';
 import '../reporte_screen.dart';
 import '../mis_reportes_operador.dart';
 
 class MenuLateral extends StatelessWidget {
   final String nombreUsuario;
-  final String camion; 
+  final String camion;
   final String placas;
   final bool mostrarCerrarSesion;
 
   const MenuLateral({
     super.key,
     required this.nombreUsuario,
-    this.camion = "Sin asignar",
-    this.placas = "---",
+    this.camion = 'Sin asignar',
+    this.placas = '---',
     this.mostrarCerrarSesion = true,
   });
 
-  // Colores consistentes con tu interfaz
   static const _primary = Color(0xFF1E3A8A);
   static const _primary2 = Color(0xFF2563EB);
 
@@ -47,7 +45,7 @@ class MenuLateral extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      "Menú",
+                      'Menú',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 18,
@@ -67,7 +65,6 @@ class MenuLateral extends StatelessWidget {
             ),
           ),
 
-          // Opción de Mis Reportes
           ListTile(
             leading: const Icon(Icons.assignment_ind_rounded, color: Color(0xFF06B6D4)),
             title: const Text(
@@ -84,17 +81,15 @@ class MenuLateral extends StatelessWidget {
             },
           ),
 
-          // Botón de Cerrar Sesión (Si está activo)
           if (mostrarCerrarSesion)
             ListTile(
               leading: const Icon(Icons.logout_rounded, color: Colors.redAccent),
               title: const Text(
-                "Cerrar Sesión",
+                'Cerrar Sesión',
                 style: TextStyle(fontWeight: FontWeight.w700),
               ),
               onTap: () async {
                 await FirebaseAuth.instance.signOut();
-                
                 if (context.mounted) {
                   Navigator.of(context).pushAndRemoveUntil(
                     MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -108,7 +103,7 @@ class MenuLateral extends StatelessWidget {
           const Padding(
             padding: EdgeInsets.all(16),
             child: Text(
-              "Recicladora ",
+              'Recicladora ',
               style: TextStyle(color: Color(0xFF94A3B8)),
             ),
           ),
