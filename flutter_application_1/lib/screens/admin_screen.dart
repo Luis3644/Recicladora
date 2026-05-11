@@ -229,6 +229,7 @@ class _AdminScreenState extends State<AdminScreen>
   String nombreUsuario = '';
   bool isLoading = true;
   bool _avisoPrecaucionMostrado = false;
+  int _bottomNavIndex = 0;
 
   // ── Submenú Camiones ──────────────────────────────────────────────────────
   bool _camionesExpanded = false;
@@ -717,13 +718,10 @@ class _AdminScreenState extends State<AdminScreen>
 
   // ── Build ─────────────────────────────────────────────────────────────────
   @override
+  int get _contentIndex => _bottomNavIndex;
+
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 600;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth >= 600 && screenWidth < 1024;
-    final gridColumns = screenWidth >= 1300 ? 4 : (screenWidth >= 900 ? 3 : 2);
-    final optionCardAspectRatio =
-        isMobile ? 1.28 : (isTablet ? 1.12 : 1.03);
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -799,216 +797,579 @@ class _AdminScreenState extends State<AdminScreen>
                 ],
               ),
             )
-          : RefreshIndicator(
-              onRefresh: _recargarPanelAdmin,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                child: Padding(
-                  padding: EdgeInsets.all(isMobile ? 12 : 20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Bienvenida
-                      TweenAnimationBuilder<double>(
-                        tween: Tween(begin: 0, end: 1),
-                        duration: const Duration(milliseconds: 800),
-                        builder: (context, value, child) => Transform.translate(
-                          offset: Offset(0, 30 * (1 - value)),
-                          child: Opacity(opacity: value, child: child),
-                        ),
-                        child: Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                accentColor.withValues(alpha: 0.1),
-                                successColor.withValues(alpha: 0.05),
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(
-                              color: accentColor.withValues(alpha: 0.2),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: primaryColor.withValues(alpha: 0.08),
-                                blurRadius: 24,
-                                offset: const Offset(0, 12),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      accentColor.withValues(alpha: 0.2),
-                                      accentColor.withValues(alpha: 0.1),
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Icon(
-                                  Icons.workspace_premium_rounded,
-                                  color: accentColor,
-                                  size: 24,
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Listo para trabajar',
-                                      style: TextStyle(
-                                        fontSize: 17,
-                                        fontWeight: FontWeight.w700,
-                                        color: primaryColor,
-                                        letterSpacing: 0.3,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      'Accede a todas las herramientas de gestión',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.grey[600],
-                                        fontWeight: FontWeight.w400,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
+          : IndexedStack(
+              index: _contentIndex,
+              children: [
+                _buildInicioTab(isMobile),
+                _buildUsuariosTab(isMobile),
+                _buildReportesTab(isMobile),
+                _buildAjustesTab(isMobile),
+              ],
+            ),
+      bottomNavigationBar: isLoading ? null : _buildBottomNavigationBar(),
+    );
+  }
 
-                      // Botón Panel General
-                      _animatedButton(
-                        delay: 900,
-                        color: primaryColor,
-                        icon: Icons.groups_2_rounded,
-                        label: 'Panel General de Usuarios',
-                        tooltip:
-                            'Resumen de usuarios, altas, bajas y estado general del personal.',
-                        onPressed: _abrirPanelGeneralUsuarios,
-                      ),
-                      const SizedBox(height: 10),
+  Widget _buildInicioTab(bool isMobile) {
+    return RefreshIndicator(
+      onRefresh: _recargarPanelAdmin,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.fromLTRB(isMobile ? 12 : 20, 16, isMobile ? 12 : 20, 24),
+        children: [
+          _buildWelcomeBanner(),
+          const SizedBox(height: 16),
+          _sectionHeader('Acceso Rápido'),
+          const SizedBox(height: 16),
+          GridView.count(
+            crossAxisCount: isMobile ? 2 : 3,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: isMobile ? 0.92 : 1.0,
+            children: [
+              _dashboardShortcutCard(
+                title: 'Panel General\nde Usuarios',
+                subtitle: 'Ver y administrar usuarios',
+                icon: Icons.groups_2_rounded,
+                colors: const [Color(0xFF0F172A), Color(0xFF1E3A8A)],
+                accent: const Color(0xFF3B82F6),
+                onTap: _abrirPanelGeneralUsuarios,
+                compact: true,
+              ),
+              _dashboardShortcutCard(
+                title: 'Mapa General\nde Operadores',
+                subtitle: 'Ubicación y estado en tiempo real',
+                icon: Icons.map_rounded,
+                colors: const [Color(0xFF0F766E), Color(0xFF10B981)],
+                accent: const Color(0xFF14B8A6),
+                onTap: _abrirMapaGeneralOperadores,
+                compact: true,
+              ),
+              _dashboardShortcutCard(
+                title: 'Enviar\nNotificaciones',
+                subtitle: 'Alertas rápidas y efectivas',
+                icon: Icons.notifications_active_rounded,
+                colors: const [Color(0xFFF59E0B), Color(0xFFFB923C)],
+                accent: const Color(0xFFF97316),
+                onTap: _abrirNotificacionesAdmin,
+                compact: true,
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          _sectionHeader('Estado del Sistema'),
+          const SizedBox(height: 16),
+          _buildSystemStatsSection(),
+        ],
+      ),
+    );
+  }
 
-                      // Botón Mapa
-                      _animatedButton(
-                        delay: 980,
-                        color: successColor,
-                        icon: Icons.map_rounded,
-                        label: 'Mapa General de Operadores',
-                        tooltip:
-                            'Ubicación en tiempo real de operadores activos y su ruta actual.',
-                        onPressed: _abrirMapaGeneralOperadores,
-                      ),
-                      const SizedBox(height: 10),
+  Widget _buildUsuariosTab(bool isMobile) {
+    return RefreshIndicator(
+      onRefresh: _recargarPanelAdmin,
+      child: Column(
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(isMobile ? 12 : 20, 16, isMobile ? 12 : 20, 12),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: _sectionHeader('Usuarios'),
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(isMobile ? 12 : 20, 0, isMobile ? 12 : 20, 12),
+              child: _buildUsuariosPanelEmbed(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-                      // Botón Notificaciones
-                      _animatedButton(
-                        delay: 1020,
-                        color: warningColor,
-                        icon: Icons.notifications_active_rounded,
-                        label: 'Enviar Notificaciones',
-                        tooltip:
-                            'Envía avisos generales o alertas urgentes a los operadores.',
-                        onPressed: _abrirNotificacionesAdmin,
-                      ),
-                      const SizedBox(height: 28),
+  Widget _buildReportesTab(bool isMobile) {
+    return RefreshIndicator(
+      onRefresh: _recargarPanelAdmin,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.fromLTRB(isMobile ? 12 : 20, 16, isMobile ? 12 : 20, 24),
+        children: [
+          _sectionHeader('Reportes'),
+          const SizedBox(height: 16),
+          _buildReportOverviewCard(),
+          const SizedBox(height: 16),
+          GridView.count(
+            crossAxisCount: isMobile ? 2 : 3,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: isMobile ? 0.82 : 1.0,
+            children: [
+              _dashboardShortcutCard(
+                title: 'Reportes\nde Equipo',
+                subtitle: 'Faltantes y asignaciones',
+                icon: Icons.bar_chart_rounded,
+                colors: const [Color(0xFFF59E0B), Color(0xFFFB923C)],
+                accent: const Color(0xFFF97316),
+                onTap: _abrirReportes,
+                compact: true,
+              ),
+              _dashboardShortcutCard(
+                title: 'Reportes\nde Operadores',
+                subtitle: 'Incidentes y ruta',
+                icon: Icons.emergency_share_rounded,
+                colors: const [Color(0xFF2E1065), Color(0xFF7C3AED)],
+                accent: const Color(0xFFA855F7),
+                onTap: _abrirIncidentes,
+                compact: true,
+              ),
+              _dashboardShortcutCard(
+                title: 'Reporte de\nGasolina',
+                subtitle: 'Cargas y descarga',
+                icon: Icons.local_gas_station_rounded,
+                colors: const [Color(0xFF0F766E), Color(0xFF14B8A6)],
+                accent: const Color(0xFF14B8A6),
+                onTap: _abrirReporteGasolina,
+                compact: true,
+              ),
+              _dashboardShortcutCard(
+                title: 'Reporte de\nToneladas',
+                subtitle: 'Peso de entradas y salidas',
+                icon: Icons.scale_rounded,
+                colors: const [Color(0xFF1D4ED8), Color(0xFF60A5FA)],
+                accent: const Color(0xFF3B82F6),
+                onTap: _abrirReporteToneladas,
+                compact: true,
+              ),
+              _dashboardShortcutCard(
+                title: 'Reportes de\nCamiones',
+                subtitle: 'Incidentes de unidades',
+                icon: Icons.local_shipping_rounded,
+                colors: const [Color(0xFF0A0A0A), Color(0xFF7F1D1D)],
+                accent: const Color(0xFFDC2626),
+                onTap: _abrirReportesCamiones,
+                compact: true,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
-                      // Gestiones Principales
-                      _sectionHeader('Gestiones Principales'),
-                      const SizedBox(height: 16),
-                      GridView.count(
-                        crossAxisCount: gridColumns,
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        mainAxisSpacing: isMobile ? 10 : 12,
-                        crossAxisSpacing: isMobile ? 10 : 12,
-                        childAspectRatio: optionCardAspectRatio,
-                        children: [
-                          _AnimatedOptionCard(
-                            icon: Icons.people_alt_rounded,
-                            title: 'Usuarios',
-                            description:
-                                'Ver, editar, agregar y eliminar usuarios del sistema',
-                            onTap: _abrirUsuarios,
-                            color: const Color(0xFF2563EB),
-                            compact: isMobile,
-                          ),
-                          _AnimatedOptionCard(
-                            icon: Icons.bar_chart_rounded,
-                            title: 'Reportes de Equipo',
-                            description:
-                                'Faltantes y asignaciones de equipos',
-                            onTap: _abrirReportes,
-                            color: const Color(0xFF3B82F6),
-                            compact: isMobile,
-                          ),
-                          _AnimatedOptionCard(
-                            icon: Icons.emergency_share,
-                            title: 'Reportes de operadores',
-                            description:
-                                'Tráfico, averías y retrasos en ruta',
-                            onTap: _abrirIncidentes,
-                            color: const Color(0xFF60A5FA),
-                            compact: isMobile,
-                          ),
-                          _AnimatedOptionCard(
-                            icon: Icons.local_gas_station_rounded,
-                            title: 'Reporte de Gasolina',
-                            description:
-                                'Tabla de cargas y descarga en Excel',
-                            onTap: _abrirReporteGasolina,
-                            color: const Color(0xFFF59E0B),
-                            compact: isMobile,
-                          ),
-                          _AnimatedOptionCard(
-                            icon: Icons.scale_rounded,
-                            title: 'Reporte de Toneladas',
-                            description:
-                                'Apartado inicial para cargas de camiones',
-                            onTap: _abrirReporteToneladas,
-                            color: const Color(0xFF0F766E),
-                            compact: isMobile,
-                          ),
-                          _AnimatedOptionCard(
-                            icon: Icons.local_shipping_rounded,
-                            title: 'Reportes de Camiones',
-                            description:
-                                'Incidentes y averias de unidades',
-                            onTap: _abrirReportesCamiones,
-                            color: const Color(0xFF0EA5A4),
-                            compact: isMobile,
+  Widget _buildAjustesTab(bool isMobile) {
+    return RefreshIndicator(
+      onRefresh: _recargarPanelAdmin,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.fromLTRB(isMobile ? 12 : 20, 16, isMobile ? 12 : 20, 24),
+        children: [
+          _sectionHeader('Ajustes'),
+          const SizedBox(height: 16),
+          _buildDetailedInfoSection(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomNavigationBar() {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 18,
+            offset: Offset(0, -4),
+          ),
+        ],
+      ),
+      child: NavigationBar(
+        selectedIndex: _bottomNavIndex,
+        onDestinationSelected: (index) {
+          setState(() => _bottomNavIndex = index);
+        },
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        indicatorColor: const Color(0xFFDBEAFE),
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        height: 72,
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home_rounded),
+            label: 'Inicio',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.people_outline_rounded),
+            selectedIcon: Icon(Icons.people_rounded),
+            label: 'Usuarios',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.analytics_outlined),
+            selectedIcon: Icon(Icons.analytics_rounded),
+            label: 'Reportes',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings_rounded),
+            label: 'Ajustes',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUsuariosPanelEmbed() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0F172A).withValues(alpha: 0.08),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: const SizedBox.expand(
+        child: UsuariosScreen(),
+      ),
+    );
+  }
+
+  Widget _buildWelcomeBanner() {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 800),
+      builder: (context, value, child) => Transform.translate(
+        offset: Offset(0, 24 * (1 - value)),
+        child: Opacity(opacity: value, child: child),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              primaryColor.withValues(alpha: 0.98),
+              const Color(0xFF2563EB),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: primaryColor.withValues(alpha: 0.22),
+              blurRadius: 24,
+              offset: const Offset(0, 12),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(
+                Icons.workspace_premium_rounded,
+                color: Colors.white,
+                size: 26,
+              ),
+            ),
+            const SizedBox(width: 16),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Todo listo para gestionar',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  SizedBox(height: 6),
+                  Text(
+                    'Accede rápidamente a todas las herramientas de gestión y monitoreo.',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 13,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _dashboardShortcutCard({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required List<Color> colors,
+    required Color accent,
+    required VoidCallback onTap,
+    bool compact = false,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(24),
+        child: Container(
+          padding: EdgeInsets.all(compact ? 14 : 18),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: colors,
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: colors.last.withValues(alpha: 0.24),
+                blurRadius: 22,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                right: -8,
+                top: -8,
+                child: Icon(
+                  icon,
+                  size: compact ? 62 : 120,
+                  color: Colors.white.withValues(alpha: 0.08),
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(icon, color: Colors.white, size: compact ? 18 : 26),
+                  ),
+                  SizedBox(height: compact ? 8 : 18),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: compact ? 10.8 : 15,
+                      fontWeight: FontWeight.w800,
+                      height: 1.15,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.82),
+                      fontSize: compact ? 9.2 : 12,
+                      height: 1.2,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const Spacer(),
+                  Align(
+                    alignment: Alignment.bottomRight,
+                    child: Container(
+                      padding: EdgeInsets.all(compact ? 8 : 11),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 10,
+                            offset: const Offset(0, 6),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 32),
+                      child: Icon(
+                        Icons.arrow_forward_rounded,
+                        size: compact ? 13 : 18,
+                        color: accent,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-                      // Estado del Sistema
-                      _sectionHeader('Estado del Sistema'),
-                      const SizedBox(height: 16),
-                      _buildSystemStatsSection(),
-                      const SizedBox(height: 32),
+  Widget _buildReportOverviewCard() {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: _streamReportesEquipoPendientes(),
+      builder: (context, equipoSnapshot) {
+        return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: _streamIncidentesOperadores(),
+          builder: (context, incidentesSnapshot) {
+            return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: _streamReportesCamiones(),
+              builder: (context, camionesSnapshot) {
+                final reportesEquipoDocs = equipoSnapshot.data?.docs ??
+                    <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+                final incidentesOperadorDocs = incidentesSnapshot.data?.docs ??
+                    <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+                final reportesCamionesDocs = camionesSnapshot.data?.docs ??
+                    <QueryDocumentSnapshot<Map<String, dynamic>>>[];
 
-                      // Información detallada
-                      _buildDetailedInfoSection(),
-                      const SizedBox(height: 20),
+                final reportesEquipo = reportesEquipoDocs.length;
+                final incidentesOperador = incidentesOperadorDocs.length;
+                final reportesCamiones = reportesCamionesDocs.length;
+                final totalReportes =
+                    reportesEquipo + incidentesOperador + reportesCamiones;
+                final hoyEquipo = _contarReportesHoy(reportesEquipoDocs);
+                final hoyOperadores = _contarReportesHoy(incidentesOperadorDocs);
+                final hoyCamiones = _contarReportesHoy(reportesCamionesDocs);
+                final hoyTotal = hoyEquipo + hoyOperadores + hoyCamiones;
+
+                return Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        const Color(0xFF0F172A),
+                        const Color(0xFF1D4ED8).withValues(alpha: 0.88),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(22),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF0F172A).withValues(alpha: 0.12),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
                     ],
                   ),
-                ),
-              ),
-            ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: const Icon(
+                              Icons.analytics_rounded,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Total de Reportes',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  'Resumen general de reportes en tiempo real.',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 12.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        totalReportes.toString(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 30,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Hoy: $hoyTotal',
+                        style: const TextStyle(
+                          color: Color(0xFFDBEAFE),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          _buildMiniStatPill('Equipo', reportesEquipo, const Color(0xFF60A5FA)),
+                          _buildMiniStatPill('Operadores', incidentesOperador, const Color(0xFFA855F7)),
+                          _buildMiniStatPill('Camiones', reportesCamiones, const Color(0xFFF97316)),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildMiniStatPill(String label, int value, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: Text(
+        '$label: $value',
+        style: TextStyle(
+          color: color,
+          fontSize: 11.5,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
     );
   }
 
