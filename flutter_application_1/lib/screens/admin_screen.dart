@@ -394,6 +394,11 @@ class _AdminScreenState extends State<AdminScreen>
         ),
       );
 
+  void _abrirGestionCamiones() => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const GestionCamionesScreen()),
+      );
+
   void _abrirPanelGeneralUsuarios() => Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const PanelGeneralUsuariosScreen()),
@@ -856,6 +861,15 @@ class _AdminScreenState extends State<AdminScreen>
                 onTap: _abrirNotificacionesAdmin,
                 compact: true,
               ),
+              _dashboardShortcutCard(
+                title: 'Gestión\nde Camiones',
+                subtitle: 'Administrar flota y unidades',
+                icon: Icons.local_shipping_rounded,
+                colors: const [Color(0xFF991B1B), Color(0xFFDC2626)],
+                accent: const Color(0xFFF87171),
+                onTap: _abrirGestionCamiones,
+                compact: true,
+              ),
             ],
           ),
           const SizedBox(height: 24),
@@ -900,7 +914,49 @@ class _AdminScreenState extends State<AdminScreen>
           _sectionHeader('Reportes'),
           const SizedBox(height: 16),
           _buildReportOverviewCard(),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
+          GridView.count(
+            crossAxisCount: isMobile ? 2 : 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: isMobile ? 0.85 : 1.8,
+            children: [
+              _dashboardShortcutCard(
+                title: 'Reporte de\nGasolina',
+                subtitle: 'Cargas y descarga',
+                icon: Icons.local_gas_station_rounded,
+                colors: const [Color(0xFF0F766E), Color(0xFF14B8A6)],
+                accent: const Color(0xFF14B8A6),
+                onTap: _abrirReporteGasolina,
+                compact: false,
+              ),
+              _dashboardShortcutCard(
+                title: 'Reporte de\nMaterial',
+                subtitle: 'Peso de entradas y salidas',
+                icon: Icons.scale_rounded,
+                colors: const [Color(0xFF1D4ED8), Color(0xFF60A5FA)],
+                accent: const Color(0xFF3B82F6),
+                onTap: _abrirReporteToneladas,
+                compact: false,
+                showWatermark: false,
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          const Padding(
+            padding: EdgeInsets.only(left: 4),
+            child: Text(
+              'Otros Reportes',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF0F172A),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           GridView.count(
             crossAxisCount: isMobile ? 2 : 3,
             shrinkWrap: true,
@@ -925,24 +981,6 @@ class _AdminScreenState extends State<AdminScreen>
                 colors: const [Color(0xFF2E1065), Color(0xFF7C3AED)],
                 accent: const Color(0xFFA855F7),
                 onTap: _abrirIncidentes,
-                compact: true,
-              ),
-              _dashboardShortcutCard(
-                title: 'Reporte de\nGasolina',
-                subtitle: 'Cargas y descarga',
-                icon: Icons.local_gas_station_rounded,
-                colors: const [Color(0xFF0F766E), Color(0xFF14B8A6)],
-                accent: const Color(0xFF14B8A6),
-                onTap: _abrirReporteGasolina,
-                compact: true,
-              ),
-              _dashboardShortcutCard(
-                title: 'Reporte de\nToneladas',
-                subtitle: 'Peso de entradas y salidas',
-                icon: Icons.scale_rounded,
-                colors: const [Color(0xFF1D4ED8), Color(0xFF60A5FA)],
-                accent: const Color(0xFF3B82F6),
-                onTap: _abrirReporteToneladas,
                 compact: true,
               ),
               _dashboardShortcutCard(
@@ -1125,6 +1163,7 @@ class _AdminScreenState extends State<AdminScreen>
     required Color accent,
     required VoidCallback onTap,
     bool compact = false,
+    bool showWatermark = true,
   }) {
     return Material(
       color: Colors.transparent,
@@ -1150,15 +1189,16 @@ class _AdminScreenState extends State<AdminScreen>
           ),
           child: Stack(
             children: [
-              Positioned(
-                right: -8,
-                top: -8,
-                child: Icon(
-                  icon,
-                  size: compact ? 62 : 120,
-                  color: Colors.white.withValues(alpha: 0.08),
+              if (showWatermark)
+                Positioned(
+                  right: -8,
+                  top: -8,
+                  child: Icon(
+                    icon,
+                    size: compact ? 62 : 120,
+                    color: Colors.white.withValues(alpha: 0.08),
+                  ),
                 ),
-              ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.start,
