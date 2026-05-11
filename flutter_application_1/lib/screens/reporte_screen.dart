@@ -184,7 +184,7 @@ class _ReporteScreenState extends State<ReporteScreen> {
                 // ── Fotos ────────────────────────────────────────
                 _Label(text: 'Fotos del incidente'),
                 const SizedBox(height: 4),
-                Text('Opcional — máximo 3 fotos',
+                Text('',
                     style: TextStyle(color: _C.textSub, fontSize: 12)),
                 const SizedBox(height: 12),
                 _PhotoArea(
@@ -202,7 +202,7 @@ class _ReporteScreenState extends State<ReporteScreen> {
                 // ── Nota final ───────────────────────────────────
                 Center(
                   child: Text(
-                    'El reporte llega de inmediato al administrador',
+                    '',
                     style: TextStyle(color: _C.textSub, fontSize: 12),
                   ),
                 ),
@@ -361,7 +361,7 @@ class _InfoBanner extends StatelessWidget {
         Expanded(
           child: Text(
             'Tu reporte llegará inmediatamente al administrador. '
-            'Sé claro y específico para que puedan ayudarte más rápido.',
+            '',
             style: TextStyle(
                 color: _C.navyMid, fontSize: 12, height: 1.5,
                 fontWeight: FontWeight.w500),
@@ -400,7 +400,7 @@ class _DescField extends StatelessWidget {
       style: const TextStyle(color: _C.text, fontSize: 14, height: 1.6),
       cursorColor: _C.blue,
       decoration: InputDecoration(
-        hintText: 'Ej: Falla en frenos, llanta ponchada, aceite derramado...',
+        hintText: 'Escribe a qui...',
         hintStyle: TextStyle(color: _C.textSub.withOpacity(0.7), fontSize: 13),
         filled: true,
         fillColor: _C.surface,
