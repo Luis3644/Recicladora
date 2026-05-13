@@ -62,8 +62,7 @@ class _MapaGeneralOperadoresScreenState
     super.dispose();
   }
 
-    String get _tileUrl =>
-      'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+  String get _tileUrl => 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 
   Color _colorOperador(String operadorId) {
     const palette = [
@@ -318,17 +317,9 @@ class _MapaGeneralOperadoresScreenState
                 .where('gps_activo', isEqualTo: true)
                 .snapshots(),
             builder: (context, snapshot) {
-              if (snapshot.hasError) {
-                return const Center(
-                  child: Text('Error cargando posiciones de operadores'),
-                );
-              }
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(
-                  child: CircularProgressIndicator(color: _accent),
-                );
-              }
-
+              final isLoading =
+                  snapshot.connectionState == ConnectionState.waiting;
+              final hasError = snapshot.hasError;
               final docs = snapshot.data?.docs ?? [];
               final operadores = <_OperadorActivo>[];
               final tracked = <Map<String, String>>[];
@@ -434,7 +425,7 @@ class _MapaGeneralOperadoresScreenState
 
               _actualizarSeguimiento(operadores);
 
-              return Column(
+              final child = Column(
                 children: [
                   AnimatedOpacity(
                     opacity: _contentVisible ? 1 : 0,
@@ -542,6 +533,7 @@ class _MapaGeneralOperadoresScreenState
                           ),
                           child: FlutterMap(
                             mapController: _mapController,
+                           
                             options: MapOptions(
                               initialCenter: _fallbackCenter,
                               initialZoom: 14.6,
@@ -559,7 +551,8 @@ class _MapaGeneralOperadoresScreenState
                                 urlTemplate: _tileUrl,
                                 userAgentPackageName:
                                     'com.recicladora.guadalajara',
-                                subdomains: const ['a', 'b', 'c', 'd'],
+                                subdomains: const ['a', 'b', 'c'],
+
                                 tileDisplay: const TileDisplay.fadeIn(
                                   duration: Duration(milliseconds: 180),
                                 ),
@@ -568,7 +561,7 @@ class _MapaGeneralOperadoresScreenState
                               RichAttributionWidget(
                                 attributions: [
                                   TextSourceAttribution(
-                                    '© OpenStreetMap contributors © CARTO',
+                                    '© OpenStreetMap contributors',
                                   ),
                                 ],
                               ),
@@ -696,6 +689,33 @@ class _MapaGeneralOperadoresScreenState
                       },
                     ),
                   ),
+                ],
+              );
+
+              return Stack(
+                children: [
+                  child,
+                  if (hasError)
+                    Positioned.fill(
+                      child: Container(
+                        color: Colors.black.withOpacity(0.35),
+                        child: const Center(
+                          child: Text(
+                            'Error cargando posiciones de operadores',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (isLoading)
+                    Positioned.fill(
+                      child: Container(
+                        color: Colors.black.withOpacity(0.18),
+                        child: const Center(
+                          child: CircularProgressIndicator(color: _accent),
+                        ),
+                      ),
+                    ),
                 ],
               );
             },

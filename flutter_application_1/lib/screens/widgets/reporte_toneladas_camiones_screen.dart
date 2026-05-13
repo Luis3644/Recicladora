@@ -21,12 +21,14 @@ class ReporteToneladasAdminScreen extends StatefulWidget {
       _ReporteToneladasAdminScreenState();
 }
 
-
 class _EditarRegistroToneladasDialog extends StatefulWidget {
   final String docId;
   final Map<String, dynamic> datos;
 
-  const _EditarRegistroToneladasDialog({required this.docId, required this.datos});
+  const _EditarRegistroToneladasDialog({
+    required this.docId,
+    required this.datos,
+  });
 
   @override
   State<_EditarRegistroToneladasDialog> createState() =>
@@ -49,13 +51,21 @@ class _EditarRegistroToneladasDialogState
     super.initState();
     final d = widget.datos;
     _folioCtrl = TextEditingController(text: d['folio']?.toString() ?? '');
-    _operadorCtrl = TextEditingController(text: d['operador']?.toString() ?? '');
-    _productoCtrl = TextEditingController(text: d['producto']?.toString() ?? '');
-    _pesoEntradaCtrl =
-        TextEditingController(text: d['peso_entrada']?.toString() ?? '');
-    _pesoSalidaCtrl =
-        TextEditingController(text: d['peso_salida']?.toString() ?? '');
-    _pesoNetoCtrl = TextEditingController(text: d['peso_neto']?.toString() ?? '');
+    _operadorCtrl = TextEditingController(
+      text: d['operador']?.toString() ?? '',
+    );
+    _productoCtrl = TextEditingController(
+      text: d['producto']?.toString() ?? '',
+    );
+    _pesoEntradaCtrl = TextEditingController(
+      text: d['peso_entrada']?.toString() ?? '',
+    );
+    _pesoSalidaCtrl = TextEditingController(
+      text: d['peso_salida']?.toString() ?? '',
+    );
+    _pesoNetoCtrl = TextEditingController(
+      text: d['peso_neto']?.toString() ?? '',
+    );
   }
 
   @override
@@ -91,26 +101,26 @@ class _EditarRegistroToneladasDialogState
           .collection('registros_toneladas')
           .doc(widget.docId)
           .set({
-        'folio': folio,
-        'operador': operador,
-        'producto': producto,
-        'peso_entrada': pesoEntrada,
-        'peso_salida': pesoSalida,
-        'peso_neto': pesoNeto,
-        'admin_editado_en': FieldValue.serverTimestamp(),
-        'admin_editado': true,
-      }, SetOptions(merge: true));
+            'folio': folio,
+            'operador': operador,
+            'producto': producto,
+            'peso_entrada': pesoEntrada,
+            'peso_salida': pesoSalida,
+            'peso_neto': pesoNeto,
+            'admin_editado_en': FieldValue.serverTimestamp(),
+            'admin_editado': true,
+          }, SetOptions(merge: true));
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Registro actualizado.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Registro actualizado.')));
       Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al guardar: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error al guardar: $e')));
     } finally {
       if (mounted) setState(() => _guardando = false);
     }
@@ -130,26 +140,56 @@ class _EditarRegistroToneladasDialogState
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 12),
-            TextField(controller: _folioCtrl, decoration: const InputDecoration(labelText: 'Folio')),
+            TextField(
+              controller: _folioCtrl,
+              decoration: const InputDecoration(labelText: 'Folio'),
+            ),
             const SizedBox(height: 8),
-            TextField(controller: _operadorCtrl, decoration: const InputDecoration(labelText: 'Operador')),
+            TextField(
+              controller: _operadorCtrl,
+              decoration: const InputDecoration(labelText: 'Operador'),
+            ),
             const SizedBox(height: 8),
-            TextField(controller: _productoCtrl, decoration: const InputDecoration(labelText: 'Producto')),
+            TextField(
+              controller: _productoCtrl,
+              decoration: const InputDecoration(labelText: 'Producto'),
+            ),
             const SizedBox(height: 8),
-            TextField(controller: _pesoEntradaCtrl, decoration: const InputDecoration(labelText: 'Peso Entrada'), keyboardType: TextInputType.number),
+            TextField(
+              controller: _pesoEntradaCtrl,
+              decoration: const InputDecoration(labelText: 'Peso Entrada'),
+              keyboardType: TextInputType.number,
+            ),
             const SizedBox(height: 8),
-            TextField(controller: _pesoSalidaCtrl, decoration: const InputDecoration(labelText: 'Peso Salida'), keyboardType: TextInputType.number),
+            TextField(
+              controller: _pesoSalidaCtrl,
+              decoration: const InputDecoration(labelText: 'Peso Salida'),
+              keyboardType: TextInputType.number,
+            ),
             const SizedBox(height: 8),
-            TextField(controller: _pesoNetoCtrl, decoration: const InputDecoration(labelText: 'Peso Neto'), keyboardType: TextInputType.number),
+            TextField(
+              controller: _pesoNetoCtrl,
+              decoration: const InputDecoration(labelText: 'Peso Neto'),
+              keyboardType: TextInputType.number,
+            ),
             const SizedBox(height: 14),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancelar'),
+                ),
                 const SizedBox(width: 8),
                 FilledButton.icon(
                   onPressed: _guardando ? null : _guardar,
-                  icon: _guardando ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.save_rounded),
+                  icon: _guardando
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.save_rounded),
                   label: Text(_guardando ? 'Guardando' : 'Guardar'),
                 ),
               ],
@@ -197,7 +237,8 @@ class _ReporteToneladasAdminScreenState
 
   Directory _directorioDescargasEscritorio() {
     if (Platform.isWindows) {
-      final base = Platform.environment['USERPROFILE'] ?? Directory.current.path;
+      final base =
+          Platform.environment['USERPROFILE'] ?? Directory.current.path;
       return Directory('$base\Downloads');
     }
 
@@ -236,7 +277,9 @@ class _ReporteToneladasAdminScreenState
       }
       final sheet = excel['Toneladas'];
 
-      final otrasHojas = excel.tables.keys.where((name) => name != 'Toneladas').toList();
+      final otrasHojas = excel.tables.keys
+          .where((name) => name != 'Toneladas')
+          .toList();
       for (final hoja in otrasHojas) {
         excel.delete(hoja);
       }
@@ -256,7 +299,9 @@ class _ReporteToneladasAdminScreenState
           ex.TextCellValue(_valorTexto(data['folio'])),
           ex.TextCellValue(_valorTexto(data['operador'])),
           ex.TextCellValue(_valorTexto(data['producto'])),
-          ex.TextCellValue(NumberFormat('#,###').format(data['peso_neto'] ?? 0)),
+          ex.TextCellValue(
+            NumberFormat('#,###').format(data['peso_neto'] ?? 0),
+          ),
         ]);
       }
 
@@ -268,7 +313,8 @@ class _ReporteToneladasAdminScreenState
           'reporte_toneladas_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx';
 
       final esEscritorio =
-          !kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
+          !kIsWeb &&
+          (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
 
       if (kIsWeb) {
         await downloadFile(
@@ -283,7 +329,9 @@ class _ReporteToneladasAdminScreenState
         return;
       }
 
-      final dir = esEscritorio ? _directorioDescargasEscritorio() : Directory.systemTemp;
+      final dir = esEscritorio
+          ? _directorioDescargasEscritorio()
+          : Directory.systemTemp;
 
       if (!dir.existsSync()) {
         dir.createSync(recursive: true);
@@ -304,9 +352,139 @@ class _ReporteToneladasAdminScreenState
       }
     } catch (e) {
       if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error al exportar: $e')));
+    } finally {
+      if (mounted) {
+        setState(() => _exportando = false);
+      }
+    }
+  }
+
+  Future<void> _exportarPDF(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
+  ) async {
+    if (docs.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al exportar: $e')),
+        const SnackBar(content: Text('No hay registros para exportar.')),
       );
+      return;
+    }
+
+    setState(() => _exportando = true);
+
+    try {
+      final pdf = pw.Document();
+
+      for (final doc in docs) {
+        final datos = doc.data();
+
+        pdf.addPage(
+          pw.Page(
+            pageFormat: PdfPageFormat.a4,
+            build: (pw.Context context) {
+              return pw.Container(
+                padding: const pw.EdgeInsets.all(30),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Text(
+                          "Recicladora Guadalajara",
+                          style: pw.TextStyle(
+                            fontSize: 22,
+                            fontWeight: pw.FontWeight.bold,
+                            color: PdfColors.teal,
+                          ),
+                        ),
+                        pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.end,
+                          children: [
+                            pw.Text(
+                              "PAPELETA DE ENTRADA",
+                              style: pw.TextStyle(
+                                fontWeight: pw.FontWeight.bold,
+                              ),
+                            ),
+                            pw.Text(
+                              "Folio: ${datos['folio']}",
+                              style: pw.TextStyle(
+                                color: PdfColors.red,
+                                fontSize: 18,
+                                fontWeight: pw.FontWeight.bold,
+                              ),
+                            ),
+                            pw.Text("Fecha: ${datos['fecha_texto']}"),
+                          ],
+                        ),
+                      ],
+                    ),
+                    pw.SizedBox(height: 10),
+                    pw.Divider(thickness: 1.5),
+                    pw.SizedBox(height: 20),
+                    pw.Text(
+                      "DATOS DEL TRANSPORTE",
+                      style: pw.TextStyle(
+                        fontWeight: pw.FontWeight.bold,
+                        decoration: pw.TextDecoration.underline,
+                      ),
+                    ),
+                    pw.SizedBox(height: 10),
+                    _filaPDF("CONDUCTOR:", datos['operador'] ?? ''),
+                    _filaPDF("CAMIÓN:", datos['camion'] ?? ''),
+                    _filaPDF("PLACAS:", datos['placas'] ?? ''),
+                    _filaPDF("PRODUCTO:", datos['producto'] ?? ''),
+                    pw.SizedBox(height: 30),
+                    pw.Container(
+                      padding: const pw.EdgeInsets.all(10),
+                      decoration: pw.BoxDecoration(
+                        border: pw.Border.all(color: PdfColors.grey),
+                      ),
+                      child: pw.Column(
+                        children: [
+                          _filaPeso(
+                            "PESO ENTRADA:",
+                            "${datos['peso_entrada']} Kg",
+                          ),
+                          _filaPeso(
+                            "PESO SALIDA:",
+                            "${datos['peso_salida']} Kg",
+                          ),
+                          pw.Divider(),
+                          _filaPeso(
+                            "TOTAL NETO:",
+                            "${datos['peso_neto']} Kg",
+                            resaltar: true,
+                          ),
+                        ],
+                      ),
+                    ),
+                    pw.Spacer(),
+                    pw.Center(
+                      child: pw.Column(
+                        children: [
+                          pw.Container(width: 200, child: pw.Divider()),
+                          pw.Text("FIRMA DE RECEPCIÓN"),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      }
+
+      await Printing.layoutPdf(onLayout: (format) async => pdf.save());
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error al exportar PDF: $e')));
     } finally {
       if (mounted) {
         setState(() => _exportando = false);
@@ -406,18 +584,15 @@ class _ReporteToneladasAdminScreenState
     final fin = _fechaFin == null ? null : _soloFecha(_fechaFin!);
 
     if (inicio != null) {
-      query = query.where(
-        'fecha_registro',
-        isGreaterThanOrEqualTo: inicio,
-      );
+      query = query.where('fecha_registro', isGreaterThanOrEqualTo: inicio);
     }
 
     if (fin != null) {
       query = query.where(
         'fecha_registro',
-        isLessThanOrEqualTo: fin.add(const Duration(days: 1)).subtract(
-          const Duration(milliseconds: 1),
-        ),
+        isLessThanOrEqualTo: fin
+            .add(const Duration(days: 1))
+            .subtract(const Duration(milliseconds: 1)),
       );
     }
 
@@ -611,46 +786,102 @@ class _ReporteToneladasAdminScreenState
                         setState(() => operadorSeleccionado = val),
                   ),
                   const SizedBox(height: 12),
-                  FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: _bluePrimary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    onPressed: _exportando
-                        ? null
-                        : () async {
-                            try {
-                              final snap = await _queryFiltrada().get();
-                              final docs = snap.docs
-                                  .cast<QueryDocumentSnapshot<
-                                      Map<String, dynamic>>>()
-                                  .toList();
-                              await _exportarExcel(docs);
-                            } catch (e) {
-                              if (!mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Error: $e')),
-                              );
-                            }
-                          },
-                    icon: _exportando
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: _bluePrimary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
                             ),
-                          )
-                        : const Icon(Icons.download_rounded),
-                    label: Text(_exportando ? 'Exportando' : 'Excel'),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          onPressed: _exportando
+                              ? null
+                              : () async {
+                                  try {
+                                    final snap = await _queryFiltrada().get();
+                                    final docs = snap.docs
+                                        .cast<
+                                          QueryDocumentSnapshot<
+                                            Map<String, dynamic>
+                                          >
+                                        >()
+                                        .toList();
+                                    await _exportarExcel(docs);
+                                  } catch (e) {
+                                    if (!mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Error: $e')),
+                                    );
+                                  }
+                                },
+                          icon: _exportando
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(Icons.download_rounded),
+                          label: Text(_exportando ? 'Exportando' : 'Excel'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFFD32F2F),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          onPressed: _exportando
+                              ? null
+                              : () async {
+                                  try {
+                                    final snap = await _queryFiltrada().get();
+                                    final docs = snap.docs
+                                        .cast<
+                                          QueryDocumentSnapshot<
+                                            Map<String, dynamic>
+                                          >
+                                        >()
+                                        .toList();
+                                    await _exportarPDF(docs);
+                                  } catch (e) {
+                                    if (!mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Error: $e')),
+                                    );
+                                  }
+                                },
+                          icon: _exportando
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(Icons.picture_as_pdf_rounded),
+                          label: Text(_exportando ? 'Exportando' : 'PDF'),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   Align(
@@ -690,7 +921,8 @@ class _ReporteToneladasAdminScreenState
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             OutlinedButton.icon(
-                              onPressed: () => _seleccionarFecha(esInicio: true),
+                              onPressed: () =>
+                                  _seleccionarFecha(esInicio: true),
                               icon: const Icon(Icons.date_range_rounded),
                               label: Text(
                                 'Inicio: ${_formatearFecha(_fechaInicio)}',
@@ -710,7 +942,8 @@ class _ReporteToneladasAdminScreenState
                               ),
                             ),
                             OutlinedButton.icon(
-                              onPressed: () => _seleccionarFecha(esInicio: false),
+                              onPressed: () =>
+                                  _seleccionarFecha(esInicio: false),
                               icon: const Icon(Icons.event_available_rounded),
                               label: Text('Fin: ${_formatearFecha(_fechaFin)}'),
                               style: OutlinedButton.styleFrom(
@@ -867,19 +1100,14 @@ class _ReporteToneladasAdminScreenState
                                   ),
                                   DataColumn(
                                     label: Text(
-                                      'PAPELETA',
-                                      style: TextStyle(color: Colors.white),
-                                    ),
-                                  ),
-                                  DataColumn(
-                                    label: Text(
                                       'EDITAR',
                                       style: TextStyle(color: Colors.white),
                                     ),
                                   ),
                                 ],
                                 rows: docs.map((doc) {
-                                      final data = doc.data() as Map<String, dynamic>;
+                                  final data =
+                                      doc.data() as Map<String, dynamic>;
                                   return DataRow(
                                     cells: [
                                       DataCell(Text(data['fecha_texto'] ?? '')),
@@ -895,32 +1123,22 @@ class _ReporteToneladasAdminScreenState
                                       ),
                                       DataCell(
                                         IconButton(
-                                          tooltip: 'Generar papeleta PDF',
-                                          icon: const Icon(
-                                            Icons.picture_as_pdf,
-                                            color: Color(0xFFDC2626),
-                                          ),
-                                          onPressed: () =>
-                                              _generarPapeletaPDF(data),
-                                        ),
-                                      ),
-                                          DataCell(
-                                            IconButton(
-                                              tooltip: 'Editar registro',
-                                              icon: const Icon(Icons.edit_rounded),
-                                              onPressed: () async {
-                                                await showDialog<void>(
-                                                  context: context,
-                                                  builder: (_) => _EditarRegistroToneladasDialog(
+                                          tooltip: 'Editar registro',
+                                          icon: const Icon(Icons.edit_rounded),
+                                          onPressed: () async {
+                                            await showDialog<void>(
+                                              context: context,
+                                              builder: (_) =>
+                                                  _EditarRegistroToneladasDialog(
                                                     docId: doc.id,
                                                     datos: data,
                                                   ),
-                                                );
-                                                // refresh operators list in case name changed
-                                                _cargarOperadores();
-                                              },
-                                            ),
-                                          ),
+                                            );
+                                            // refresh operators list in case name changed
+                                            _cargarOperadores();
+                                          },
+                                        ),
+                                      ),
                                     ],
                                   );
                                 }).toList(),
@@ -1042,9 +1260,6 @@ class _ReporteToneladasAdminScreenState
 
     await Printing.layoutPdf(onLayout: (format) async => pdf.save());
   }
-
-
-
 
   pw.Widget _filaPDF(String label, String valor) {
     return pw.Padding(

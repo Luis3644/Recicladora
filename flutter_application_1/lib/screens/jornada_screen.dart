@@ -15,6 +15,8 @@ import 'widgets_conexion/connection_wrapper.dart';
 import 'widgets/menu_lateral.dart';
 import 'widgets/notificaciones_drawer.dart';
 import '../widgets/jornada_bottom_bar.dart';
+import 'registro_origen_screen.dart';
+import 'registro_toneladas_screen.dart';
 
 
 
@@ -136,7 +138,7 @@ void _mostrarSeleccionEntradaMaterial() {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Header
+            // --- ENCABEZADO (Diseño Azul) ---
             Container(
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
@@ -187,16 +189,26 @@ void _mostrarSeleccionEntradaMaterial() {
               ),
             ),
 
-            // Opciones
+            // --- CUERPO (Opciones de selección) ---
             Padding(
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  // Dentro
+                  
+                  // OPCIÓN 1: DENTRO (Registro de Toneladas Normal)
                   GestureDetector(
                     onTap: () {
-                      Navigator.pop(context);
-                      _abrirRegistroToneladas(); // ← tu método original
+                      Navigator.pop(context); // Cierra el modal
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => RegistroToneladasScreen(
+                            operador: widget.operador,
+                            camion:   widget.camion,
+                            placas:   widget.placas,
+                          ),
+                        ),
+                      );
                     },
                     child: Container(
                       padding: const EdgeInsets.all(16),
@@ -229,7 +241,7 @@ void _mostrarSeleccionEntradaMaterial() {
                                         fontWeight: FontWeight.w800,
                                         color: Color(0xFF0F172A))),
                                 SizedBox(height: 3),
-                                Text('El material entra directamente a las instalaciones.',
+                                Text('El material entra directamente a planta.',
                                     style: TextStyle(
                                         fontSize: 12,
                                         color: Color(0xFF64748B))),
@@ -242,15 +254,23 @@ void _mostrarSeleccionEntradaMaterial() {
                       ),
                     ),
                   ),
+                  
                   const SizedBox(height: 12),
-                  // Fuera
+
+                  // OPCIÓN 2: FUERA (Pantalla Externa Nueva)
                   GestureDetector(
                     onTap: () {
-                      // 1. Cerramos el diálogo de selección
-                      Navigator.pop(context); 
-                      
-                      // 2. Abrimos el registro que ya tienes programado
-                      _abrirRegistroToneladas(); 
+                      Navigator.pop(context); // Cierra el modal
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => RegistroOrigenScreen(
+                            operador: widget.operador,
+                            camion:   widget.camion,
+                            placas:   widget.placas,
+                          ),
+                        ),
+                      );
                     },
                     child: Container(
                       padding: const EdgeInsets.all(16),
@@ -283,7 +303,7 @@ void _mostrarSeleccionEntradaMaterial() {
                                         fontWeight: FontWeight.w800,
                                         color: Color(0xFF0F172A))),
                                 SizedBox(height: 3),
-                                Text('Saldrás a recoger material fuera de las instalaciones.',
+                                Text('Saldrás a recoger material externo.',
                                     style: TextStyle(
                                         fontSize: 12,
                                         color: Color(0xFF64748B))),
@@ -296,7 +316,10 @@ void _mostrarSeleccionEntradaMaterial() {
                       ),
                     ),
                   ),
+
                   const SizedBox(height: 8),
+
+                  // BOTÓN CANCELAR
                   TextButton(
                     onPressed: () => Navigator.pop(context),
                     child: const Text('Cancelar',
@@ -311,10 +334,6 @@ void _mostrarSeleccionEntradaMaterial() {
     ),
   );
 }
-
-
-
-
 
 
   Future<void> _abrirRegistroToneladas() async {
@@ -3464,385 +3483,6 @@ class _SwipeToConfirmButtonState extends State<_SwipeToConfirmButton> {
   }
 }
 
-class RegistroToneladasScreen extends StatefulWidget {
-  final String operador;
-  final String camion;
-  final String placas;
-
-  const RegistroToneladasScreen({
-    super.key,
-    required this.operador,
-    required this.camion,
-    required this.placas,
-  });
-
-  @override
-  State<RegistroToneladasScreen> createState() =>
-      _RegistroToneladasScreenState();
-}
-
-class _RegistroToneladasScreenState extends State<RegistroToneladasScreen> {
-  // Controladores para los campos que llena el operador
-  final TextEditingController _folioController = TextEditingController();
-  final TextEditingController _entradaController = TextEditingController();
-  final TextEditingController _salidaController = TextEditingController();
-
-  String? _productoSeleccionado;
-  double _pesoNeto = 0.0;
-
-  // Capturamos la fecha y hora al momento de abrir el registro
-  final String _fechaHoraActual = DateFormat(
-    'dd/MM/yyyy HH:mm:ss',
-  ).format(DateTime.now());
-
-  // Lista de productos solicitada
-  final List<String> _productos = [
-    'VG20',
-    'NX',
-    'SISMO SUCIO',
-    'NO RECICLABLE',
-    'CONTAMINADO',
-    'MIXTO SECURY',
-    'LAMINADO GLASS',
-  ];
-
-  // Función para guardar en Firebase
-  Future<void> _guardarEnFirebase() async {
-    // Validar que los campos no estén vacíos
-    if (_folioController.text.isEmpty ||
-        _productoSeleccionado == null ||
-        _entradaController.text.isEmpty ||
-        _salidaController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Por favor llena todos los campos (Folio, Producto y Pesos)',
-          ),
-        ),
-      );
-      return;
-    }
-
-    try {
-      // Mostrar círculo de carga (Loading)
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(color: Color(0xFF0F766E)),
-        ),
-      );
-
-      // Guardar en la colección 'registros_toneladas'
-      await FirebaseFirestore.instance.collection('registros_toneladas').add({
-        'folio': _folioController.text,
-        'operador': widget.operador,
-        'camion': widget.camion,
-        'placas': widget.placas,
-        'producto': _productoSeleccionado,
-        'peso_entrada': double.tryParse(_entradaController.text) ?? 0.0,
-        'peso_salida': double.tryParse(_salidaController.text) ?? 0.0,
-        'peso_neto': _pesoNeto,
-        'fecha_registro':
-            FieldValue.serverTimestamp(), // Para filtros de Admin precisos
-        'fecha_texto': _fechaHoraActual,
-      });
-
-      if (!mounted) return;
-      Navigator.pop(context); // Quitar círculo de carga
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          backgroundColor: Colors.green,
-          content: Text('Registro guardado exitosamente'),
-        ),
-      );
-
-      Navigator.pop(context); // Regresar a la pantalla anterior o Admin screen
-    } catch (e) {
-      if (!mounted) return;
-      Navigator.pop(context); // Quitar círculo de carga
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: Colors.red,
-          content: Text('Error al guardar en base de datos: $e'),
-        ),
-      );
-    }
-  }
-
-  void _calcularNeto() {
-    double entrada = double.tryParse(_entradaController.text) ?? 0.0;
-    double salida = double.tryParse(_salidaController.text) ?? 0.0;
-    setState(() {
-      // Cálculo automático del peso neto (valor absoluto para evitar negativos)
-      _pesoNeto = (entrada - salida).abs();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF4F7FB),
-      appBar: AppBar(
-        title: const Text(
-          'Registro de Carga',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: const Color(0xFF0F766E),
-        foregroundColor: Colors.white,
-        centerTitle: true,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // --- BLOQUE DE INFORMACIÓN DEL VEHÍCULO Y OPERADOR ---
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.blueGrey.shade100),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 5,
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  _buildFilaInfo("OPERADOR", widget.operador),
-                  _buildFilaInfo("CAMIÓN", widget.camion),
-                  _buildFilaInfo("PLACAS", widget.placas),
-                  _buildFilaInfo("FECHA/HORA", _fechaHoraActual),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // --- CAMPO DE FOLIO (MANUAL) ---
-            const Text(
-              " FOLIO DE PAPELETA",
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1E293B),
-              ),
-            ),
-            const SizedBox(height: 5),
-            TextField(
-              controller: _folioController,
-              keyboardType: TextInputType.number,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              decoration: InputDecoration(
-                hintText: "Ingrese el Folio",
-                filled: true,
-                fillColor: Colors.white,
-                prefixIcon: const Icon(Icons.numbers),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // --- SELECTOR DE PRODUCTO ---
-            const Text(
-              " TIPO DE PRODUCTO",
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1E293B),
-              ),
-            ),
-            const SizedBox(height: 5),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.grey.shade400),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: _productoSeleccionado,
-                  hint: const Text("Seleccione el producto"),
-                  isExpanded: true,
-                  icon: const Icon(
-                    Icons.arrow_drop_down_circle,
-                    color: Color(0xFF0F766E),
-                  ),
-                  items: _productos.map((String value) {
-                    return DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(
-                        value,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                  onChanged: (nuevoValor) =>
-                      setState(() => _productoSeleccionado = nuevoValor),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // --- PESOS ENTRADA Y SALIDA ---
-            Row(
-              children: [
-                Expanded(
-                  child: _buildInputPeso(
-                    "PESO ENTRADA (KG)",
-                    _entradaController,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _buildInputPeso("PESO SALIDA (KG)", _salidaController),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 20),
-
-            // --- PESO NETO AUTOMÁTICO ---
-            Container(
-              padding: const EdgeInsets.all(15),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF0FDF4),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.green.shade700, width: 2),
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    "PESO NETO CALCULADO",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green.shade800,
-                    ),
-                  ),
-                  Text(
-                    "${NumberFormat('#,###.##').format(_pesoNeto)} Kg",
-                    style: const TextStyle(
-                      fontSize: 42,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF166534),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // --- BOTÓN DE GUARDAR ---
-            SizedBox(
-              height: 60,
-              child: FilledButton.icon(
-                onPressed: _guardarEnFirebase,
-                icon: const Icon(Icons.cloud_upload),
-                label: const Text(
-                  "GUARDAR REGISTRO",
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF0F766E),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 4,
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 10),
-
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text(
-                "Cancelar",
-                style: TextStyle(color: Colors.grey, fontSize: 16),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFilaInfo(String label, String valor) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        children: [
-          Text(
-            "$label: ",
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-              color: Colors.blueGrey,
-            ),
-          ),
-          Expanded(
-            child: Text(
-              valor,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-                color: Colors.black87,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInputPeso(String etiqueta, TextEditingController controller) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          etiqueta,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 12,
-            color: Color(0xFF475569),
-          ),
-        ),
-        const SizedBox(height: 5),
-        TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: Colors.white,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 15,
-            ),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Color(0xFF0F766E), width: 2),
-            ),
-          ),
-          onChanged: (value) => _calcularNeto(),
-        ),
-      ],
-    );
-  }
-}
 
 
 
