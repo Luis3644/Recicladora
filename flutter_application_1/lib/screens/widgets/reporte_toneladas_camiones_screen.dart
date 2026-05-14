@@ -13,6 +13,13 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../utils/download_file.dart';
 
+// ─── Paleta ───────────────────────────────────────────────────────────────────
+const _kBlue    = Color(0xFF1D4ED8);
+const _kBlue2   = Color(0xFF2563EB);
+const _kBg      = Color(0xFFF1F6FF);
+const _kDanger  = Color(0xFFDC2626);
+const _kDangerBg= Color(0xFFFEF2F2);
+
 class ReporteToneladasAdminScreen extends StatefulWidget {
   const ReporteToneladasAdminScreen({super.key});
 
@@ -21,106 +28,72 @@ class ReporteToneladasAdminScreen extends StatefulWidget {
       _ReporteToneladasAdminScreenState();
 }
 
-class _EditarRegistroToneladasDialog extends StatefulWidget {
+// ─── Diálogo editar ───────────────────────────────────────────────────────────
+class _EditarDialog extends StatefulWidget {
   final String docId;
   final Map<String, dynamic> datos;
-
-  const _EditarRegistroToneladasDialog({
-    required this.docId,
-    required this.datos,
-  });
+  const _EditarDialog({required this.docId, required this.datos});
 
   @override
-  State<_EditarRegistroToneladasDialog> createState() =>
-      _EditarRegistroToneladasDialogState();
+  State<_EditarDialog> createState() => _EditarDialogState();
 }
 
-class _EditarRegistroToneladasDialogState
-    extends State<_EditarRegistroToneladasDialog> {
-  late final TextEditingController _folioCtrl;
-  late final TextEditingController _operadorCtrl;
-  late final TextEditingController _productoCtrl;
-  late final TextEditingController _pesoEntradaCtrl;
-  late final TextEditingController _pesoSalidaCtrl;
-  late final TextEditingController _pesoNetoCtrl;
-
+class _EditarDialogState extends State<_EditarDialog> {
+  late final TextEditingController _folio;
+  late final TextEditingController _operador;
+  late final TextEditingController _producto;
+  late final TextEditingController _entrada;
+  late final TextEditingController _salida;
+  late final TextEditingController _neto;
   bool _guardando = false;
 
   @override
   void initState() {
     super.initState();
     final d = widget.datos;
-    _folioCtrl = TextEditingController(text: d['folio']?.toString() ?? '');
-    _operadorCtrl = TextEditingController(
-      text: d['operador']?.toString() ?? '',
-    );
-    _productoCtrl = TextEditingController(
-      text: d['producto']?.toString() ?? '',
-    );
-    _pesoEntradaCtrl = TextEditingController(
-      text: d['peso_entrada']?.toString() ?? '',
-    );
-    _pesoSalidaCtrl = TextEditingController(
-      text: d['peso_salida']?.toString() ?? '',
-    );
-    _pesoNetoCtrl = TextEditingController(
-      text: d['peso_neto']?.toString() ?? '',
-    );
+    _folio    = TextEditingController(text: d['folio']?.toString()        ?? '');
+    _operador = TextEditingController(text: d['operador']?.toString()     ?? '');
+    _producto = TextEditingController(text: d['producto']?.toString()     ?? '');
+    _entrada  = TextEditingController(text: d['peso_entrada']?.toString() ?? '');
+    _salida   = TextEditingController(text: d['peso_salida']?.toString()  ?? '');
+    _neto     = TextEditingController(text: d['peso_neto']?.toString()    ?? '');
   }
 
   @override
   void dispose() {
-    _folioCtrl.dispose();
-    _operadorCtrl.dispose();
-    _productoCtrl.dispose();
-    _pesoEntradaCtrl.dispose();
-    _pesoSalidaCtrl.dispose();
-    _pesoNetoCtrl.dispose();
+    for (final c in [_folio,_operador,_producto,_entrada,_salida,_neto]) c.dispose();
     super.dispose();
   }
 
   Future<void> _guardar() async {
-    final folio = _folioCtrl.text.trim();
-    final operador = _operadorCtrl.text.trim();
-    final producto = _productoCtrl.text.trim();
-    final pesoEntrada = double.tryParse(_pesoEntradaCtrl.text.trim()) ?? 0;
-    final pesoSalida = double.tryParse(_pesoSalidaCtrl.text.trim()) ?? 0;
-    final pesoNeto = double.tryParse(_pesoNetoCtrl.text.trim()) ?? 0;
-
-    if (folio.isEmpty || operador.isEmpty) {
+    if (_folio.text.trim().isEmpty || _operador.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Folio y operador son obligatorios.')),
-      );
+          const SnackBar(content: Text('Folio y operador son obligatorios.')));
       return;
     }
-
     setState(() => _guardando = true);
-
     try {
       await FirebaseFirestore.instance
           .collection('registros_toneladas')
           .doc(widget.docId)
           .set({
-            'folio': folio,
-            'operador': operador,
-            'producto': producto,
-            'peso_entrada': pesoEntrada,
-            'peso_salida': pesoSalida,
-            'peso_neto': pesoNeto,
-            'admin_editado_en': FieldValue.serverTimestamp(),
-            'admin_editado': true,
-          }, SetOptions(merge: true));
-
+        'folio'          : _folio.text.trim(),
+        'operador'       : _operador.text.trim(),
+        'producto'       : _producto.text.trim(),
+        'peso_entrada'   : double.tryParse(_entrada.text.trim()) ?? 0,
+        'peso_salida'    : double.tryParse(_salida.text.trim())  ?? 0,
+        'peso_neto'      : double.tryParse(_neto.text.trim())    ?? 0,
+        'admin_editado'  : true,
+        'admin_editado_en': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Registro actualizado.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Registro actualizado.')));
       Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error al guardar: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')));
     } finally {
       if (mounted) setState(() => _guardando = false);
     }
@@ -129,71 +102,54 @@ class _EditarRegistroToneladasDialogState
   @override
   Widget build(BuildContext context) {
     return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              'Editar registro',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _folioCtrl,
-              decoration: const InputDecoration(labelText: 'Folio'),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _operadorCtrl,
-              decoration: const InputDecoration(labelText: 'Operador'),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _productoCtrl,
-              decoration: const InputDecoration(labelText: 'Producto'),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _pesoEntradaCtrl,
-              decoration: const InputDecoration(labelText: 'Peso Entrada'),
-              keyboardType: TextInputType.number,
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _pesoSalidaCtrl,
-              decoration: const InputDecoration(labelText: 'Peso Salida'),
-              keyboardType: TextInputType.number,
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _pesoNetoCtrl,
-              decoration: const InputDecoration(labelText: 'Peso Neto'),
-              keyboardType: TextInputType.number,
-            ),
+            const Text('Editar registro',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
             const SizedBox(height: 14),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cancelar'),
+            for (final entry in [
+              ['Folio', _folio, TextInputType.text],
+              ['Operador', _operador, TextInputType.text],
+              ['Producto', _producto, TextInputType.text],
+              ['Peso Entrada', _entrada, TextInputType.number],
+              ['Peso Salida',  _salida,  TextInputType.number],
+              ['Peso Neto',    _neto,    TextInputType.number],
+            ]) ...[
+              TextField(
+                controller: entry[1] as TextEditingController,
+                keyboardType: entry[2] as TextInputType,
+                decoration: InputDecoration(
+                  labelText: entry[0] as String,
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 10),
                 ),
-                const SizedBox(width: 8),
-                FilledButton.icon(
-                  onPressed: _guardando ? null : _guardar,
-                  icon: _guardando
-                      ? const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.save_rounded),
-                  label: Text(_guardando ? 'Guardando' : 'Guardar'),
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 8),
+            ],
+            const SizedBox(height: 4),
+            Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancelar'),
+              ),
+              const SizedBox(width: 8),
+              FilledButton.icon(
+                style: FilledButton.styleFrom(backgroundColor: _kBlue),
+                onPressed: _guardando ? null : _guardar,
+                icon: _guardando
+                    ? const SizedBox(width: 14, height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.save_rounded, size: 16),
+                label: Text(_guardando ? 'Guardando…' : 'Guardar'),
+              ),
+            ]),
           ],
         ),
       ),
@@ -201,88 +157,197 @@ class _EditarRegistroToneladasDialogState
   }
 }
 
+// ─── Screen principal ─────────────────────────────────────────────────────────
 class _ReporteToneladasAdminScreenState
     extends State<ReporteToneladasAdminScreen> {
-  String filtroTiempo = 'Todos';
-  String? operadorSeleccionado = 'Todos';
-  List<String> listaOperadores = ['Todos'];
+
+  // ── CAMBIO 1: default = 'Día' (muestra hoy) ──────────────────────────────
+  String _filtroTiempo        = 'Día';
+  String? _operadorSeleccionado = 'Todos';
+  List<String> _operadores    = ['Todos'];
   DateTime? _fechaInicio;
   DateTime? _fechaFin;
-  bool _exportando = false;
+  bool _exportando            = false;
 
-  static const Color _bluePrimary = Color(0xFF1D4ED8);
-  static const Color _blueSecondary = Color(0xFF2563EB);
-  static const Color _bgColor = Color(0xFFF1F6FF);
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  DateTime _soloFecha(DateTime f) => DateTime(f.year, f.month, f.day);
 
-  DateTime _soloFecha(DateTime fecha) {
-    return DateTime(fecha.year, fecha.month, fecha.day);
+  String _fmtFecha(DateTime? f) =>
+      f == null ? '--/--/----' : DateFormat('dd/MM/yyyy').format(f);
+
+  String _mensajeDescarga() {
+    if (kIsWeb) return 'El archivo Excel se descarga en la carpeta del navegador.';
+    if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS))
+      return 'El archivo Excel se guarda en la carpeta Downloads.';
+    return 'En móvil se abre el selector para compartir el archivo.';
   }
 
-  String _formatearFecha(DateTime? fecha) {
-    if (fecha == null) return '--/--/----';
-    return DateFormat('dd/MM/yyyy').format(fecha);
-  }
-
-  String _mensajeDescargaPorPlataforma() {
-    if (kIsWeb) {
-      return 'En web, el archivo Excel se descarga en la carpeta predeterminada del navegador.';
-    }
-
-    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-      return 'En computadora, el archivo Excel se guarda en la carpeta Downloads.';
-    }
-
-    return 'En movil, al exportar se abre el selector para compartir el archivo Excel.';
-  }
-
-  Directory _directorioDescargasEscritorio() {
+  Directory _downloadsDir() {
     if (Platform.isWindows) {
-      final base =
-          Platform.environment['USERPROFILE'] ?? Directory.current.path;
-      return Directory('$base\Downloads');
+      final base = Platform.environment['USERPROFILE'] ?? Directory.current.path;
+      return Directory('$base\\Downloads');
     }
-
     final base = Platform.environment['HOME'] ?? Directory.current.path;
     return Directory('$base/Downloads');
   }
 
-  String _valorTexto(dynamic value) {
-    if (value == null) return '';
-    return value.toString();
+  // ── CAMBIO 2: selector de operador como BottomSheet ───────────────────────
+  Future<void> _mostrarSelectorOperador() async {
+    final sel = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _OperadorBottomSheet(
+        operadores     : _operadores,
+        seleccionado   : _operadorSeleccionado ?? 'Todos',
+      ),
+    );
+    if (sel != null) setState(() => _operadorSeleccionado = sel);
   }
 
-  Future<void> _exportarExcel(
-    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
-  ) async {
-    if (docs.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No hay registros para exportar.')),
-      );
-      return;
+  // ── Cargar operadores ─────────────────────────────────────────────────────
+  Future<void> _cargarOperadores() async {
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('registros_toneladas').get();
+      final nombres = snap.docs
+          .map((d) => d['operador'].toString())
+          .where((n) => n.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
+      setState(() => _operadores = ['Todos', ...nombres]);
+    } catch (e) {
+      debugPrint('Error cargando operadores: $e');
+    }
+  }
+
+  // ── Query filtrada ────────────────────────────────────────────────────────
+  Query _query() {
+    Query q = FirebaseFirestore.instance.collection('registros_toneladas');
+
+    if (_operadorSeleccionado != null && _operadorSeleccionado != 'Todos') {
+      q = q.where('operador', isEqualTo: _operadorSeleccionado);
     }
 
-    setState(() => _exportando = true);
+    final ini = _fechaInicio == null ? null : _soloFecha(_fechaInicio!);
+    final fin = _fechaFin    == null ? null : _soloFecha(_fechaFin!);
+    if (ini != null) q = q.where('fecha_registro', isGreaterThanOrEqualTo: ini);
+    if (fin != null) q = q.where('fecha_registro',
+        isLessThanOrEqualTo: fin.add(const Duration(days: 1))
+            .subtract(const Duration(milliseconds: 1)));
+
+    final ahora = DateTime.now();
+    DateTime? limite;
+    if (_filtroTiempo == 'Día')    limite = DateTime(ahora.year, ahora.month, ahora.day);
+    if (_filtroTiempo == 'Semana') limite = ahora.subtract(Duration(days: ahora.weekday - 1));
+    if (_filtroTiempo == 'Mes')    limite = DateTime(ahora.year, ahora.month, 1);
+    if (_filtroTiempo == 'Año')    limite = DateTime(ahora.year, 1, 1);
+    if (limite != null) q = q.where('fecha_registro', isGreaterThanOrEqualTo: limite);
+
+    return q.orderBy('fecha_registro', descending: true);
+  }
+
+  // ── CAMBIO 3: Eliminar con confirmación ───────────────────────────────────
+  Future<void> _eliminar(String docId, String folio) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                  color: _kDangerBg, shape: BoxShape.circle),
+              child: const Icon(Icons.delete_outline_rounded,
+                  color: _kDanger, size: 30),
+            ),
+            const SizedBox(height: 14),
+            Text('Eliminar folio "$folio"',
+                style: const TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.w800),
+                textAlign: TextAlign.center),
+            const SizedBox(height: 8),
+            const Text('Esta acción no se puede deshacer.',
+                style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
+                textAlign: TextAlign.center),
+            const SizedBox(height: 20),
+            Row(children: [
+              Expanded(
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF64748B),
+                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Cancelar'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _kDanger,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('Eliminar',
+                      style: TextStyle(fontWeight: FontWeight.w700)),
+                ),
+              ),
+            ]),
+          ]),
+        ),
+      ),
+    ) ?? false;
+
+    if (!ok) return;
 
     try {
+      await FirebaseFirestore.instance
+          .collection('registros_toneladas')
+          .doc(docId)
+          .delete();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('Registro eliminado'),
+          backgroundColor: _kDanger,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ));
+        _cargarOperadores();
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al eliminar: $e')));
+    }
+  }
+
+  // ── Export Excel ──────────────────────────────────────────────────────────
+  Future<void> _exportarExcel(
+      List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) async {
+    if (docs.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No hay registros para exportar.')));
+      return;
+    }
+    setState(() => _exportando = true);
+    try {
       final excel = ex.Excel.createExcel();
-      final nombresHojas = excel.tables.keys.toList();
-
-      if (nombresHojas.isEmpty) {
-        throw Exception('No se pudo inicializar la hoja de Excel.');
-      }
-
-      final hojaBase = nombresHojas.first;
-      if (hojaBase != 'Toneladas') {
-        excel.rename(hojaBase, 'Toneladas');
-      }
+      final base  = excel.tables.keys.first;
+      if (base != 'Toneladas') excel.rename(base, 'Toneladas');
       final sheet = excel['Toneladas'];
-
-      final otrasHojas = excel.tables.keys
-          .where((name) => name != 'Toneladas')
-          .toList();
-      for (final hoja in otrasHojas) {
-        excel.delete(hoja);
-      }
+      for (final h in excel.tables.keys.where((n) => n != 'Toneladas').toList())
+        excel.delete(h);
 
       sheet.appendRow([
         ex.TextCellValue('FECHA'),
@@ -291,256 +356,195 @@ class _ReporteToneladasAdminScreenState
         ex.TextCellValue('PRODUCTO'),
         ex.TextCellValue('NETO (KG)'),
       ]);
-
       for (final doc in docs) {
-        final data = doc.data();
+        final d = doc.data();
         sheet.appendRow([
-          ex.TextCellValue(_valorTexto(data['fecha_texto'])),
-          ex.TextCellValue(_valorTexto(data['folio'])),
-          ex.TextCellValue(_valorTexto(data['operador'])),
-          ex.TextCellValue(_valorTexto(data['producto'])),
-          ex.TextCellValue(
-            NumberFormat('#,###').format(data['peso_neto'] ?? 0),
-          ),
+          ex.TextCellValue(d['fecha_texto']?.toString() ?? ''),
+          ex.TextCellValue(d['folio']?.toString()       ?? ''),
+          ex.TextCellValue(d['operador']?.toString()    ?? ''),
+          ex.TextCellValue(d['producto']?.toString()    ?? ''),
+          ex.TextCellValue(NumberFormat('#,###').format(d['peso_neto'] ?? 0)),
         ]);
       }
-
       final bytes = excel.encode();
       if (bytes == null) throw Exception('No se pudo generar el archivo.');
-      final excelBytes = bytes is List<int> ? bytes : List<int>.from(bytes);
-
       final nombre =
           'reporte_toneladas_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx';
-
-      final esEscritorio =
-          !kIsWeb &&
+      final esEscritorio = !kIsWeb &&
           (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
 
       if (kIsWeb) {
-        await downloadFile(
-          Uint8List.fromList(excelBytes),
-          nombre,
-          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        );
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Archivo Excel descargado.')),
-        );
+        await downloadFile(Uint8List.fromList(bytes), nombre,
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Archivo Excel descargado.')));
         return;
       }
-
-      final dir = esEscritorio
-          ? _directorioDescargasEscritorio()
-          : Directory.systemTemp;
-
-      if (!dir.existsSync()) {
-        dir.createSync(recursive: true);
-      }
-
+      final dir = esEscritorio ? _downloadsDir() : Directory.systemTemp;
+      if (!dir.existsSync()) dir.createSync(recursive: true);
       final file = File('${dir.path}/$nombre');
-      await file.writeAsBytes(excelBytes, flush: true);
-
+      await file.writeAsBytes(List<int>.from(bytes), flush: true);
       if (esEscritorio) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Archivo Excel guardado en: ${file.path}')),
-        );
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Guardado en: ${file.path}')));
       } else {
-        await Share.shareXFiles([
-          XFile(file.path),
-        ], text: 'Reporte de toneladas');
+        await Share.shareXFiles([XFile(file.path)], text: 'Reporte de toneladas');
       }
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error al exportar: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al exportar: $e')));
     } finally {
-      if (mounted) {
-        setState(() => _exportando = false);
-      }
+      if (mounted) setState(() => _exportando = false);
     }
   }
 
+  // ── Export PDF ────────────────────────────────────────────────────────────
   Future<void> _exportarPDF(
-    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
-  ) async {
+      List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) async {
     if (docs.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No hay registros para exportar.')),
-      );
+          const SnackBar(content: Text('No hay registros para exportar.')));
       return;
     }
-
     setState(() => _exportando = true);
-
     try {
       final pdf = pw.Document();
-
       for (final doc in docs) {
-        final datos = doc.data();
-
-        pdf.addPage(
-          pw.Page(
-            pageFormat: PdfPageFormat.a4,
-            build: (pw.Context context) {
-              return pw.Container(
-                padding: const pw.EdgeInsets.all(30),
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+        final d = doc.data();
+        pdf.addPage(pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          build: (ctx) => pw.Container(
+            padding: const pw.EdgeInsets.all(30),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
-                    pw.Row(
-                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                      children: [
-                        pw.Text(
-                          "Recicladora Guadalajara",
-                          style: pw.TextStyle(
-                            fontSize: 22,
+                    pw.Text('Recicladora Guadalajara',
+                        style: pw.TextStyle(fontSize: 22,
                             fontWeight: pw.FontWeight.bold,
-                            color: PdfColors.teal,
-                          ),
-                        ),
-                        pw.Column(
-                          crossAxisAlignment: pw.CrossAxisAlignment.end,
-                          children: [
-                            pw.Text(
-                              "PAPELETA DE ENTRADA",
-                              style: pw.TextStyle(
-                                fontWeight: pw.FontWeight.bold,
-                              ),
-                            ),
-                            pw.Text(
-                              "Folio: ${datos['folio']}",
-                              style: pw.TextStyle(
-                                color: PdfColors.red,
-                                fontSize: 18,
-                                fontWeight: pw.FontWeight.bold,
-                              ),
-                            ),
-                            pw.Text("Fecha: ${datos['fecha_texto']}"),
-                          ],
-                        ),
-                      ],
-                    ),
-                    pw.SizedBox(height: 10),
-                    pw.Divider(thickness: 1.5),
-                    pw.SizedBox(height: 20),
-                    pw.Text(
-                      "DATOS DEL TRANSPORTE",
-                      style: pw.TextStyle(
-                        fontWeight: pw.FontWeight.bold,
-                        decoration: pw.TextDecoration.underline,
-                      ),
-                    ),
-                    pw.SizedBox(height: 10),
-                    _filaPDF("CONDUCTOR:", datos['operador'] ?? ''),
-                    _filaPDF("CAMIÓN:", datos['camion'] ?? ''),
-                    _filaPDF("PLACAS:", datos['placas'] ?? ''),
-                    _filaPDF("PRODUCTO:", datos['producto'] ?? ''),
-                    pw.SizedBox(height: 30),
-                    pw.Container(
-                      padding: const pw.EdgeInsets.all(10),
-                      decoration: pw.BoxDecoration(
-                        border: pw.Border.all(color: PdfColors.grey),
-                      ),
-                      child: pw.Column(
+                            color: PdfColors.teal)),
+                    pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end,
                         children: [
-                          _filaPeso(
-                            "PESO ENTRADA:",
-                            "${datos['peso_entrada']} Kg",
-                          ),
-                          _filaPeso(
-                            "PESO SALIDA:",
-                            "${datos['peso_salida']} Kg",
-                          ),
-                          pw.Divider(),
-                          _filaPeso(
-                            "TOTAL NETO:",
-                            "${datos['peso_neto']} Kg",
-                            resaltar: true,
-                          ),
-                        ],
-                      ),
-                    ),
-                    pw.Spacer(),
-                    pw.Center(
-                      child: pw.Column(
-                        children: [
-                          pw.Container(width: 200, child: pw.Divider()),
-                          pw.Text("FIRMA DE RECEPCIÓN"),
-                        ],
-                      ),
-                    ),
+                          pw.Text('PAPELETA DE ENTRADA',
+                              style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                          pw.Text('Folio: ${d['folio']}',
+                              style: pw.TextStyle(color: PdfColors.red,
+                                  fontSize: 18, fontWeight: pw.FontWeight.bold)),
+                          pw.Text('Fecha: ${d['fecha_texto']}'),
+                        ]),
                   ],
                 ),
-              );
-            },
+                pw.SizedBox(height: 10),
+                pw.Divider(thickness: 1.5),
+                pw.SizedBox(height: 20),
+                pw.Text('DATOS DEL TRANSPORTE',
+                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold,
+                        decoration: pw.TextDecoration.underline)),
+                pw.SizedBox(height: 10),
+                _rowPDF('CONDUCTOR:', d['operador'] ?? ''),
+                _rowPDF('CAMIÓN:',    d['camion']   ?? ''),
+                _rowPDF('PLACAS:',    d['placas']   ?? ''),
+                _rowPDF('PRODUCTO:',  d['producto'] ?? ''),
+                pw.SizedBox(height: 30),
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(10),
+                  decoration: pw.BoxDecoration(
+                      border: pw.Border.all(color: PdfColors.grey)),
+                  child: pw.Column(children: [
+                    _rowPeso('PESO ENTRADA:', '${d['peso_entrada']} Kg'),
+                    _rowPeso('PESO SALIDA:',  '${d['peso_salida']} Kg'),
+                    pw.Divider(),
+                    _rowPeso('TOTAL NETO:', '${d['peso_neto']} Kg', bold: true),
+                  ]),
+                ),
+                pw.Spacer(),
+                pw.Center(child: pw.Column(children: [
+                  pw.Container(width: 200, child: pw.Divider()),
+                  pw.Text('FIRMA DE RECEPCIÓN'),
+                ])),
+              ],
+            ),
           ),
-        );
+        ));
       }
-
-      await Printing.layoutPdf(onLayout: (format) async => pdf.save());
+      await Printing.layoutPdf(onLayout: (_) async => pdf.save());
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error al exportar PDF: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error PDF: $e')));
     } finally {
-      if (mounted) {
-        setState(() => _exportando = false);
-      }
+      if (mounted) setState(() => _exportando = false);
     }
   }
 
-  Future<void> _seleccionarFecha({required bool esInicio}) async {
-    final ahora = DateTime.now();
-    final fechaInicial = esInicio
-        ? (_fechaInicio ?? _fechaFin ?? ahora)
-        : (_fechaFin ?? _fechaInicio ?? ahora);
-    final primeraFecha = esInicio
-        ? DateTime(2020)
-        : (_fechaInicio != null ? _soloFecha(_fechaInicio!) : DateTime(2020));
-    final ultimaFecha = esInicio
-        ? (_fechaFin != null ? _soloFecha(_fechaFin!) : ahora)
-        : ahora;
+  pw.Widget _rowPDF(String label, String val) => pw.Padding(
+        padding: const pw.EdgeInsets.symmetric(vertical: 4),
+        child: pw.Row(children: [
+          pw.Text(label,
+              style: pw.TextStyle(
+                  fontWeight: pw.FontWeight.bold, fontSize: 12)),
+          pw.SizedBox(width: 5),
+          pw.Text(val, style: const pw.TextStyle(fontSize: 12)),
+        ]),
+      );
 
+  pw.Widget _rowPeso(String label, String val, {bool bold = false}) =>
+      pw.Padding(
+        padding: const pw.EdgeInsets.symmetric(vertical: 5),
+        child: pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
+            pw.Text(label,
+                style: pw.TextStyle(
+                    fontWeight: bold
+                        ? pw.FontWeight.bold
+                        : pw.FontWeight.normal,
+                    fontSize: bold ? 16 : 12)),
+            pw.Text(val,
+                style: pw.TextStyle(
+                    fontWeight: pw.FontWeight.bold,
+                    fontSize: bold ? 18 : 12,
+                    color: bold ? PdfColors.red : PdfColors.black)),
+          ],
+        ),
+      );
+
+  // ── Selector fecha ────────────────────────────────────────────────────────
+  Future<void> _pickFecha({required bool esInicio}) async {
+    final ahora = DateTime.now();
     final picked = await showDatePicker(
       context: context,
-      initialDate: _soloFecha(fechaInicial),
-      firstDate: primeraFecha,
-      lastDate: ultimaFecha,
+      initialDate: _soloFecha(esInicio
+          ? (_fechaInicio ?? _fechaFin ?? ahora)
+          : (_fechaFin   ?? _fechaInicio ?? ahora)),
+      firstDate: esInicio
+          ? DateTime(2020)
+          : (_fechaInicio != null ? _soloFecha(_fechaInicio!) : DateTime(2020)),
+      lastDate: esInicio
+          ? (_fechaFin != null ? _soloFecha(_fechaFin!) : ahora)
+          : ahora,
       locale: const Locale('es', 'MX'),
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
           colorScheme: const ColorScheme.light(
-            primary: _bluePrimary,
+            primary: _kBlue,
             onPrimary: Colors.white,
             surface: Colors.white,
-            onSurface: _bluePrimary,
+            onSurface: _kBlue,
           ),
         ),
         child: child!,
       ),
     );
-
     if (picked == null) return;
-
     setState(() {
       if (esInicio) {
         _fechaInicio = _soloFecha(picked);
-        if (_fechaFin != null && _fechaFin!.isBefore(_fechaInicio!)) {
-          _fechaFin = null;
-        }
+        if (_fechaFin != null && _fechaFin!.isBefore(_fechaInicio!)) _fechaFin = null;
       } else {
         _fechaFin = _soloFecha(picked);
       }
-    });
-  }
-
-  void _limpiarRangoFechas() {
-    setState(() {
-      _fechaInicio = null;
-      _fechaFin = null;
     });
   }
 
@@ -550,94 +554,22 @@ class _ReporteToneladasAdminScreenState
     _cargarOperadores();
   }
 
-  // 1. CARGAR OPERADORES DESDE LA BASE DE DATOS
-  Future<void> _cargarOperadores() async {
-    try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('registros_toneladas')
-          .get();
-      // Extraemos nombres únicos de los registros existentes
-      final nombres = snapshot.docs
-          .map((doc) => doc['operador'].toString())
-          .where((n) => n.isNotEmpty)
-          .toSet()
-          .toList();
-
-      setState(() {
-        listaOperadores = ['Todos', ...nombres];
-      });
-    } catch (e) {
-      debugPrint("Error al cargar operadores: $e");
-    }
-  }
-
-  // 2. LÓGICA DE FILTRADO PARA EL STREAM
-  Query _queryFiltrada() {
-    Query query = FirebaseFirestore.instance.collection('registros_toneladas');
-
-    // Filtro por nombre
-    if (operadorSeleccionado != null && operadorSeleccionado != 'Todos') {
-      query = query.where('operador', isEqualTo: operadorSeleccionado);
-    }
-
-    final inicio = _fechaInicio == null ? null : _soloFecha(_fechaInicio!);
-    final fin = _fechaFin == null ? null : _soloFecha(_fechaFin!);
-
-    if (inicio != null) {
-      query = query.where('fecha_registro', isGreaterThanOrEqualTo: inicio);
-    }
-
-    if (fin != null) {
-      query = query.where(
-        'fecha_registro',
-        isLessThanOrEqualTo: fin
-            .add(const Duration(days: 1))
-            .subtract(const Duration(milliseconds: 1)),
-      );
-    }
-
-    // Filtro por tiempo
-    DateTime ahora = DateTime.now();
-    DateTime? fechaLimite;
-
-    if (filtroTiempo == 'Día') {
-      fechaLimite = DateTime(ahora.year, ahora.month, ahora.day);
-    } else if (filtroTiempo == 'Semana') {
-      fechaLimite = ahora.subtract(Duration(days: ahora.weekday - 1));
-    } else if (filtroTiempo == 'Mes') {
-      fechaLimite = DateTime(ahora.year, ahora.month, 1);
-    } else if (filtroTiempo == 'Año') {
-      fechaLimite = DateTime(ahora.year, 1, 1);
-    }
-
-    if (fechaLimite != null) {
-      query = query.where(
-        'fecha_registro',
-        isGreaterThanOrEqualTo: fechaLimite,
-      );
-    }
-
-    // Ordenar por fecha (descendente)
-    return query.orderBy('fecha_registro', descending: true);
-  }
-
+  // ── BUILD ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bgColor,
+      backgroundColor: _kBg,
       appBar: AppBar(
-        toolbarHeight: 74,
-        title: const Text(
-          'Reporte de Toneladas',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: _bluePrimary,
+        toolbarHeight: 64,
+        title: const Text('Reporte de Toneladas',
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: _kBlue,
         foregroundColor: Colors.white,
         elevation: 0,
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [_bluePrimary, _blueSecondary],
+              colors: [_kBlue, _kBlue2],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -646,660 +578,577 @@ class _ReporteToneladasAdminScreenState
       ),
       body: Padding(
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
-        child: Column(
-          children: [
-            TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: 1),
-              duration: const Duration(milliseconds: 420),
-              curve: Curves.easeOutCubic,
-              builder: (context, value, child) {
-                return Transform.translate(
-                  offset: Offset(0, 18 * (1 - value)),
-                  child: Opacity(opacity: value, child: child),
-                );
-              },
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [_bluePrimary, Color(0xFF06B6D4)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(18),
-                  boxShadow: [
-                    BoxShadow(
-                      color: _bluePrimary.withValues(alpha: 0.25),
-                      blurRadius: 18,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
+        child: Column(children: [
+          // ── Banner ──────────────────────────────────────────────────
+          _Banner(),
+          const SizedBox(height: 12),
+
+          // ── Panel de filtros ─────────────────────────────────────────
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFBFDBFE)),
+              boxShadow: const [
+                BoxShadow(color: Color(0x12000000),
+                    blurRadius: 12, offset: Offset(0, 4)),
+              ],
+            ),
+            child: Column(children: [
+              // Chips de periodo
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
                 child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(11),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(12),
+                  children: ['Día', 'Semana', 'Mes', 'Año', 'Todos'].map((t) {
+                    final sel = _filtroTiempo == t;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(t),
+                        selected: sel,
+                        selectedColor: _kBlue,
+                        backgroundColor: const Color(0xFFEFF6FF),
+                        labelStyle: TextStyle(
+                          color: sel ? Colors.white : _kBlue,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        side: BorderSide(color: _kBlue.withOpacity(0.22)),
+                        onSelected: (_) => setState(() => _filtroTiempo = t),
                       ),
-                      child: const Icon(
-                        Icons.scale_rounded,
-                        color: Colors.white,
-                        size: 22,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Panel de Control de Toneladas',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 15,
-                            ),
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            'Consulta y genera papeletas administrativas.',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w500,
-                              fontSize: 12.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                    );
+                  }).toList(),
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFBFDBFE)),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x14000000),
-                    blurRadius: 12,
-                    offset: Offset(0, 4),
+              const SizedBox(height: 12),
+
+              // ── CAMBIO 2: botón que abre BottomSheet de operadores ───
+              GestureDetector(
+                onTap: _mostrarSelectorOperador,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 13),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFBFDBFE)),
                   ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: ['Día', 'Semana', 'Mes', 'Año', 'Todos'].map((
-                        t,
-                      ) {
-                        final seleccionado = filtroTiempo == t;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: ChoiceChip(
-                            label: Text(t),
-                            selected: seleccionado,
-                            selectedColor: _bluePrimary,
-                            backgroundColor: const Color(0xFFEFF6FF),
-                            labelStyle: TextStyle(
-                              color: seleccionado ? Colors.white : _bluePrimary,
-                              fontWeight: FontWeight.w700,
-                            ),
-                            side: BorderSide(
-                              color: _bluePrimary.withValues(alpha: 0.22),
-                            ),
-                            onSelected: (val) =>
-                                setState(() => filtroTiempo = t),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    value: operadorSeleccionado,
-                    decoration: InputDecoration(
-                      labelText: 'Filtrar por Operador',
-                      prefixIcon: const Icon(Icons.person_rounded),
-                      filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Color(0xFFBFDBFE)),
-                      ),
-                    ),
-                    items: listaOperadores
-                        .map(
-                          (op) => DropdownMenuItem(value: op, child: Text(op)),
-                        )
-                        .toList(),
-                    onChanged: (val) =>
-                        setState(() => operadorSeleccionado = val),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FilledButton.icon(
-                          style: FilledButton.styleFrom(
-                            backgroundColor: _bluePrimary,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 12,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          onPressed: _exportando
-                              ? null
-                              : () async {
-                                  try {
-                                    final snap = await _queryFiltrada().get();
-                                    final docs = snap.docs
-                                        .cast<
-                                          QueryDocumentSnapshot<
-                                            Map<String, dynamic>
-                                          >
-                                        >()
-                                        .toList();
-                                    await _exportarExcel(docs);
-                                  } catch (e) {
-                                    if (!mounted) return;
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Error: $e')),
-                                    );
-                                  }
-                                },
-                          icon: _exportando
-                              ? const SizedBox(
-                                  width: 14,
-                                  height: 14,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Icon(Icons.download_rounded),
-                          label: Text(_exportando ? 'Exportando' : 'Excel'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: FilledButton.icon(
-                          style: FilledButton.styleFrom(
-                            backgroundColor: const Color(0xFFD32F2F),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 12,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          onPressed: _exportando
-                              ? null
-                              : () async {
-                                  try {
-                                    final snap = await _queryFiltrada().get();
-                                    final docs = snap.docs
-                                        .cast<
-                                          QueryDocumentSnapshot<
-                                            Map<String, dynamic>
-                                          >
-                                        >()
-                                        .toList();
-                                    await _exportarPDF(docs);
-                                  } catch (e) {
-                                    if (!mounted) return;
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Error: $e')),
-                                    );
-                                  }
-                                },
-                          icon: _exportando
-                              ? const SizedBox(
-                                  width: 14,
-                                  height: 14,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Icon(Icons.picture_as_pdf_rounded),
-                          label: Text(_exportando ? 'Exportando' : 'PDF'),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      _mensajeDescargaPorPlataforma(),
-                      style: const TextStyle(
-                        color: Color(0xFF64748B),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8FBFF),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: const Color(0xFFBFDBFE)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Filtro por rango de fechas',
-                          style: TextStyle(
-                            color: _bluePrimary,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            OutlinedButton.icon(
-                              onPressed: () =>
-                                  _seleccionarFecha(esInicio: true),
-                              icon: const Icon(Icons.date_range_rounded),
-                              label: Text(
-                                'Inicio: ${_formatearFecha(_fechaInicio)}',
-                              ),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: _bluePrimary,
-                                side: const BorderSide(
-                                  color: Color(0xFFBFDBFE),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 12,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed: () =>
-                                  _seleccionarFecha(esInicio: false),
-                              icon: const Icon(Icons.event_available_rounded),
-                              label: Text('Fin: ${_formatearFecha(_fechaFin)}'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: _bluePrimary,
-                                side: const BorderSide(
-                                  color: Color(0xFFBFDBFE),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 12,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                            ),
-                            TextButton.icon(
-                              onPressed:
-                                  (_fechaInicio != null || _fechaFin != null)
-                                  ? _limpiarRangoFechas
-                                  : null,
-                              icon: const Icon(Icons.cleaning_services_rounded),
-                              label: const Text('Limpiar rango'),
-                              style: TextButton.styleFrom(
-                                foregroundColor: _blueSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (_fechaInicio != null || _fechaFin != null) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            'Mostrando registros entre ${_formatearFecha(_fechaInicio)} y ${_formatearFecha(_fechaFin)}.',
-                            style: const TextStyle(
-                              color: Color(0xFF4B5563),
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-            Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                stream: _queryFiltrada().snapshots(),
-                builder: (context, snapshot) {
-                  if (snapshot.hasError) {
-                    return Center(
+                  child: Row(children: [
+                    const Icon(Icons.person_rounded,
+                        color: _kBlue, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
                       child: Text(
-                        "Error: ${snapshot.error}\n(Asegurate de tener el indice en Firestore)",
+                        _operadorSeleccionado == 'Todos' || _operadorSeleccionado == null
+                            ? 'Todos los operadores'
+                            : _operadorSeleccionado!,
+                        style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF0F172A)),
                       ),
-                    );
-                  }
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-
-                  final docs = snapshot.data!.docs;
-
-                  if (docs.isEmpty) {
-                    return const Center(
-                      child: Text("No se encontraron registros."),
-                    );
-                  }
-
-                  return Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFDBEAFE)),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x12000000),
-                          blurRadius: 12,
-                          offset: Offset(0, 4),
-                        ),
-                      ],
                     ),
-                    child: Column(
+                    const Icon(Icons.keyboard_arrow_down_rounded,
+                        color: _kBlue, size: 22),
+                  ]),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Botones exportar
+              Row(children: [
+                Expanded(child: _ExportBtn(
+                  label: 'Excel',
+                  icon: Icons.download_rounded,
+                  color: _kBlue,
+                  loading: _exportando,
+                  onPressed: () async {
+                    final snap = await _query().get();
+                    await _exportarExcel(snap.docs
+                        .cast<QueryDocumentSnapshot<Map<String, dynamic>>>()
+                        .toList());
+                  },
+                )),
+                const SizedBox(width: 10),
+                Expanded(child: _ExportBtn(
+                  label: 'PDF',
+                  icon: Icons.picture_as_pdf_rounded,
+                  color: _kDanger,
+                  loading: _exportando,
+                  onPressed: () async {
+                    final snap = await _query().get();
+                    await _exportarPDF(snap.docs
+                        .cast<QueryDocumentSnapshot<Map<String, dynamic>>>()
+                        .toList());
+                  },
+                )),
+              ]),
+              const SizedBox(height: 6),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(_mensajeDescarga(),
+                    style: const TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w500)),
+              ),
+              const SizedBox(height: 12),
+
+              // Rango de fechas
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FBFF),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFBFDBFE)),
+                ),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  const Text('Rango de fechas',
+                      style: TextStyle(
+                          color: _kBlue, fontWeight: FontWeight.w800,
+                          fontSize: 13)),
+                  const SizedBox(height: 10),
+                  Wrap(spacing: 8, runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.inventory_2_rounded,
-                                size: 18,
-                                color: _bluePrimary,
-                              ),
-                              const SizedBox(width: 7),
-                              const Text(
-                                'Registros filtrados:',
-                                style: TextStyle(fontWeight: FontWeight.w600),
-                              ),
-                              const SizedBox(width: 6),
-                              AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 220),
-                                child: Text(
-                                  '${docs.length}',
-                                  key: ValueKey(docs.length),
-                                  style: const TextStyle(
-                                    color: _bluePrimary,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Expanded(
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.vertical,
-                            child: SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: DataTable(
-                                headingRowColor: WidgetStateProperty.all(
-                                  _bluePrimary,
-                                ),
-                                columns: const [
-                                  DataColumn(
-                                    label: Text(
-                                      'FECHA',
-                                      style: TextStyle(color: Colors.white),
-                                    ),
-                                  ),
-                                  DataColumn(
-                                    label: Text(
-                                      'FOLIO',
-                                      style: TextStyle(color: Colors.white),
-                                    ),
-                                  ),
-                                  DataColumn(
-                                    label: Text(
-                                      'OPERADOR',
-                                      style: TextStyle(color: Colors.white),
-                                    ),
-                                  ),
-                                  DataColumn(
-                                    label: Text(
-                                      'PRODUCTO',
-                                      style: TextStyle(color: Colors.white),
-                                    ),
-                                  ),
-                                  DataColumn(
-                                    label: Text(
-                                      'NETO (KG)',
-                                      style: TextStyle(color: Colors.white),
-                                    ),
-                                  ),
-                                  DataColumn(
-                                    label: Text(
-                                      'EDITAR',
-                                      style: TextStyle(color: Colors.white),
-                                    ),
-                                  ),
-                                ],
-                                rows: docs.map((doc) {
-                                  final data =
-                                      doc.data() as Map<String, dynamic>;
-                                  return DataRow(
-                                    cells: [
-                                      DataCell(Text(data['fecha_texto'] ?? '')),
-                                      DataCell(Text(data['folio'] ?? '')),
-                                      DataCell(Text(data['operador'] ?? '')),
-                                      DataCell(Text(data['producto'] ?? '')),
-                                      DataCell(
-                                        Text(
-                                          NumberFormat(
-                                            '#,###',
-                                          ).format(data['peso_neto'] ?? 0),
-                                        ),
-                                      ),
-                                      DataCell(
-                                        IconButton(
-                                          tooltip: 'Editar registro',
-                                          icon: const Icon(Icons.edit_rounded),
-                                          onPressed: () async {
-                                            await showDialog<void>(
-                                              context: context,
-                                              builder: (_) =>
-                                                  _EditarRegistroToneladasDialog(
-                                                    docId: doc.id,
-                                                    datos: data,
-                                                  ),
-                                            );
-                                            // refresh operators list in case name changed
-                                            _cargarOperadores();
-                                          },
-                                        ),
-                                      ),
-                                    ],
-                                  );
-                                }).toList(),
-                              ),
-                            ),
-                          ),
-                        ),
+                    _DateBtn(
+                      label: 'Inicio: ${_fmtFecha(_fechaInicio)}',
+                      icon: Icons.date_range_rounded,
+                      onTap: () => _pickFecha(esInicio: true),
+                    ),
+                    _DateBtn(
+                      label: 'Fin: ${_fmtFecha(_fechaFin)}',
+                      icon: Icons.event_available_rounded,
+                      onTap: () => _pickFecha(esInicio: false),
+                    ),
+                    if (_fechaInicio != null || _fechaFin != null)
+                      TextButton.icon(
+                        onPressed: () => setState(() {
+                          _fechaInicio = null;
+                          _fechaFin    = null;
+                        }),
+                        icon: const Icon(Icons.clear_rounded, size: 16),
+                        label: const Text('Limpiar'),
+                        style: TextButton.styleFrom(
+                            foregroundColor: _kBlue),
+                      ),
+                  ]),
+                  if (_fechaInicio != null || _fechaFin != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      'Del ${_fmtFecha(_fechaInicio)} al ${_fmtFecha(_fechaFin)}',
+                      style: const TextStyle(
+                          color: Color(0xFF4B5563), fontSize: 12),
+                    ),
+                  ],
+                ]),
+              ),
+            ]),
+          ),
+          const SizedBox(height: 10),
+
+          // ── Tabla ────────────────────────────────────────────────────
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: _query().snapshots(),
+              builder: (context, snap) {
+                if (snap.hasError) {
+                  return Center(
+                    child: Text(
+                      'Error: ${snap.error}\n(Verifica los índices en Firestore)',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: _kDanger),
+                    ),
+                  );
+                }
+                if (snap.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                      child: CircularProgressIndicator(color: _kBlue));
+                }
+
+                final docs = snap.data!.docs;
+                if (docs.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.inbox_rounded,
+                            size: 52, color: Colors.grey[300]),
+                        const SizedBox(height: 10),
+                        const Text('No hay registros para este filtro.',
+                            style: TextStyle(color: Color(0xFF94A3B8))),
                       ],
                     ),
                   );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+                }
 
-  // --- FUNCIÓN DE PDF ESTILO PAPELETA ---
-  Future<void> _generarPapeletaPDF(Map<String, dynamic> datos) async {
-    final pdf = pw.Document();
-
-    pdf.addPage(
-      pw.Page(
-        pageFormat: PdfPageFormat.a4,
-        build: (pw.Context context) {
-          return pw.Container(
-            padding: const pw.EdgeInsets.all(30),
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                  children: [
-                    pw.Text(
-                      "Recicladora Guadalajara",
-                      style: pw.TextStyle(
-                        fontSize: 22,
-                        fontWeight: pw.FontWeight.bold,
-                        color: PdfColors.teal,
-                      ),
-                    ),
-                    pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.end,
-                      children: [
-                        pw.Text(
-                          "PAPELETA DE ENTRADA",
-                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                return Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFDBEAFE)),
+                    boxShadow: const [
+                      BoxShadow(color: Color(0x10000000),
+                          blurRadius: 12, offset: Offset(0, 4)),
+                    ],
+                  ),
+                  child: Column(children: [
+                    // Contador
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
+                      child: Row(children: [
+                        const Icon(Icons.inventory_2_rounded,
+                            size: 17, color: _kBlue),
+                        const SizedBox(width: 6),
+                        const Text('Registros:',
+                            style: TextStyle(fontWeight: FontWeight.w600,
+                                fontSize: 13)),
+                        const SizedBox(width: 6),
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 200),
+                          child: Text('${docs.length}',
+                              key: ValueKey(docs.length),
+                              style: const TextStyle(
+                                  color: _kBlue,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 14)),
                         ),
-                        pw.Text(
-                          "Folio: ${datos['folio']}",
-                          style: pw.TextStyle(
-                            color: PdfColors.red,
-                            fontSize: 18,
-                            fontWeight: pw.FontWeight.bold,
+                      ]),
+                    ),
+                    const Divider(height: 1),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.vertical,
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: DataTable(
+                            headingRowColor: WidgetStateProperty.all(_kBlue),
+                            dataRowMinHeight: 46,
+                            dataRowMaxHeight: 52,
+                            horizontalMargin: 14,
+                            columnSpacing: 18,
+                            columns: const [
+                              DataColumn(label: Text('FECHA',
+                                  style: TextStyle(color: Colors.white,
+                                      fontWeight: FontWeight.w700))),
+                              DataColumn(label: Text('FOLIO',
+                                  style: TextStyle(color: Colors.white,
+                                      fontWeight: FontWeight.w700))),
+                              DataColumn(label: Text('OPERADOR',
+                                  style: TextStyle(color: Colors.white,
+                                      fontWeight: FontWeight.w700))),
+                              DataColumn(label: Text('PRODUCTO',
+                                  style: TextStyle(color: Colors.white,
+                                      fontWeight: FontWeight.w700))),
+                              DataColumn(label: Text('NETO (KG)',
+                                  style: TextStyle(color: Colors.white,
+                                      fontWeight: FontWeight.w700))),
+                              DataColumn(label: Text('EDITAR',
+                                  style: TextStyle(color: Colors.white,
+                                      fontWeight: FontWeight.w700))),
+                              // ── CAMBIO 3: columna eliminar ──────────
+                              DataColumn(label: Text('ELIMINAR',
+                                  style: TextStyle(color: Colors.white,
+                                      fontWeight: FontWeight.w700))),
+                            ],
+                            rows: docs.map((doc) {
+                              final d = doc.data() as Map<String, dynamic>;
+                              return DataRow(cells: [
+                                DataCell(Text(d['fecha_texto'] ?? '',
+                                    style: const TextStyle(fontSize: 13))),
+                                DataCell(Text(d['folio'] ?? '',
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 13))),
+                                DataCell(Text(d['operador'] ?? '',
+                                    style: const TextStyle(fontSize: 13))),
+                                DataCell(Text(d['producto'] ?? '',
+                                    style: const TextStyle(fontSize: 13))),
+                                DataCell(Text(
+                                  NumberFormat('#,###')
+                                      .format(d['peso_neto'] ?? 0),
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 13),
+                                )),
+                                // Editar
+                                DataCell(IconButton(
+                                  tooltip: 'Editar',
+                                  icon: const Icon(Icons.edit_rounded,
+                                      color: _kBlue, size: 20),
+                                  onPressed: () async {
+                                    await showDialog<void>(
+                                      context: context,
+                                      builder: (_) => _EditarDialog(
+                                          docId: doc.id, datos: d),
+                                    );
+                                    _cargarOperadores();
+                                  },
+                                )),
+                                // ── Eliminar ────────────────────────
+                                DataCell(IconButton(
+                                  tooltip: 'Eliminar',
+                                  icon: const Icon(
+                                      Icons.delete_outline_rounded,
+                                      color: _kDanger,
+                                      size: 20),
+                                  onPressed: () => _eliminar(
+                                      doc.id, d['folio'] ?? ''),
+                                )),
+                              ]);
+                            }).toList(),
                           ),
                         ),
-                        pw.Text("Fecha: ${datos['fecha_texto']}"),
-                      ],
-                    ),
-                  ],
-                ),
-                pw.SizedBox(height: 10),
-                pw.Divider(thickness: 1.5),
-                pw.SizedBox(height: 20),
-
-                // Datos del transporte
-                pw.Text(
-                  "DATOS DEL TRANSPORTE",
-                  style: pw.TextStyle(
-                    fontWeight: pw.FontWeight.bold,
-                    decoration: pw.TextDecoration.underline,
-                  ),
-                ),
-                pw.SizedBox(height: 10),
-                _filaPDF("CONDUCTOR:", datos['operador']),
-                _filaPDF("CAMIÓN:", datos['camion']),
-                _filaPDF("PLACAS:", datos['placas']),
-                _filaPDF("PRODUCTO:", datos['producto']),
-
-                pw.SizedBox(height: 30),
-
-                // Pesos
-                pw.Container(
-                  padding: const pw.EdgeInsets.all(10),
-                  decoration: pw.BoxDecoration(
-                    border: pw.Border.all(color: PdfColors.grey),
-                  ),
-                  child: pw.Column(
-                    children: [
-                      _filaPeso("PESO ENTRADA:", "${datos['peso_entrada']} Kg"),
-                      _filaPeso("PESO SALIDA:", "${datos['peso_salida']} Kg"),
-                      pw.Divider(),
-                      _filaPeso(
-                        "TOTAL NETO:",
-                        "${datos['peso_neto']} Kg",
-                        resaltar: true,
                       ),
-                    ],
-                  ),
-                ),
-
-                pw.Spacer(),
-                pw.Center(
-                  child: pw.Column(
-                    children: [
-                      pw.Container(width: 200, child: pw.Divider()),
-                      pw.Text("FIRMA DE RECEPCIÓN"),
-                    ],
-                  ),
-                ),
-              ],
+                    ),
+                  ]),
+                );
+              },
             ),
-          );
-        },
-      ),
-    );
-
-    await Printing.layoutPdf(onLayout: (format) async => pdf.save());
-  }
-
-  pw.Widget _filaPDF(String label, String valor) {
-    return pw.Padding(
-      padding: const pw.EdgeInsets.symmetric(vertical: 4),
-      child: pw.Row(
-        children: [
-          pw.Text(
-            label,
-            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12),
           ),
-          pw.SizedBox(width: 5),
-          pw.Text(valor, style: const pw.TextStyle(fontSize: 12)),
-        ],
+        ]),
       ),
     );
   }
+}
 
-  pw.Widget _filaPeso(String label, String valor, {bool resaltar = false}) {
-    return pw.Padding(
-      padding: const pw.EdgeInsets.symmetric(vertical: 5),
-      child: pw.Row(
-        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-        children: [
-          pw.Text(
-            label,
-            style: pw.TextStyle(
-              fontWeight: resaltar ? pw.FontWeight.bold : pw.FontWeight.normal,
-              fontSize: resaltar ? 16 : 12,
-            ),
-          ),
-          pw.Text(
-            valor,
-            style: pw.TextStyle(
-              fontWeight: pw.FontWeight.bold,
-              fontSize: resaltar ? 18 : 12,
-              color: resaltar ? PdfColors.red : PdfColors.black,
-            ),
-          ),
+// ─── Banner superior ──────────────────────────────────────────────────────────
+class _Banner extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [_kBlue, Color(0xFF06B6D4)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(color: _kBlue.withOpacity(0.25),
+              blurRadius: 18, offset: const Offset(0, 8)),
         ],
       ),
+      child: Row(children: [
+        Container(
+          padding: const EdgeInsets.all(11),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Icon(Icons.scale_rounded, color: Colors.white, size: 22),
+        ),
+        const SizedBox(width: 12),
+        const Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Panel de Control de Toneladas',
+                style: TextStyle(color: Colors.white,
+                    fontWeight: FontWeight.w700, fontSize: 15)),
+            SizedBox(height: 3),
+            Text('Consulta y genera papeletas administrativas.',
+                style: TextStyle(color: Colors.white70, fontSize: 12.5)),
+          ]),
+        ),
+      ]),
+    );
+  }
+}
+
+// ─── Botón de exportar ────────────────────────────────────────────────────────
+class _ExportBtn extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final bool loading;
+  final VoidCallback onPressed;
+  const _ExportBtn({
+    required this.label, required this.icon,
+    required this.color, required this.loading,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton.icon(
+      style: FilledButton.styleFrom(
+        backgroundColor: color,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      onPressed: loading ? null : onPressed,
+      icon: loading
+          ? const SizedBox(width: 14, height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+          : Icon(icon, size: 18),
+      label: Text(loading ? 'Exportando…' : label,
+          style: const TextStyle(fontWeight: FontWeight.w700)),
+    );
+  }
+}
+
+// ─── Botón de fecha ───────────────────────────────────────────────────────────
+class _DateBtn extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+  const _DateBtn({required this.label, required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: onTap,
+      icon: Icon(icon, size: 16),
+      label: Text(label),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: _kBlue,
+        side: const BorderSide(color: Color(0xFFBFDBFE)),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
+}
+
+// ─── BottomSheet selector de operador ────────────────────────────────────────
+class _OperadorBottomSheet extends StatefulWidget {
+  final List<String> operadores;
+  final String seleccionado;
+  const _OperadorBottomSheet({
+    required this.operadores, required this.seleccionado});
+
+  @override
+  State<_OperadorBottomSheet> createState() => _OperadorBottomSheetState();
+}
+
+class _OperadorBottomSheetState extends State<_OperadorBottomSheet> {
+  late String _sel;
+  final _search = TextEditingController();
+  List<String> _filtrados = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _sel      = widget.seleccionado;
+    _filtrados = widget.operadores;
+    _search.addListener(() {
+      final q = _search.text.toLowerCase();
+      setState(() => _filtrados = widget.operadores
+          .where((o) => o.toLowerCase().contains(q))
+          .toList());
+    });
+  }
+
+  @override
+  void dispose() { _search.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        // Handle
+        Container(
+          margin: const EdgeInsets.only(top: 12),
+          width: 40, height: 4,
+          decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(4)),
+        ),
+        // Header
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+          child: Row(children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                  color: _kBlue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10)),
+              child: const Icon(Icons.people_rounded, color: _kBlue, size: 20),
+            ),
+            const SizedBox(width: 12),
+            const Text('Seleccionar operador',
+                style: TextStyle(fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF0F172A))),
+          ]),
+        ),
+        // Buscador
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+          child: TextField(
+            controller: _search,
+            decoration: InputDecoration(
+              hintText: 'Buscar operador…',
+              prefixIcon: const Icon(Icons.search_rounded, color: _kBlue),
+              filled: true,
+              fillColor: const Color(0xFFF1F5F9),
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none),
+              contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14, vertical: 12),
+            ),
+          ),
+        ),
+        // Lista
+        ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.45,
+          ),
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: _filtrados.length,
+            itemBuilder: (_, i) {
+              final op  = _filtrados[i];
+              final sel = op == _sel;
+              return ListTile(
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20, vertical: 2),
+                leading: CircleAvatar(
+                  radius: 18,
+                  backgroundColor: sel
+                      ? _kBlue
+                      : _kBlue.withOpacity(0.1),
+                  child: op == 'Todos'
+                      ? Icon(Icons.people_alt_rounded,
+                          color: sel ? Colors.white : _kBlue, size: 16)
+                      : Text(
+                          op.substring(0, op.length.clamp(0, 1)).toUpperCase(),
+                          style: TextStyle(
+                              color: sel ? Colors.white : _kBlue,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 12),
+                        ),
+                ),
+                title: Text(op,
+                    style: TextStyle(
+                        fontWeight: sel
+                            ? FontWeight.w800
+                            : FontWeight.w600,
+                        color: sel ? _kBlue : const Color(0xFF0F172A),
+                        fontSize: 14)),
+                trailing: sel
+                    ? const Icon(Icons.check_circle_rounded,
+                        color: _kBlue, size: 20)
+                    : null,
+                onTap: () => Navigator.of(context).pop(op),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 16),
+      ]),
     );
   }
 }

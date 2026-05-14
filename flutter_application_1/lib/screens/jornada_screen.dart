@@ -17,6 +17,9 @@ import 'widgets/notificaciones_drawer.dart';
 import '../widgets/jornada_bottom_bar.dart';
 import 'registro_origen_screen.dart';
 import 'registro_toneladas_screen.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
+import 'package:geolocator_android/geolocator_android.dart';
+import 'package:geolocator_apple/geolocator_apple.dart';
 
 
 
@@ -658,30 +661,48 @@ void _mostrarSeleccionEntradaMaterial() {
     _limpiarAlertaUbicacion();
 
     await _posicionSub?.cancel();
-    _posicionSub =
-        Geolocator.getPositionStream(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.bestForNavigation,
-            distanceFilter: 10,
-          ),
-        ).listen(
-          (position) async {
-            if (!mounted) return;
-            setState(() {
-              _compartiendoUbicacionActiva = true;
-              _estadoUbicacion = 'Compartiendo ubicación activa';
-            });
 
-            await _actualizarGpsEnFirestore(
-              gpsActivo: true,
-              posicion: position,
-              estado: _estadoUbicacion,
-            );
-          },
-          onError: (_) async {
-            await _detenerMonitoreoUbicacion(motivo: 'Error leyendo ubicación');
-          },
+    final locationSettings = defaultTargetPlatform == TargetPlatform.android
+        ? AndroidSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 5,
+            intervalDuration: const Duration(seconds: 5),
+            foregroundNotificationConfig: const ForegroundNotificationConfig(
+              notificationTitle: 'GPS Activo',
+              notificationText: 'Compartiendo ubicación con administración',
+              enableWakeLock: true,
+              notificationIcon: AndroidResource(
+                name: '@mipmap/ic_launcher',
+                defType: 'mipmap',
+              ),
+            ),
+          )
+        : AppleSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 5,
+            pauseLocationUpdatesAutomatically: false,
+            showBackgroundLocationIndicator: true,
+          );
+
+    _posicionSub = Geolocator.getPositionStream(
+      locationSettings: locationSettings,
+    ).listen(
+      (position) async {
+        if (!mounted) return;
+        setState(() {
+          _compartiendoUbicacionActiva = true;
+          _estadoUbicacion = 'Compartiendo ubicación activa';
+        });
+        await _actualizarGpsEnFirestore(
+          gpsActivo: true,
+          posicion: position,
+          estado: _estadoUbicacion,
         );
+      },
+      onError: (_) async {
+        await _detenerMonitoreoUbicacion(motivo: 'Error leyendo ubicación');
+      },
+    );
   }
 
   void _escucharCambiosServicioUbicacion() {
