@@ -31,6 +31,8 @@ class _OperadorScreenState extends State<OperadorScreen> {
   final FlutterLocalNotificationsPlugin _notificaciones =
       FlutterLocalNotificationsPlugin();
   bool _avisoMostrado = false;
+  bool _modoDescanso = false;
+  bool _cargandoModoDescanso = true;
 
   // ── Cerrar sesión ─────────────────────────────────────────────────────────
   Future<void> _cerrarSesion() async {
@@ -77,7 +79,52 @@ class _OperadorScreenState extends State<OperadorScreen> {
   @override
   void initState() {
     super.initState();
+    _cargarEstadoModoDescanso();
     _inicializarFlujoIngreso();
+  }
+
+  Future<void> _cargarEstadoModoDescanso() async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection("usuarios")
+          .doc(widget.nombreUsuario)
+          .get();
+      if (doc.exists && mounted) {
+        setState(() {
+          _modoDescanso = doc.data()?["modo_descanso"] ?? false;
+          _cargandoModoDescanso = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error cargando modo descanso: $e");
+      if (mounted) setState(() => _cargandoModoDescanso = false);
+    }
+  }
+
+  Future<void> _toggleModoDescanso(bool valor) async {
+    setState(() => _modoDescanso = valor);
+    try {
+      await FirebaseFirestore.instance
+          .collection("usuarios")
+          .doc(widget.nombreUsuario)
+          .set({"modo_descanso": valor}, SetOptions(merge: true));
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(valor 
+              ? "Modo Descanso activado. Notificaciones silenciadas." 
+              : "Modo Descanso desactivado."),
+            backgroundColor: valor ? const Color(0xFF1E293B) : _primary,
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint("Error guardando modo descanso: $e");
+    }
   }
 
   Future<void> _inicializarFlujoIngreso() async {
@@ -463,6 +510,105 @@ class _OperadorScreenState extends State<OperadorScreen> {
                   ),
                 ),
               ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: _modoDescanso ? const Color(0xFFF1F5F9) : Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: _modoDescanso ? const Color(0xFFCBD5E1) : const Color(0xFFE2E8F0),
+                        width: 1.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.03),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: (_modoDescanso ? Colors.blueGrey : _primary).withOpacity(0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                _modoDescanso ? Icons.nightlight_round : Icons.notifications_active_rounded,
+                                color: _modoDescanso ? Colors.blueGrey : _primary,
+                                size: 22,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "Modo Descanso",
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w800,
+                                      color: _modoDescanso ? Colors.blueGrey[700] : _primary,
+                                    ),
+                                  ),
+                                  Text(
+                                    _modoDescanso ? "Activado · No molestar" : "Desactivado",
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: _modoDescanso ? Colors.blueGrey[400] : Colors.grey[500],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            _cargandoModoDescanso
+                                ? const SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : Switch.adaptive(
+                                    value: _modoDescanso,
+                                    onChanged: _toggleModoDescanso,
+                                    activeColor: _primary2,
+                                  ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        const Divider(height: 1),
+                        const SizedBox(height: 12),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.info_outline_rounded, size: 14, color: Colors.grey[500]),
+                            const SizedBox(width: 6),
+                            const Expanded(
+                              child: Text(
+                                "Activa este modo fuera de tu horario laboral para silenciar las notificaciones y alertas de la aplicación, permitiéndote descansar sin interrupciones.",
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF64748B),
+                                  height: 1.3,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
                 sliver: StreamBuilder<QuerySnapshot>(
@@ -524,7 +670,12 @@ class _OperadorScreenState extends State<OperadorScreen> {
                         return InkWell(
                           borderRadius: BorderRadius.circular(18),
                           onTap: disponible
-                              ? () {
+                              ? () async {
+                                  // Si el modo descanso está activo, lo desactivamos automáticamente al iniciar jornada
+                                  if (_modoDescanso) {
+                                    await _toggleModoDescanso(false);
+                                  }
+                                  if (!mounted) return;
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(

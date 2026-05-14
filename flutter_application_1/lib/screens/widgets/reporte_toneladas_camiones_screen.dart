@@ -222,7 +222,6 @@ class _ReporteToneladasAdminScreenState
     }
   }
 
-  // ── Query filtrada ────────────────────────────────────────────────────────
   Query _query() {
     Query q = FirebaseFirestore.instance.collection('registros_toneladas');
 
@@ -230,20 +229,28 @@ class _ReporteToneladasAdminScreenState
       q = q.where('operador', isEqualTo: _operadorSeleccionado);
     }
 
-    final ini = _fechaInicio == null ? null : _soloFecha(_fechaInicio!);
-    final fin = _fechaFin    == null ? null : _soloFecha(_fechaFin!);
-    if (ini != null) q = q.where('fecha_registro', isGreaterThanOrEqualTo: ini);
-    if (fin != null) q = q.where('fecha_registro',
-        isLessThanOrEqualTo: fin.add(const Duration(days: 1))
-            .subtract(const Duration(milliseconds: 1)));
+    // Si el usuario eligió un rango de fechas personalizado, usamos ese rango
+    // y NO aplicamos el filtro de periodo automático para evitar tener dos
+    // cláusulas isGreaterThanOrEqualTo sobre el mismo campo (Firestore lo rechaza).
+    final tieneRangoPersonalizado = _fechaInicio != null || _fechaFin != null;
 
-    final ahora = DateTime.now();
-    DateTime? limite;
-    if (_filtroTiempo == 'Día')    limite = DateTime(ahora.year, ahora.month, ahora.day);
-    if (_filtroTiempo == 'Semana') limite = ahora.subtract(Duration(days: ahora.weekday - 1));
-    if (_filtroTiempo == 'Mes')    limite = DateTime(ahora.year, ahora.month, 1);
-    if (_filtroTiempo == 'Año')    limite = DateTime(ahora.year, 1, 1);
-    if (limite != null) q = q.where('fecha_registro', isGreaterThanOrEqualTo: limite);
+    if (tieneRangoPersonalizado) {
+      final ini = _fechaInicio == null ? null : _soloFecha(_fechaInicio!);
+      final fin = _fechaFin    == null ? null : _soloFecha(_fechaFin!);
+      if (ini != null) q = q.where('fecha_registro', isGreaterThanOrEqualTo: ini);
+      if (fin != null) q = q.where('fecha_registro',
+          isLessThanOrEqualTo: fin.add(const Duration(days: 1))
+              .subtract(const Duration(milliseconds: 1)));
+    } else {
+      // Sin rango personalizado: aplicar filtro de periodo
+      final ahora = DateTime.now();
+      DateTime? limite;
+      if (_filtroTiempo == 'Día')    limite = DateTime(ahora.year, ahora.month, ahora.day);
+      if (_filtroTiempo == 'Semana') limite = ahora.subtract(Duration(days: ahora.weekday - 1));
+      if (_filtroTiempo == 'Mes')    limite = DateTime(ahora.year, ahora.month, 1);
+      if (_filtroTiempo == 'Año')    limite = DateTime(ahora.year, 1, 1);
+      if (limite != null) q = q.where('fecha_registro', isGreaterThanOrEqualTo: limite);
+    }
 
     return q.orderBy('fecha_registro', descending: true);
   }

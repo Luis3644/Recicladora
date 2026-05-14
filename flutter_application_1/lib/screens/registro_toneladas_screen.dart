@@ -162,6 +162,13 @@ class _RegistroToneladasScreenState extends State<RegistroToneladasScreen>
 
       setState(() { _guardando = false; _paso = 3; });
 
+      // Notificar al administrador
+      await _enviarNotificacionAdmin(
+        tipo: 'material',
+        mensaje:
+            '${widget.operador} ha registrado una carga de $_productoSeleccionado (${_pesoNeto.toStringAsFixed(0)} kg) para el camión ${widget.camion}.',
+      );
+
       // Lanzar animación de éxito
       await Future.delayed(const Duration(milliseconds: 100));
       _successCtrl.forward();
@@ -180,6 +187,26 @@ class _RegistroToneladasScreenState extends State<RegistroToneladasScreen>
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     ));
+  }
+
+  Future<void> _enviarNotificacionAdmin({
+    required String tipo,
+    required String mensaje,
+  }) async {
+    try {
+      await FirebaseFirestore.instance.collection('notificaciones').add({
+        'mensaje': mensaje,
+        'creadoEn': FieldValue.serverTimestamp(),
+        'enviadoPor': widget.operador,
+        'destinoTipo': 'rol',
+        'paraTodos': false,
+        'destinatarioRol': 'admin',
+        'tipo': tipo,
+        'leidoPor': <String, bool>{},
+      });
+    } catch (e) {
+      debugPrint('Error enviando notificación al admin: $e');
+    }
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────

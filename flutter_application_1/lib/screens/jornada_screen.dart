@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:typed_data';
+
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -1109,6 +1111,12 @@ void _mostrarSeleccionEntradaMaterial() {
   Future<void> finalizarJornada() async {
     await _detenerMonitoreoUbicacion(motivo: 'Jornada finalizada');
 
+    // Notificar al administrador
+    await _enviarNotificacionAdmin(
+      tipo: 'operador',
+      mensaje: '${widget.operador} ha FINALIZADO su jornada laboral.',
+    );
+
     final userRef = FirebaseFirestore.instance
         .collection("usuarios")
         .doc(widget.operador);
@@ -1152,6 +1160,26 @@ void _mostrarSeleccionEntradaMaterial() {
       ),
       (route) => false,
     );
+  }
+
+  Future<void> _enviarNotificacionAdmin({
+    required String tipo,
+    required String mensaje,
+  }) async {
+    try {
+      await FirebaseFirestore.instance.collection('notificaciones').add({
+        'mensaje': mensaje,
+        'creadoEn': FieldValue.serverTimestamp(),
+        'enviadoPor': widget.operador,
+        'destinoTipo': 'rol',
+        'paraTodos': false,
+        'destinatarioRol': 'admin',
+        'tipo': tipo,
+        'leidoPor': <String, bool>{},
+      });
+    } catch (e) {
+      debugPrint('Error enviando notificación al admin: $e');
+    }
   }
 
   @override
@@ -1730,12 +1758,150 @@ class _RegistroGasolinaScreenState extends State<RegistroGasolinaScreen>
         _ticketStoragePath = null;
       });
       _mostrarMensaje('Foto del ticket capturada.');
+      _mostrarVistaPreviaDialog();
     } catch (_) {
       _mostrarMensaje(
         'No fue posible abrir la camara. Intenta de nuevo.',
         error: true,
       );
     }
+  }
+
+  Future<void> _seleccionarDeGaleria() async {
+    try {
+      final imagen = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 92,
+      );
+
+      if (imagen == null) return;
+
+      setState(() {
+        _imagenTicket = imagen;
+        _ticketUrl = null;
+        _ticketStoragePath = null;
+      });
+      _mostrarMensaje('Foto seleccionada de la galería.');
+      _mostrarVistaPreviaDialog();
+    } catch (_) {
+      _mostrarMensaje(
+        'No fue posible abrir la galería. Intenta de nuevo.',
+        error: true,
+      );
+    }
+  }
+
+  void _borrarFoto() {
+    setState(() {
+      _imagenTicket = null;
+      _ticketUrl = null;
+      _ticketStoragePath = null;
+    });
+    _mostrarMensaje('Foto eliminada.');
+  }
+
+  void _mostrarVistaPreviaDialog() {
+    if (_imagenTicket == null) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(10),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  AppBar(
+                    title: const Text('Revisar Ticket',
+                        style: TextStyle(
+                            color: Colors.black87, fontWeight: FontWeight.bold)),
+                    backgroundColor: Colors.white,
+                    elevation: 0,
+                    centerTitle: true,
+                    automaticallyImplyLeading: false,
+                    actions: [
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.black54),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  FutureBuilder<Uint8List>(
+                    future: _imagenTicket!.readAsBytes(),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) {
+                        return const SizedBox(
+                            height: 200,
+                            child: Center(child: CircularProgressIndicator()));
+                      }
+                      return InteractiveViewer(
+                        minScale: 0.5,
+                        maxScale: 4.0,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxHeight: MediaQuery.of(context).size.height * 0.7,
+                          ),
+                          child: Image.memory(
+                            snapshot.data!,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.pop(context);
+                              _borrarFoto();
+                            },
+                            icon: const Icon(Icons.delete_sweep_rounded),
+                            label: const Text('Borrar / Cambiar'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.red.shade700,
+                              side: BorderSide(color: Colors.red.shade700),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: () => Navigator.pop(context),
+                            icon: const Icon(Icons.check_circle_outline_rounded),
+                            label: const Text('Se ve bien'),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: _success,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<({String url, String storagePath})?> _subirImagenSiExiste() async {
@@ -1772,6 +1938,26 @@ class _RegistroGasolinaScreenState extends State<RegistroGasolinaScreen>
           _subiendoImagen = false;
         });
       }
+    }
+  }
+
+  Future<void> _enviarNotificacionAdmin({
+    required String tipo,
+    required String mensaje,
+  }) async {
+    try {
+      await FirebaseFirestore.instance.collection('notificaciones').add({
+        'mensaje': mensaje,
+        'creadoEn': FieldValue.serverTimestamp(),
+        'enviadoPor': widget.operador,
+        'destinoTipo': 'rol',
+        'paraTodos': false,
+        'destinatarioRol': 'admin',
+        'tipo': tipo,
+        'leidoPor': <String, bool>{},
+      });
+    } catch (e) {
+      debugPrint('Error enviando notificación al admin: $e');
     }
   }
 
@@ -1820,20 +2006,24 @@ class _RegistroGasolinaScreenState extends State<RegistroGasolinaScreen>
       return;
     }
 
-    if (folio.isEmpty ||
-        cantidad == null ||
-        monto == null ||
-        _concepto == null ||
-        _unidad == null ||
-        _metodoPago == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Completa foto, folio, concepto, unidad, cantidad, metodo de pago y monto.',
+    // Si no hay imagen, si es obligatorio completar todo.
+    // Si hay imagen, permitimos que los campos esten vacios para que admin los capture.
+    if (_imagenTicket == null) {
+      if (folio.isEmpty ||
+          cantidad == null ||
+          monto == null ||
+          _concepto == null ||
+          _unidad == null ||
+          _metodoPago == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Completa todos los campos o toma una foto del ticket.',
+            ),
           ),
-        ),
-      );
-      return;
+        );
+        return;
+      }
     }
 
     final confirmar = await _confirmarAccion(
@@ -1872,6 +2062,13 @@ class _RegistroGasolinaScreenState extends State<RegistroGasolinaScreen>
         'captura_pendiente_admin': true,
         'creadoEn': FieldValue.serverTimestamp(),
       });
+
+      // Notificar al administrador
+      await _enviarNotificacionAdmin(
+        tipo: 'gasolina',
+        mensaje:
+            '${widget.operador} ha registrado un consumo de combustible para el camión ${widget.camion}.',
+      );
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1918,8 +2115,34 @@ class _RegistroGasolinaScreenState extends State<RegistroGasolinaScreen>
       borderSide: BorderSide(color: _primary.withValues(alpha: 0.15)),
     );
 
-    return Scaffold(
-      extendBodyBehindAppBar: true,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+
+        final bool tieneCambios = _imagenTicket != null ||
+            _folioController.text.trim().isNotEmpty ||
+            _cantidadController.text.trim().isNotEmpty ||
+            _montoController.text.trim().isNotEmpty;
+
+        if (!tieneCambios) {
+          Navigator.of(context).pop();
+          return;
+        }
+
+        final confirmar = await _confirmarAccion(
+          titulo: '¿Salir sin guardar?',
+          mensaje:
+              'Tienes un registro incompleto. Si sales ahora, se perderán los datos y la foto cargada.',
+          textoConfirmar: 'SALIR',
+        );
+
+        if (confirmar && context.mounted) {
+          Navigator.of(context).pop();
+        }
+      },
+      child: Scaffold(
+        extendBodyBehindAppBar: true,
       backgroundColor: const Color(0xFFF3F6FB),
       appBar: AppBar(
         elevation: 0,
@@ -2026,7 +2249,7 @@ class _RegistroGasolinaScreenState extends State<RegistroGasolinaScreen>
                                 ),
                                 const SizedBox(height: 6),
                                 Text(
-                                  'Toma foto del ticket y completa los datos manualmente para que administracion pueda revisarlos y cargarlos al sistema.',
+                                  'Toma una foto o carga la foto del ticket desde tu galería, o registra manualmente los datos de la compra del combustible para que administración pueda revisarlos.',
                                   style: TextStyle(
                                     color: Colors.white.withValues(alpha: 0.82),
                                     height: 1.35,
@@ -2058,60 +2281,112 @@ class _RegistroGasolinaScreenState extends State<RegistroGasolinaScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          FilledButton.icon(
-                            onPressed: _subiendoImagen
-                                ? null
-                                : _tomarFotoTicket,
-                            icon: _subiendoImagen
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
+                          Row(
+                            children: [
+                              Expanded(
+                                child: FilledButton.icon(
+                                  onPressed: _subiendoImagen
+                                      ? null
+                                      : _tomarFotoTicket,
+                                  icon: _subiendoImagen
+                                      ? const SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      : const Icon(Icons.photo_camera_rounded),
+                                  label: const Text('Cámara'),
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: const Color(0xFF0F766E),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 15,
                                     ),
-                                  )
-                                : const Icon(Icons.photo_camera_rounded),
-                            label: Text(
-                              _imagenTicket == null
-                                  ? 'Tomar foto del ticket'
-                                  : 'Tomar otra foto del ticket',
-                            ),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: const Color(0xFF0F766E),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 15,
-                                horizontal: 16,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                  ),
+                                ),
                               ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: FilledButton.icon(
+                                  onPressed: _subiendoImagen
+                                      ? null
+                                      : _seleccionarDeGaleria,
+                                  icon: const Icon(Icons.photo_library_rounded),
+                                  label: const Text('Galería'),
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: const Color(0xFF1E3A8A),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 15,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
+                            ],
                           ),
                           if (_imagenTicket != null) ...[
                             const SizedBox(height: 10),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(14),
-                              child: FutureBuilder<Uint8List>(
-                                future: _imagenTicket!.readAsBytes(),
-                                builder: (context, snapshot) {
-                                  if (!snapshot.hasData) {
-                                    return Container(
-                                      height: 170,
-                                      color: const Color(0xFFF1F5F9),
-                                      alignment: Alignment.center,
-                                      child: const CircularProgressIndicator(),
-                                    );
-                                  }
+                            GestureDetector(
+                              onTap: _mostrarVistaPreviaDialog,
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(14),
+                                child: FutureBuilder<Uint8List>(
+                                  future: _imagenTicket!.readAsBytes(),
+                                  builder: (context, snapshot) {
+                                    if (!snapshot.hasData) {
+                                      return Container(
+                                        height: 170,
+                                        color: const Color(0xFFF1F5F9),
+                                        alignment: Alignment.center,
+                                        child: const CircularProgressIndicator(),
+                                      );
+                                    }
 
-                                  return Image.memory(
-                                    snapshot.data!,
-                                    height: 190,
-                                    width: double.infinity,
-                                    fit: BoxFit.cover,
-                                  );
-                                },
+                                    return Stack(
+                                      alignment: Alignment.center,
+                                      children: [
+                                        Image.memory(
+                                          snapshot.data!,
+                                          height: 190,
+                                          width: double.infinity,
+                                          fit: BoxFit.cover,
+                                        ),
+                                        Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: Colors.black45,
+                                            borderRadius:
+                                                BorderRadius.circular(10),
+                                          ),
+                                          child: const Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(Icons.zoom_in_rounded,
+                                                  color: Colors.white, size: 16),
+                                              SizedBox(width: 4),
+                                              Text(
+                                                'Toca para revisar',
+                                                style: TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w600),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                ),
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -2437,8 +2712,9 @@ class _RegistroGasolinaScreenState extends State<RegistroGasolinaScreen>
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 class _InfoPill extends StatelessWidget {

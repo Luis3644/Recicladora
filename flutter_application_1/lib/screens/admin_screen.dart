@@ -913,8 +913,6 @@ class _AdminScreenState extends State<AdminScreen>
         children: [
           _sectionHeader('Reportes'),
           const SizedBox(height: 16),
-          _buildReportOverviewCard(),
-          const SizedBox(height: 24),
           GridView.count(
             crossAxisCount: isMobile ? 2 : 2,
             shrinkWrap: true,
@@ -944,6 +942,8 @@ class _AdminScreenState extends State<AdminScreen>
               ),
             ],
           ),
+          const SizedBox(height: 24),
+          _buildReportOverviewCard(),
           const SizedBox(height: 24),
           const Padding(
             padding: EdgeInsets.only(left: 4),

@@ -108,6 +108,17 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
         'equipo_completo': !faltaAlgo,
       });
 
+      // Notificar al administrador
+      String msjNotif = '${widget.nombreUsuario} ha iniciado su jornada con el camión ${widget.camion}.';
+      if (faltaAlgo) {
+        msjNotif = '⚠️ ATENCIÓN: ${widget.nombreUsuario} inició jornada con EQUIPO INCOMPLETO. Nota: "${reporteController.text.trim()}".';
+      }
+      
+      await _enviarNotificacionAdmin(
+        tipo: 'operador',
+        mensaje: msjNotif,
+      );
+
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
@@ -133,6 +144,26 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
       }
     } finally {
       if (mounted) setState(() => _guardando = false);
+    }
+  }
+
+  Future<void> _enviarNotificacionAdmin({
+    required String tipo,
+    required String mensaje,
+  }) async {
+    try {
+      await FirebaseFirestore.instance.collection('notificaciones').add({
+        'mensaje': mensaje,
+        'creadoEn': FieldValue.serverTimestamp(),
+        'enviadoPor': widget.nombreUsuario,
+        'destinoTipo': 'rol',
+        'paraTodos': false,
+        'destinatarioRol': 'admin',
+        'tipo': tipo,
+        'leidoPor': <String, bool>{},
+      });
+    } catch (e) {
+      debugPrint('Error enviando notificación al admin: $e');
     }
   }
 

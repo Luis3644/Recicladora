@@ -197,7 +197,7 @@ class _ReporteGasolinaCamionesScreenState
     final ticket = registro['ticket_url'];
     return ticket != null && ticket.toString().trim().isNotEmpty;
   }
-  
+
   String _ticketMostrado(Map<String, dynamic> registro) {
     final ticket = registro['ticket_url'];
     if (ticket == null || ticket.toString().trim().isEmpty) {
@@ -233,6 +233,118 @@ class _ReporteGasolinaCamionesScreenState
       context: context,
       builder: (_) => _RevisionTicketGasolinaDialog(doc: doc),
     );
+  }
+
+  Future<void> _eliminarRegistro(String docId, String folio) async {
+    final ok =
+        await showDialog<bool>(
+          context: context,
+          builder: (_) => Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFFEF2F2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.delete_outline_rounded,
+                      color: Color(0xFFDC2626),
+                      size: 30,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    'Eliminar registro "$folio"',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Esta acción no se puede deshacer.',
+                    style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF64748B),
+                            side: const BorderSide(color: Color(0xFFE2E8F0)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          onPressed: () => Navigator.of(context).pop(false),
+                          child: const Text('Cancelar'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFDC2626),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          onPressed: () => Navigator.of(context).pop(true),
+                          child: const Text(
+                            'Eliminar',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ) ??
+        false;
+
+    if (!ok) return;
+    try {
+      await FirebaseFirestore.instance
+          .collection('registros_gasolina')
+          .doc(docId)
+          .delete();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Registro eliminado.'),
+            backgroundColor: const Color(0xFFDC2626),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error al eliminar: $e')));
+      }
+    }
   }
 
   Future<void> _exportarExcel(
@@ -727,6 +839,7 @@ class _ReporteGasolinaCamionesScreenState
                                   DataColumn(label: Text('METODO DE PAGO')),
                                   DataColumn(label: Text('TICKET')),
                                   DataColumn(label: Text('ACCIONES')),
+                                  DataColumn(label: Text('ELIMINAR')),
                                 ],
                                 rows: filtrados.map((doc) {
                                   final r = doc.data();
@@ -815,6 +928,20 @@ class _ReporteGasolinaCamionesScreenState
                                               ),
                                             ),
                                           ],
+                                        ),
+                                      ),
+                                      // Columna ELIMINAR
+                                      DataCell(
+                                        IconButton(
+                                          tooltip: 'Eliminar registro',
+                                          onPressed: () => _eliminarRegistro(
+                                            doc.id,
+                                            _valorMostrado(r, 'folio'),
+                                          ),
+                                          icon: const Icon(
+                                            Icons.delete_outline_rounded,
+                                            color: Color(0xFFDC2626),
+                                          ),
                                         ),
                                       ),
                                     ],

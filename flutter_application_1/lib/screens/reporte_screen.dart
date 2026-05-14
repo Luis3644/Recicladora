@@ -101,6 +101,13 @@ class _ReporteScreenState extends State<ReporteScreen> {
         'visto'   : false,
       });
 
+      // Notificar al administrador
+      await _enviarNotificacionAdmin(
+        tipo: 'equipo',
+        mensaje:
+            'NUEVO REPORTE DE EQUIPO: ${widget.nombreUsuario} (Camión: ${widget.placas}) ha reportado un incidente: "$msg".',
+      );
+
       if (mounted) {
         Navigator.pop(context);
         _snack('✓ Reporte enviado al Administrador');
@@ -109,6 +116,26 @@ class _ReporteScreenState extends State<ReporteScreen> {
       _snack('Error al enviar: $e', isError: true);
     } finally {
       if (mounted) setState(() => _subiendo = false);
+    }
+  }
+
+  Future<void> _enviarNotificacionAdmin({
+    required String tipo,
+    required String mensaje,
+  }) async {
+    try {
+      await FirebaseFirestore.instance.collection('notificaciones').add({
+        'mensaje': mensaje,
+        'creadoEn': FieldValue.serverTimestamp(),
+        'enviadoPor': widget.nombreUsuario,
+        'destinoTipo': 'rol',
+        'paraTodos': false,
+        'destinatarioRol': 'admin',
+        'tipo': tipo,
+        'leidoPor': <String, bool>{},
+      });
+    } catch (e) {
+      debugPrint('Error enviando notificación al admin: $e');
     }
   }
 

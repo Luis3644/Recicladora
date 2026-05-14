@@ -185,6 +185,40 @@ class NotificacionesDrawer extends StatelessWidget {
     return '${dt.day}/${dt.month} $hh:$mm';
   }
 
+  IconData _obtenerIcono(String? tipo) {
+    switch (tipo) {
+      case 'gasolina':
+        return Icons.local_gas_station_rounded;
+      case 'material':
+        return Icons.inventory_2_rounded;
+      case 'equipo':
+        return Icons.engineering_rounded;
+      case 'camion':
+        return Icons.local_shipping_rounded;
+      case 'operador':
+        return Icons.person_search_rounded;
+      default:
+        return Icons.notifications_rounded;
+    }
+  }
+
+  Color _obtenerColor(String? tipo) {
+    switch (tipo) {
+      case 'gasolina':
+        return const Color(0xFFF59E0B);
+      case 'material':
+        return const Color(0xFF10B981);
+      case 'equipo':
+        return const Color(0xFF6366F1);
+      case 'camion':
+        return const Color(0xFFEF4444);
+      case 'operador':
+        return const Color(0xFF8B5CF6);
+      default:
+        return _secondary;
+    }
+  }
+
   BoxDecoration _cardNotificacion({required bool leida}) {
     return BoxDecoration(
       gradient: LinearGradient(
@@ -501,19 +535,18 @@ class NotificacionesDrawer extends StatelessWidget {
                                                         BorderRadius.circular(9),
                                                   ),
                                                   child: Icon(
-                                                    leida
-                                                        ? Icons
-                                                              .mark_email_read_rounded
-                                                        : Icons
-                                                              .mark_email_unread_rounded,
-                                                    color: _secondary,
+                                                    _obtenerIcono(data['tipo']),
+                                                    color: _obtenerColor(
+                                                        data['tipo']),
                                                     size: 16,
                                                   ),
                                                 ),
                                                 const SizedBox(width: 8),
                                                 Expanded(
                                                   child: Text(
-                                                    'Admin: $enviadoPor',
+                                                    data['tipo'] != null
+                                                        ? 'SISTEMA: ${data['enviadoPor']}'
+                                                        : 'Admin: $enviadoPor',
                                                     maxLines: 1,
                                                     overflow:
                                                         TextOverflow.ellipsis,

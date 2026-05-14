@@ -33,14 +33,15 @@ class _GestionCamionesScreenState extends State<GestionCamionesScreen>
   late AnimationController _controller;
   bool _contentVisible = false;
 
-  static const Color _primary = Color(0xFF0F172A);
-  static const Color _accent  = Color(0xFF06B6D4);
-  static const Color _success = Color(0xFF10B981);
-  static const Color _warning = Color(0xFFF59E0B);
-  static const Color _danger  = Color(0xFFDC2626);
-  static const Color _bgColor = Color(0xFFF0F9FF);
+  static const Color _primary = Color(0xFF1E293B); // Slate 800
+  static const Color _accent  = Color(0xFF6366F1); // Indigo 500
+  static const Color _success = Color(0xFF10B981); // Emerald 500
+  static const Color _warning = Color(0xFFF59E0B); // Amber 500
+  static const Color _danger  = Color(0xFFEF4444); // Red 500
+  static const Color _bgColor = Color(0xFFF8FAFC); // Slate 50
   static const Color _surface = Color(0xFFFFFFFF);
   static const Color _slate   = Color(0xFF64748B);
+  static const Color _indigoLight = Color(0xFFE0E7FF);
 
   @override
   void initState() {
@@ -120,7 +121,7 @@ class _GestionCamionesScreenState extends State<GestionCamionesScreen>
                             r.s(24), r.s(24), r.s(24), r.s(20)),
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
-                            colors: [_primary, Color(0xFF1E3A5F)],
+                            colors: [_primary, Color(0xFF334155)],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
@@ -305,9 +306,10 @@ class _GestionCamionesScreenState extends State<GestionCamionesScreen>
                             flex: 2,
                             child: ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: _primary,
+                                backgroundColor: _accent,
                                 foregroundColor: Colors.white,
-                                elevation: 0,
+                                elevation: 4,
+                                shadowColor: _accent.withOpacity(0.3),
                                 shape: RoundedRectangleBorder(
                                     borderRadius:
                                         BorderRadius.circular(r.s(12))),
@@ -318,9 +320,9 @@ class _GestionCamionesScreenState extends State<GestionCamionesScreen>
                                   Navigator.pop(ctx2, nuevoEstado),
                               icon: Icon(Icons.check_rounded,
                                   size: r.s(18)),
-                              label: Text('Aceptar nuevo estado',
+                              label: Text('Confirmar Cambio',
                                   style: TextStyle(
-                                      fontWeight: FontWeight.w700,
+                                      fontWeight: FontWeight.w800,
                                       fontSize: r.s(13))),
                             ),
                           ),
@@ -484,49 +486,65 @@ class _GestionCamionesScreenState extends State<GestionCamionesScreen>
 
     return Scaffold(
       backgroundColor: _bgColor,
+      extendBodyBehindAppBar: false,
       appBar: AppBar(
-        title: Text(
-          'Gestión de Camiones',
-          style: TextStyle(
-              fontWeight: FontWeight.w800, fontSize: r.s(17)),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Gestión de Flota',
+              style: TextStyle(
+                  fontWeight: FontWeight.w900, fontSize: r.s(20), letterSpacing: -0.5),
+            ),
+            Text(
+              'Administración de unidades y estados',
+              style: TextStyle(fontSize: r.s(12), color: Colors.white70, fontWeight: FontWeight.w500),
+            ),
+          ],
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: Colors.white,
-        toolbarHeight: r.s(56),
+        toolbarHeight: r.s(74),
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [_primary, Color(0xFF1E293B)],
+              colors: [_primary, Color(0xFF334155)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            boxShadow: [
-              BoxShadow(
-                  color: _primary.withOpacity(0.3),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8)),
-            ],
           ),
         ),
         actions: [
           Padding(
-            padding: EdgeInsets.only(right: r.s(12)),
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _accent,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(r.s(20))),
-                padding: EdgeInsets.symmetric(
-                    horizontal: r.s(16), vertical: r.s(8)),
+            padding: EdgeInsets.only(right: r.s(16)),
+            child: Center(
+              child: Material(
+                color: _accent,
+                borderRadius: BorderRadius.circular(r.s(12)),
+                elevation: 4,
+                shadowColor: _accent.withOpacity(0.4),
+                child: InkWell(
+                  onTap: () => _mostrarFormularioCamion(),
+                  borderRadius: BorderRadius.circular(r.s(12)),
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                        horizontal: r.s(16), vertical: r.s(10)),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.add_rounded, size: r.s(20), color: Colors.white),
+                        SizedBox(width: r.s(6)),
+                        Text('Nueva Unidad',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                                fontSize: r.s(13))),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-              onPressed: () => _mostrarFormularioCamion(),
-              icon: Icon(Icons.add_rounded, size: r.s(18)),
-              label: Text('Agregar',
-                  style: TextStyle(
-                      fontWeight: FontWeight.w700, fontSize: r.s(13))),
             ),
           ),
         ],
@@ -541,7 +559,9 @@ class _GestionCamionesScreenState extends State<GestionCamionesScreen>
                 child: CircularProgressIndicator(color: _accent));
           }
 
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          final camiones = snapshot.data?.docs ?? [];
+
+          if (camiones.isEmpty) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -562,7 +582,7 @@ class _GestionCamionesScreenState extends State<GestionCamionesScreen>
                           fontWeight: FontWeight.w700,
                           color: _primary)),
                   SizedBox(height: r.s(8)),
-                  Text('Toca "Agregar" para registrar el primero',
+                  Text('Toca "Nueva Unidad" para registrar el primero',
                       style: TextStyle(
                           fontSize: r.s(14), color: Colors.grey[500])),
                 ],
@@ -570,19 +590,77 @@ class _GestionCamionesScreenState extends State<GestionCamionesScreen>
             );
           }
 
-          final camiones = snapshot.data!.docs;
+          // Cálculo de estadísticas rápidas
+          final total = camiones.length;
+          final disponibles = camiones.where((doc) => doc['estado'] == 'Disponible').length;
+          final mantenimiento = camiones.where((doc) => doc['estado'] == 'En Mantenimiento').length;
 
-          return AnimatedOpacity(
-            opacity: _contentVisible ? 1 : 0,
-            duration: const Duration(milliseconds: 600),
-            child: r.isDesktop
-                ? _buildDesktopGrid(camiones, r)
-                : _buildMobileList(camiones, r),
+          return Column(
+            children: [
+              // Barra de estadísticas premium
+              _buildStatsBar(total, disponibles, mantenimiento, r),
+              Expanded(
+                child: AnimatedOpacity(
+                  opacity: _contentVisible ? 1 : 0,
+                  duration: const Duration(milliseconds: 600),
+                  child: r.isDesktop
+                      ? _buildDesktopGrid(camiones, r)
+                      : _buildMobileList(camiones, r),
+                ),
+              ),
+            ],
           );
         },
       ),
     );
   }
+
+  Widget _buildStatsBar(int total, int disponibles, int mantenimiento, _R r) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: r.s(16), vertical: r.s(16)),
+      decoration: BoxDecoration(
+        color: _surface,
+        border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
+      ),
+      child: Row(
+        children: [
+          _statItem('Flota Total', total.toString(), _primary, Icons.inventory_2_rounded, r),
+          _vDivider(),
+          _statItem('Disponibles', disponibles.toString(), _success, Icons.check_circle_rounded, r),
+          _vDivider(),
+          _statItem('Taller', mantenimiento.toString(), _warning, Icons.build_circle_rounded, r),
+        ],
+      ),
+    );
+  }
+
+  Widget _statItem(String label, String value, Color color, IconData icon, _R r) {
+    return Expanded(
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: color, size: r.s(14)),
+              SizedBox(width: r.s(6)),
+              Text(
+                value,
+                style: TextStyle(
+                    fontSize: r.s(18), fontWeight: FontWeight.w900, color: _primary),
+              ),
+            ],
+          ),
+          Text(
+            label.toUpperCase(),
+            style: TextStyle(
+                fontSize: r.s(10), fontWeight: FontWeight.w700, color: _slate, letterSpacing: 0.5),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _vDivider() => Container(height: 24, width: 1, color: Colors.grey[200]);
 
   // ── Lista móvil — tarjetas con altura natural (mainAxisSize.min) ────────────
   Widget _buildMobileList(List<QueryDocumentSnapshot> docs, _R r) {
@@ -641,14 +719,14 @@ class _GestionCamionesScreenState extends State<GestionCamionesScreen>
         margin: r.isDesktop ? EdgeInsets.zero : const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
           color: _surface,
-          borderRadius: BorderRadius.circular(r.s(20)),
+          borderRadius: BorderRadius.circular(r.s(24)),
           border: Border.all(
-              color: estadoColor.withOpacity(0.25), width: 1.5),
+              color: Colors.grey[200]!, width: 1),
           boxShadow: [
             BoxShadow(
-                color: _primary.withOpacity(0.07),
-                blurRadius: r.s(16),
-                offset: Offset(0, r.s(6))),
+                color: _primary.withOpacity(0.04),
+                blurRadius: r.s(20),
+                offset: Offset(0, r.s(10))),
           ],
         ),
         // En desktop llenamos la celda; en móvil altura natural
@@ -678,7 +756,7 @@ class _GestionCamionesScreenState extends State<GestionCamionesScreen>
   }) {
     final fotoWidget = ClipRRect(
       borderRadius:
-          BorderRadius.vertical(top: Radius.circular(r.s(20))),
+          BorderRadius.vertical(top: Radius.circular(r.s(24))),
       child: SizedBox(
         height: fotoH,
         width: double.infinity,
@@ -691,69 +769,70 @@ class _GestionCamionesScreenState extends State<GestionCamionesScreen>
                     errorBuilder: (_, __, ___) =>
                         _fotoPlaceholder(r))
                 : _fotoPlaceholder(r),
-            // Gradiente oscuro abajo
-            Positioned(
-              bottom: 0, left: 0, right: 0,
+            // Gradiente oscuro sutil
+            Positioned.fill(
               child: Container(
-                height: r.s(70),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.bottomCenter,
                     end: Alignment.topCenter,
                     colors: [
-                      Colors.black.withOpacity(0.65),
+                      Colors.black.withOpacity(0.7),
                       Colors.transparent,
                     ],
                   ),
                 ),
               ),
             ),
-            // Tipo + placas
+            // Placas arriba a la derecha (Estilo Badge)
             Positioned(
-              bottom: r.s(10), left: r.s(14), right: r.s(14),
-              child: Row(children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(tipo,
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontSize: r.s(17),
-                              fontWeight: FontWeight.w800,
-                              shadows: const [
-                                Shadow(
-                                    color: Colors.black45,
-                                    blurRadius: 4)
-                              ])),
-                      Text(modelo,
-                          style: TextStyle(
-                              color: Colors.white.withOpacity(0.8),
-                              fontSize: r.s(12))),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: EdgeInsets.symmetric(
-                      horizontal: r.s(10), vertical: r.s(5)),
-                  decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.9),
-                      borderRadius: BorderRadius.circular(r.s(8))),
+              top: r.s(12),
+              right: r.s(12),
+              child: Container(
+                padding: EdgeInsets.symmetric(
+                    horizontal: r.s(10), vertical: r.s(5)),
+                decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.25),
+                    borderRadius: BorderRadius.circular(r.s(30)),
+                    border: Border.all(color: Colors.white30)),
+                child: BackdropFilter(
+                  filter: ColorFilter.mode(Colors.black.withOpacity(0.1), BlendMode.darken),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.pin_rounded,
-                          size: r.s(12), color: _accent),
+                          size: r.s(10), color: Colors.white),
                       SizedBox(width: r.s(4)),
                       Text(placas,
                           style: TextStyle(
-                              fontSize: r.s(12),
-                              fontWeight: FontWeight.w800,
-                              color: _primary)),
+                              fontSize: r.s(11),
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                              letterSpacing: 0.5)),
                     ],
                   ),
                 ),
-              ]),
+              ),
+            ),
+            // Info Texto
+            Positioned(
+              bottom: r.s(14), left: r.s(16), right: r.s(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(tipo.toUpperCase(),
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: r.s(18),
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -0.5)),
+                  Text(modelo,
+                      style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: r.s(12),
+                          fontWeight: FontWeight.w500)),
+                ],
+              ),
             ),
           ],
         ),
@@ -763,84 +842,86 @@ class _GestionCamionesScreenState extends State<GestionCamionesScreen>
     final estadoWidget = Container(
       width: double.infinity,
       padding: EdgeInsets.symmetric(
-          horizontal: r.s(16), vertical: r.s(9)),
+          horizontal: r.s(16), vertical: r.s(10)),
       decoration: BoxDecoration(
-        color: estadoColor.withOpacity(0.08),
-        border: Border(
-          top: BorderSide(color: estadoColor.withOpacity(0.2)),
-          bottom: BorderSide(color: estadoColor.withOpacity(0.2)),
-        ),
+        color: _bgColor,
       ),
       child: Row(children: [
-        Icon(_getEstadoIcon(estado), color: estadoColor, size: r.s(19)),
-        SizedBox(width: r.s(9)),
+        Container(
+          padding: EdgeInsets.all(r.s(6)),
+          decoration: BoxDecoration(
+            color: estadoColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(r.s(8)),
+          ),
+          child: Icon(_getEstadoIcon(estado), color: estadoColor, size: r.s(16)),
+        ),
+        SizedBox(width: r.s(10)),
         Text(estado,
             style: TextStyle(
                 fontSize: r.s(13),
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w800,
                 color: estadoColor)),
         const Spacer(),
-        Text('Estado actual',
-            style: TextStyle(fontSize: r.s(10), color: _slate)),
+        Icon(Icons.verified_user_rounded, color: _slate.withOpacity(0.3), size: r.s(14)),
       ]),
     );
 
     final botonesWidget = Padding(
-      padding: EdgeInsets.all(r.s(11)),
+      padding: EdgeInsets.all(r.s(14)),
       child: Row(children: [
         Expanded(
-          flex: 3,
-          child: ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: estadoColor,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(r.s(12))),
-              padding: EdgeInsets.symmetric(vertical: r.s(10)),
-            ),
-            onPressed: () =>
-                _cambiarEstadoConDialogo(camionId, estado, tipo),
-            icon: Icon(Icons.swap_horiz_rounded, size: r.s(16)),
-            label: Text('Cambiar Estado',
-                style: TextStyle(
-                    fontWeight: FontWeight.w700, fontSize: r.s(12))),
-          ),
-        ),
-        SizedBox(width: r.s(8)),
-        Expanded(
-          flex: 2,
-          child: OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: _accent,
-              side: BorderSide(color: _accent.withOpacity(0.5)),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(r.s(12))),
-              padding: EdgeInsets.symmetric(vertical: r.s(10)),
-            ),
-            onPressed: () =>
-                _mostrarFormularioCamion(camionId: camionId, data: data),
-            icon: Icon(Icons.edit_rounded, size: r.s(15)),
-            label: Text('Editar',
-                style: TextStyle(
-                    fontWeight: FontWeight.w700, fontSize: r.s(12))),
-          ),
-        ),
-        SizedBox(width: r.s(8)),
-        Container(
-          decoration: BoxDecoration(
-            color: _danger.withOpacity(0.08),
+          flex: 4,
+          child: Material(
+            color: estadoColor,
             borderRadius: BorderRadius.circular(r.s(12)),
-            border: Border.all(color: _danger.withOpacity(0.3)),
+            child: InkWell(
+              onTap: () => _cambiarEstadoConDialogo(camionId, estado, tipo),
+              borderRadius: BorderRadius.circular(r.s(12)),
+              child: Container(
+                height: r.s(40),
+                alignment: Alignment.center,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.swap_horiz_rounded, size: r.s(16), color: Colors.white),
+                    SizedBox(width: r.s(6)),
+                    Text('ESTADO',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: r.s(11))),
+                  ],
+                ),
+              ),
+            ),
           ),
-          child: IconButton(
-            onPressed: () => _eliminarCamion(camionId, tipo),
-            icon: Icon(Icons.delete_rounded,
-                color: _danger, size: r.s(20)),
-            tooltip: 'Eliminar',
-            padding: EdgeInsets.all(r.s(8)),
-            constraints: BoxConstraints(
-                minWidth: r.s(40), minHeight: r.s(40)),
+        ),
+        SizedBox(width: r.s(10)),
+        Material(
+          color: _indigoLight,
+          borderRadius: BorderRadius.circular(r.s(12)),
+          child: InkWell(
+            onTap: () => _mostrarFormularioCamion(camionId: camionId, data: data),
+            borderRadius: BorderRadius.circular(r.s(12)),
+            child: Container(
+              width: r.s(40),
+              height: r.s(40),
+              child: Icon(Icons.edit_rounded, size: r.s(18), color: _accent),
+            ),
+          ),
+        ),
+        SizedBox(width: r.s(10)),
+        Material(
+          color: _danger.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(r.s(12)),
+          child: InkWell(
+            onTap: () => _eliminarCamion(camionId, tipo),
+            borderRadius: BorderRadius.circular(r.s(12)),
+            child: Container(
+              width: r.s(40),
+              height: r.s(40),
+              child: Icon(Icons.delete_rounded, color: _danger, size: r.s(18)),
+            ),
           ),
         ),
       ]),
@@ -869,10 +950,24 @@ class _GestionCamionesScreenState extends State<GestionCamionesScreen>
   }
 
   Widget _fotoPlaceholder(_R r) => Container(
-        color: _accent.withOpacity(0.07),
+        color: _indigoLight.withOpacity(0.5),
         child: Center(
-          child: Icon(Icons.local_shipping_rounded,
-              color: _accent.withOpacity(0.3), size: r.s(56)),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.local_shipping_rounded,
+                  color: _accent.withOpacity(0.4), size: r.s(48)),
+              SizedBox(height: r.s(8)),
+              Text('SIN IMAGEN', 
+                style: TextStyle(
+                  color: _accent.withOpacity(0.4), 
+                  fontSize: r.s(10), 
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.0
+                )
+              ),
+            ],
+          ),
         ),
       );
 }
@@ -904,12 +999,13 @@ class _CamionFormScreenState extends State<CamionFormScreen> {
   Uint8List? _imagenBytes;
   String?    _imagenPreviewUrl;
 
-  static const Color _primary = Color(0xFF0F172A);
-  static const Color _accent  = Color(0xFF06B6D4);
+  static const Color _primary = Color(0xFF1E293B);
+  static const Color _accent  = Color(0xFF6366F1);
   static const Color _success = Color(0xFF10B981);
   static const Color _warning = Color(0xFFF59E0B);
-  static const Color _danger  = Color(0xFFDC2626);
+  static const Color _danger  = Color(0xFFEF4444);
   static const Color _slate   = Color(0xFF64748B);
+  static const Color _bgColor = Color(0xFFF8FAFC);
 
   @override
   void initState() {
@@ -1082,7 +1178,7 @@ class _CamionFormScreenState extends State<CamionFormScreen> {
                 padding: EdgeInsets.all(r.s(20)),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [_primary, Color(0xFF1E3A5F)],
+                    colors: [_primary, Color(0xFF334155)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -1156,11 +1252,11 @@ class _CamionFormScreenState extends State<CamionFormScreen> {
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius:
-                                  BorderRadius.circular(r.s(18)),
+                                  BorderRadius.circular(r.s(22)),
                               border: Border.all(
                                 color: _subiendoFoto
                                     ? _accent
-                                    : const Color(0xFFE2E8F0),
+                                    : Colors.grey[200]!,
                                 width: _subiendoFoto ? 2 : 1.5,
                               ),
                               boxShadow: [
@@ -1379,7 +1475,7 @@ class _CamionFormScreenState extends State<CamionFormScreen> {
                                       .withOpacity(0.4),
                               shape: RoundedRectangleBorder(
                                   borderRadius:
-                                      BorderRadius.circular(r.s(16))),
+                                      BorderRadius.circular(r.s(12))),
                             ),
                             onPressed: _guardando ? null : _guardar,
                             icon: _guardando

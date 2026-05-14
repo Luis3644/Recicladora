@@ -126,6 +126,13 @@ class _ConfirmarCamionContentState extends State<_ConfirmarCamionContent>
         'estado': 'pendiente',
       });
 
+      // Notificar al administrador
+      await _enviarNotificacionAdmin(
+        tipo: 'camion',
+        mensaje:
+            'FALLA EN CAMIÓN: ${widget.operador} reportó un problema en el camión ${widget.modelo} (${widget.placas}): "${_reporteController.text.trim()}".',
+      );
+
       if (!mounted) return;
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -148,6 +155,26 @@ class _ConfirmarCamionContentState extends State<_ConfirmarCamionContent>
       );
     } finally {
       if (mounted) setState(() => _enviandoReporte = false);
+    }
+  }
+
+  Future<void> _enviarNotificacionAdmin({
+    required String tipo,
+    required String mensaje,
+  }) async {
+    try {
+      await FirebaseFirestore.instance.collection('notificaciones').add({
+        'mensaje': mensaje,
+        'creadoEn': FieldValue.serverTimestamp(),
+        'enviadoPor': widget.operador,
+        'destinoTipo': 'rol',
+        'paraTodos': false,
+        'destinatarioRol': 'admin',
+        'tipo': tipo,
+        'leidoPor': <String, bool>{},
+      });
+    } catch (e) {
+      debugPrint('Error enviando notificación al admin: $e');
     }
   }
 
