@@ -39,6 +39,37 @@ bool _estaLeidaPorUsuario(
   return leidoPor[claveUsuario] == true;
 }
 
+bool _esEventoInicioSesion(Map<String, dynamic> data) {
+  final tipo = data['tipo']?.toString().toLowerCase() ?? '';
+  final mensaje = data['mensaje']?.toString().toLowerCase() ?? '';
+
+  // Tipos explícitos que indican sesión/login
+  if (tipo.contains('login') || tipo.contains('sesion') || tipo.contains('session')) return true;
+
+  // Frases comunes en español (con y sin acento) - inicio de sesión, inicio/fin de jornada
+  final patrones = [
+    'ha iniciado sesión',
+    'ha iniciado sesion',
+    'inició sesión',
+    'inicio de sesión',
+    'inicio de sesion',
+    'se ha conectado',
+    'ha conectado',
+    'se conectó',
+    'se ha logueado',
+    'logueado',
+    'ha iniciado su jornada',
+    'ha finalizado su jornada',
+    'ha FINALIZADO su jornada',
+  ];
+
+  for (final p in patrones) {
+    if (mensaje.contains(p)) return true;
+  }
+
+  return false;
+}
+
 class NotificacionesBellButton extends StatelessWidget {
   final String rolUsuario;
   final String nombreUsuario;
@@ -74,6 +105,7 @@ class NotificacionesBellButton extends StatelessWidget {
             nombreUsuario: nombreUsuario,
           );
           if (!esParaUsuario) return false;
+          if (_esEventoInicioSesion(data)) return false; // ocultar eventos de inicio de sesión
           return !_estaLeidaPorUsuario(data, claveUsuario: claveUsuario);
         }).length;
 
@@ -172,6 +204,25 @@ class NotificacionesDrawer extends StatelessWidget {
         'leidoPor': {claveUsuario: true},
         'leidoEn': {claveUsuario: FieldValue.serverTimestamp()},
       }, SetOptions(merge: true));
+    }
+
+    await batch.commit();
+  }
+
+  Future<void> _borrarTodasLasNotificaciones(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
+  ) async {
+    final batch = FirebaseFirestore.instance.batch();
+    for (final doc in docs) {
+      final data = doc.data();
+      final esParaUsuario = _esParaUsuarioNotificacion(
+        data,
+        rolUsuario: rolUsuario,
+        nombreUsuario: nombreUsuario,
+      );
+      if (!esParaUsuario) continue;
+
+      batch.delete(doc.reference);
     }
 
     await batch.commit();
@@ -276,6 +327,7 @@ class NotificacionesDrawer extends StatelessWidget {
             final docs = snapshot.data?.docs ?? [];
             final filtradas = docs.where((doc) {
               final data = doc.data();
+              if (_esEventoInicioSesion(data)) return false; // ocultar eventos de inicio de sesión
               return _esParaUsuarioNotificacion(
                 data,
                 rolUsuario: rolUsuario,
@@ -408,26 +460,82 @@ class NotificacionesDrawer extends StatelessWidget {
                                 ),
                               ),
                               const Spacer(),
-                              TextButton.icon(
-                                style: TextButton.styleFrom(
-                                  foregroundColor: Colors.white,
-                                  backgroundColor:
-                                      Colors.white.withValues(alpha: 0.14),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 6,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
+                              Tooltip(
+                                message: 'Marcar todas como leídas',
+                                child: IconButton(
+                                  icon: const Icon(Icons.done_all_rounded, size: 18),
+                                  color: Colors.white,
+                                  onPressed: noLeidas.isEmpty
+                                      ? null
+                                      : () async {
+                                          await _marcarTodasComoLeidas(docs);
+                                        },
+                                  style: IconButton.styleFrom(
+                                    backgroundColor:
+                                        Colors.white.withValues(alpha: 0.14),
+                                    disabledBackgroundColor:
+                                        Colors.white.withValues(alpha: 0.07),
+                                    padding: const EdgeInsets.all(8),
                                   ),
                                 ),
-                                onPressed: noLeidas.isEmpty
-                                    ? null
-                                    : () async {
-                                        await _marcarTodasComoLeidas(docs);
-                                      },
-                                icon: const Icon(Icons.done_all_rounded, size: 16),
-                                label: const Text('Marcar todo'),
+                              ),
+                              const SizedBox(width: 8),
+                              Tooltip(
+                                message: 'Eliminar todas las notificaciones',
+                                child: IconButton(
+                                  icon: const Icon(Icons.delete_sweep_rounded, size: 18),
+                                  color: Colors.white,
+                                  onPressed: filtradas.isEmpty
+                                      ? null
+                                      : () async {
+                                          final confirmar =
+                                              await showDialog<bool>(
+                                                    context: context,
+                                                    builder: (_) => AlertDialog(
+                                                      title: const Text(
+                                                          'Eliminar todas las notificaciones'),
+                                                      content: const Text(
+                                                          '¿Estás seguro de que deseas eliminar todas tus notificaciones? Esta acción no se puede deshacer.'),
+                                                      actions: [
+                                                        TextButton(
+                                                          onPressed: () =>
+                                                              Navigator.of(
+                                                                      context)
+                                                                  .pop(false),
+                                                          child: const Text(
+                                                              'Cancelar'),
+                                                        ),
+                                                        FilledButton(
+                                                          onPressed: () =>
+                                                              Navigator.of(
+                                                                      context)
+                                                                  .pop(true),
+                                                          style: FilledButton
+                                                              .styleFrom(
+                                                            backgroundColor:
+                                                                const Color(
+                                                                    0xFFDC2626),
+                                                          ),
+                                                          child: const Text(
+                                                              'Eliminar'),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ) ??
+                                              false;
+                                          if (confirmar) {
+                                            await _borrarTodasLasNotificaciones(
+                                                docs);
+                                          }
+                                        },
+                                  style: IconButton.styleFrom(
+                                    backgroundColor:
+                                        Colors.white.withValues(alpha: 0.14),
+                                    disabledBackgroundColor:
+                                        Colors.white.withValues(alpha: 0.07),
+                                    padding: const EdgeInsets.all(8),
+                                  ),
+                                ),
                               ),
                             ],
                           ),

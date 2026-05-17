@@ -232,7 +232,18 @@ static void navegarSegunTipo(String tipo) {
         if (estaEnForeground) {
           final mensaje    = data['mensaje']?.toString() ?? '';
           final enviadoPor = data['enviadoPor']?.toString() ?? 'Administración';
-          await _showInAppMessageNotification(doc.id, mensaje, enviadoPor);
+
+          final tipoLow = (data['tipo']?.toString() ?? '').toLowerCase();
+          final mensajeLow = mensaje.toLowerCase();
+          // Ignorar notificaciones de inicio de sesión e inicio/fin de jornada
+          if (tipoLow.contains('login') || tipoLow.contains('sesion') || tipoLow.contains('session') || 
+              mensajeLow.contains('ha iniciado sesión') || mensajeLow.contains('inició sesión') || 
+              mensajeLow.contains('se ha conectado') || mensajeLow.contains('ha iniciado su jornada') ||
+              mensajeLow.contains('ha finalizado su jornada')) {
+            // no mostrar
+          } else {
+            await _showInAppMessageNotification(doc.id, mensaje, enviadoPor);
+          }
         }
 
         _notificacionesMostradas.add(doc.id);
@@ -330,6 +341,13 @@ static void _setupForegroundListener() {
     // Mensajes admin a operadores/trabajadores ya los muestra
     // el listener de Firestore — ignorar aquí para evitar duplicado
     if (tipo == 'admin_mensaje') return;
+
+    // Ignorar notificaciones de inicio de sesión, inicio/fin de jornada (login/sesión)
+    final tipoLower = tipo.toLowerCase();
+    if (tipoLower.contains('login') || tipoLower.contains('sesion') || tipoLower.contains('session')) return;
+    
+    final body = (message.notification?.body ?? message.data['body'] ?? '').toString().toLowerCase();
+    if (body.contains('ha iniciado su jornada') || body.contains('ha finalizado su jornada')) return;
 
     await showSystemNotificationFromMessage(message);
   });
