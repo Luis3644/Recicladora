@@ -37,14 +37,14 @@ class _AnimatedOptionCard extends StatefulWidget {
     required this.onTap,
     required this.color,
     this.compact = false,
-  });
+    Key? key,
+  }) : super(key: key);
 
   @override
   State<_AnimatedOptionCard> createState() => _AnimatedOptionCardState();
 }
 
-class _AnimatedOptionCardState extends State<_AnimatedOptionCard>
-    with SingleTickerProviderStateMixin {
+class _AnimatedOptionCardState extends State<_AnimatedOptionCard> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
   bool _isHovered = false;
@@ -52,13 +52,8 @@ class _AnimatedOptionCardState extends State<_AnimatedOptionCard>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -235,6 +230,8 @@ class _AdminScreenState extends State<AdminScreen>
   bool _camionesExpanded = false;
   late AnimationController _drawerAnimCtrl;
   late Animation<double> _drawerRotateAnim;
+  // Memoria: periodo seleccionado para métricas
+  String _memoriaPeriod = '24h'; // opciones: '24h', '7d', '30d'
 
   // ── Colores ───────────────────────────────────────────────────────────────
   final Color primaryColor = const Color(0xFF0f172a);
@@ -808,6 +805,7 @@ class _AdminScreenState extends State<AdminScreen>
                 _buildInicioTab(isMobile),
                 _buildUsuariosTab(isMobile),
                 _buildReportesTab(isMobile),
+                _buildMemoriaTab(isMobile),
                 _buildAjustesTab(isMobile),
               ],
             ),
@@ -1053,9 +1051,818 @@ class _AdminScreenState extends State<AdminScreen>
             label: 'Reportes',
           ),
           NavigationDestination(
+            icon: Icon(Icons.storage_outlined),
+            selectedIcon: Icon(Icons.storage_rounded),
+            label: 'Memoria',
+          ),
+          NavigationDestination(
             icon: Icon(Icons.settings_outlined),
             selectedIcon: Icon(Icons.settings_rounded),
             label: 'Ajustes',
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Firestore helpers para conteo y borrado por lotes ───────────────────
+  Future<int> _contarDocumentos(String collectionPath) async {
+    try {
+      final snap = await FirebaseFirestore.instance.collection(collectionPath).get();
+      return snap.size;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  Future<void> _borrarColeccion(String collectionPath, {int batchSize = 500}) async {
+    final coll = FirebaseFirestore.instance.collection(collectionPath);
+    try {
+      var totalDeleted = 0;
+      while (true) {
+        final snapshot = await coll.limit(batchSize).get();
+        if (snapshot.docs.isEmpty) break;
+        final batch = FirebaseFirestore.instance.batch();
+        for (final doc in snapshot.docs) {
+          batch.delete(doc.reference);
+          totalDeleted++;
+        }
+        await batch.commit();
+        // pequeña pausa para no saturar
+        await Future.delayed(const Duration(milliseconds: 200));
+      }
+
+      // Registrar borrado administrativo para métricas (colección: admin_deletions)
+      try {
+        final adminUid = FirebaseAuth.instance.currentUser?.uid ?? 'unknown';
+        await FirebaseFirestore.instance.collection('admin_deletions').add({
+          'collection': collectionPath,
+          'deleted': totalDeleted,
+          'admin': adminUid,
+          'timestamp': FieldValue.serverTimestamp(),
+        });
+      } catch (_) {
+        // no bloquear si falla el log
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Contadores por periodo
+  Future<int> _countAddsInRange(String collectionPath, DateTime start, DateTime end) async {
+    try {
+      final col = FirebaseFirestore.instance.collection(collectionPath);
+      final startTs = Timestamp.fromDate(start);
+      final endTs = Timestamp.fromDate(end);
+      
+      String field = 'fecha';
+      if (collectionPath == 'registros_toneladas') {
+        field = 'fecha_registro';
+      } else if (collectionPath == 'notificaciones') {
+        field = 'creadoEn';
+      }
+      
+      final q = col.where(field, isGreaterThanOrEqualTo: startTs).where(field, isLessThan: endTs);
+      final snap = await q.get();
+      return snap.size;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  Future<int> _countAdminDeletionsInRange(DateTime start, DateTime end) async {
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('admin_deletions')
+          .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+          .where('timestamp', isLessThan: Timestamp.fromDate(end))
+          .get();
+      var total = 0;
+      for (final doc in snap.docs) {
+        final n = doc.data()['deleted'];
+        if (n is int) total += n;
+      }
+      return total;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  // Generar serie diaria para los últimos N días (incluye hoy)
+  Future<List<int>> _dailyCountsForAdds(String collectionPath, int days) async {
+    final now = DateTime.now();
+    final list = <int>[];
+    for (int i = days - 1; i >= 0; i--) {
+      final day = DateTime(now.year, now.month, now.day).subtract(Duration(days: i));
+      final start = DateTime(day.year, day.month, day.day, 1); // contamos desde la 1 AM
+      final end = start.add(const Duration(days: 1));
+      final c = await _countAddsInRange(collectionPath, start, end);
+      list.add(c);
+    }
+    return list;
+  }
+
+  Future<List<int>> _dailyAdminDeletionCounts(int days) async {
+    final now = DateTime.now();
+    final list = <int>[];
+    for (int i = days - 1; i >= 0; i--) {
+      final day = DateTime(now.year, now.month, now.day).subtract(Duration(days: i));
+      final start = DateTime(day.year, day.month, day.day, 1);
+      final end = start.add(const Duration(days: 1));
+      final c = await _countAdminDeletionsInRange(start, end);
+      list.add(c);
+    }
+    return list;
+  }
+
+  String _getWeekdayName(int weekday) {
+    switch (weekday) {
+      case 1: return 'Lunes';
+      case 2: return 'Martes';
+      case 3: return 'Miércoles';
+      case 4: return 'Jueves';
+      case 5: return 'Viernes';
+      case 6: return 'Sábado';
+      case 7: return 'Domingo';
+      default: return '';
+    }
+  }
+
+  String _formatDayLabel(DateTime date) {
+    final weekday = _getWeekdayName(date.weekday);
+    final day = date.day.toString().padLeft(2, '0');
+    final month = date.month.toString().padLeft(2, '0');
+    return '$weekday $day/$month';
+  }
+
+  Widget _miniMetric(IconData icon, String label, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 12, color: color),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey[700],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPeriodChip(String value, String label) {
+    final selected = _memoriaPeriod == value;
+    return ChoiceChip(
+      label: Text(
+        label,
+        style: TextStyle(
+          color: selected ? Colors.white : const Color(0xFF0F172A),
+          fontWeight: FontWeight.bold,
+          fontSize: 12,
+        ),
+      ),
+      selected: selected,
+      selectedColor: const Color(0xFF0F172A),
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(
+          color: selected ? const Color(0xFF0F172A) : const Color(0xFFCBD5E1),
+          width: 1.5,
+        ),
+      ),
+      elevation: selected ? 2 : 0,
+      onSelected: (bool selected) {
+        if (selected) {
+          setState(() {
+            _memoriaPeriod = value;
+          });
+        }
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>> _fetchMemoriaMetrics() async {
+    final now = DateTime.now();
+    final collections = ['checklist', 'reportes', 'reportes_camiones', 'registros_gasolina', 'registros_toneladas', 'notificaciones'];
+
+    final generalCounts = await Future.wait(
+      ['reportes', 'reportes_camiones', 'registros_gasolina', 'registros_toneladas', 'notificaciones']
+          .map((p) => _contarDocumentos(p)),
+    );
+
+    DateTime start;
+    if (_memoriaPeriod == '24h') {
+      start = DateTime(now.year, now.month, now.day, 1);
+      if (now.isBefore(start)) {
+        start = start.subtract(const Duration(days: 1));
+      }
+    } else if (_memoriaPeriod == '7d') {
+      start = DateTime(now.year, now.month, now.day, 1).subtract(const Duration(days: 6));
+    } else {
+      start = DateTime(now.year, now.month, now.day, 1).subtract(const Duration(days: 29));
+    }
+
+    final end = now;
+
+    var totalAddsInRange = 0;
+    for (final coll in collections) {
+      totalAddsInRange += await _countAddsInRange(coll, start, end);
+    }
+
+    final totalDeletesInRange = await _countAdminDeletionsInRange(start, end);
+
+    List<Map<String, dynamic>>? breakdownList;
+    if (_memoriaPeriod == '7d') {
+      breakdownList = [];
+      for (int i = 6; i >= 0; i--) {
+        final day = DateTime(now.year, now.month, now.day).subtract(Duration(days: i));
+        final dayStart = DateTime(day.year, day.month, day.day, 1);
+        final dayEnd = dayStart.add(const Duration(days: 1));
+
+        var dailyAdds = 0;
+        for (final coll in collections) {
+          dailyAdds += await _countAddsInRange(coll, dayStart, dayEnd);
+        }
+        final dailyDeletes = await _countAdminDeletionsInRange(dayStart, dayEnd);
+
+        final dailyReads = (dailyAdds * 2.5).round();
+        final dailyWrites = dailyAdds;
+
+        breakdownList.add({
+          'fecha': dayStart,
+          'reads': dailyReads,
+          'writes': dailyWrites,
+          'deletes': dailyDeletes,
+        });
+      }
+    }
+
+    return {
+      'generalCounts': generalCounts,
+      'addsInRange': totalAddsInRange,
+      'deletesInRange': totalDeletesInRange,
+      'breakdown': breakdownList,
+    };
+  }
+
+  Widget _limitCard({
+    required IconData icon,
+    required String title,
+    required String usado,
+    required String limite,
+    required double ratio,
+    required Color color,
+  }) {
+    final displayRatio = (ratio.isFinite && ratio > 0) ? ratio.clamp(0.0, 1.0) : 0.0;
+    Color barColor;
+    if (displayRatio < 0.5) {
+      barColor = const Color(0xFF10B981); // Success
+    } else if (displayRatio < 0.8) {
+      barColor = const Color(0xFFF59E0B); // Warning
+    } else {
+      barColor = const Color(0xFFDC2626); // Error
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0F172A).withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: color, size: 22),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: Color(0xFF0F172A)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _metricColumn('USADO (ESTIMADO)', usado, barColor),
+              Container(width: 1, height: 36, color: const Color(0xFFE2E8F0)),
+              _metricColumn('LÍMITE GRATUITO', limite, const Color(0xFF64748B)),
+            ],
+          ),
+          const SizedBox(height: 18),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+              value: displayRatio,
+              minHeight: 10,
+              backgroundColor: const Color(0xFFF1F5F9),
+              valueColor: AlwaysStoppedAnimation<Color>(barColor),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              '${(displayRatio * 100).toStringAsFixed(1)}% usado',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: barColor),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _metricColumn(String label, String value, Color valueColor) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF94A3B8), letterSpacing: 0.5),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 6),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: valueColor),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _smallMetricBox(String title, String value, String limit) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFE6EEF8)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(title, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
+            const SizedBox(height: 6),
+            Text(limit, style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Pestaña Memoria ───────────────────────────────────────────────────
+  Widget _buildMemoriaTab(bool isMobile) {
+    final collectionsToShow = <Map<String, dynamic>>[
+      {
+        'label': 'Reportes de equipo / operadores / camiones',
+        'paths': ['checklist', 'reportes', 'reportes_camiones'],
+        'icon': Icons.warning_amber_rounded,
+        'color': Color(0xFFF59E0B),
+        'destructive': false,
+      },
+      {
+        'label': 'Registros de gasolina',
+        'paths': ['registros_gasolina'],
+        'icon': Icons.local_gas_station,
+        'color': Color(0xFF0F766E),
+        'destructive': false,
+      },
+      {
+        'label': 'Registros de carga / material',
+        'paths': ['registros_toneladas'],
+        'icon': Icons.inventory_2,
+        'color': Color(0xFF1D4ED8),
+        'destructive': false,
+      },
+      {
+        'label': 'Notificaciones (sistema)',
+        'paths': ['notificaciones'],
+        'icon': Icons.notifications_active_rounded,
+        'color': Color(0xFF6B7280),
+        'destructive': false,
+      },
+    ];
+
+    return RefreshIndicator(
+      onRefresh: _recargarPanelAdmin,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.fromLTRB(isMobile ? 12 : 20, 16, isMobile ? 12 : 20, 24),
+        children: [
+          _sectionHeader('Memoria y Limpieza'),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              'Realiza limpiezas selectivas para liberar almacenamiento de tu base de datos. Estas acciones no eliminan usuarios ni configuraciones.',
+              style: TextStyle(color: Colors.grey[700]),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Cards de acción
+          Builder(
+            builder: (context) {
+              final cards = collectionsToShow.map((cfg) {
+                return FutureBuilder<int>(
+                  future: Future.wait<int>(
+                    (cfg['paths'] as List<String>).map((p) => _contarDocumentos(p)),
+                  ).then((list) => list.fold<int>(0, (a, b) => a + b)),
+                  builder: (context, snap) {
+                    final total = snap.data ?? 0;
+                    return Card(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      elevation: 1,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: (cfg['color'] as Color).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(cfg['icon'] as IconData, color: cfg['color'] as Color, size: 24),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(cfg['label'] as String, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
+                                  const SizedBox(height: 4),
+                                  Text('Documentos: $total', style: TextStyle(color: Colors.grey[700], fontSize: 12, fontWeight: FontWeight.w600)),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: (cfg['color'] as Color),
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              ),
+                              onPressed: total == 0
+                                  ? null
+                                  : () async {
+                                      final confirmar = await showDialog<bool>(
+                                            context: context,
+                                            builder: (_) => AlertDialog(
+                                              title: Text('Borrar: ${cfg['label']}'),
+                                              content: const Text('Se eliminarán los documentos seleccionados. Esta acción es irreversible.'),
+                                              actions: [
+                                                TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
+                                                FilledButton(
+                                                  onPressed: () => Navigator.of(context).pop(true),
+                                                  style: FilledButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
+                                                  child: const Text('Borrar'),
+                                                ),
+                                              ],
+                                            ),
+                                          ) ??
+                                          false;
+
+                                      if (!confirmar) return;
+                                      // ejecutar borrado para cada path
+                                      try {
+                                        for (final p in (cfg['paths'] as List<String>)) {
+                                          await _borrarColeccion(p);
+                                        }
+                                        if (!mounted) return;
+                                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Borrado completado: ${cfg['label']}')));
+                                        setState(() {});
+                                      } catch (e) {
+                                        if (!mounted) return;
+                                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al borrar: $e')));
+                                      }
+                                    },
+                              icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.white),
+                              label: const Text('Borrar', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.white)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                );
+              }).toList();
+
+              if (isMobile) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: cards.map((c) => Padding(padding: const EdgeInsets.only(bottom: 12), child: c)).toList(),
+                );
+              } else {
+                return GridView.count(
+                  crossAxisCount: 2,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  childAspectRatio: 3.2,
+                  children: cards,
+                );
+              }
+            },
+          ),
+
+          const SizedBox(height: 18),
+          // Botón borrar todo
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFDC2626),
+                foregroundColor: Colors.white,
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () async {
+                final confirmar = await showDialog<bool>(
+                      context: context,
+                      builder: (_) => AlertDialog(
+                        title: const Text('Borrar todo (seleccionado)'),
+                        content: const Text('Esto borrará todos los registros listados arriba. NO eliminará usuarios ni configuraciones. ¿Deseas continuar?'),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
+                          FilledButton(
+                            onPressed: () => Navigator.of(context).pop(true),
+                            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
+                            child: const Text('Borrar todo'),
+                          ),
+                        ],
+                      ),
+                    ) ??
+                    false;
+                if (!confirmar) return;
+                try {
+                  // ejecutar borrado en todas las rutas anteriores excepto usuarios
+                  final allPaths = ['checklist', 'reportes', 'reportes_camiones', 'registros_gasolina', 'registros_toneladas', 'notificaciones'];
+                  for (final p in allPaths) await _borrarColeccion(p);
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Borrado completo ejecutado.')));
+                  setState(() {});
+                } catch (e) {
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al borrar: $e')));
+                }
+              },
+              icon: const Icon(Icons.delete_sweep_rounded, color: Colors.white),
+              label: const Text('Borrar todo (seleccionado)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+            ),
+          ),
+
+          const SizedBox(height: 36),
+          _sectionHeader('Estado del Plan Gratuito (Estimado)'),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              'Las métricas a continuación son estimaciones basadas en conteos locales. Para ver valores exactos revisa la consola oficial de Firebase.',
+              style: TextStyle(color: Colors.grey[700]),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Filtro de periodo
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: Row(
+                children: [
+                  _buildPeriodChip('24h', '24 Horas'),
+                  const SizedBox(width: 8),
+                  _buildPeriodChip('7d', '7 Días'),
+                  const SizedBox(width: 8),
+                  _buildPeriodChip('30d', '30 Días'),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Cards de métricas
+          FutureBuilder<Map<String, dynamic>>(
+            future: _fetchMemoriaMetrics(),
+            builder: (context, snap) {
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 32),
+                    child: CircularProgressIndicator(color: Color(0xFF0F172A)),
+                  ),
+                );
+              }
+
+              final values = (snap.data?['generalCounts'] as List<int>?) ?? [0,0,0,0,0];
+              final totalDocs = values.fold<int>(0, (a,b)=>a+b);
+              final addsInRange = (snap.data?['addsInRange'] as int?) ?? 0;
+              final deletesInRange = (snap.data?['deletesInRange'] as int?) ?? 0;
+              final breakdown = snap.data?['breakdown'] as List<Map<String, dynamic>>?;
+
+              // Límites del plan gratuito (referencia)
+              int limiteLecturas = 50000;
+              int limiteEscrituras = 20000;
+              int limiteEliminaciones = 20000;
+              const limiteFirestoreStorageGB = 1; // GB
+              const limiteStorageFotosGB = 5; // GB
+
+              // Escalar los límites diarios si el filtro es de 7 o 30 días
+              if (_memoriaPeriod == '7d') {
+                limiteLecturas *= 7;
+                limiteEscrituras *= 7;
+                limiteEliminaciones *= 7;
+              } else if (_memoriaPeriod == '30d') {
+                limiteLecturas *= 30;
+                limiteEscrituras *= 30;
+                limiteEliminaciones *= 30;
+              }
+
+              // Estimaciones (proxy)
+              final estimadoLecturas = (addsInRange * 2.5).round(); 
+              final estimadoEscrituras = addsInRange;
+              final estimadoEliminaciones = deletesInRange;
+              final estimadoFirestoreMB = totalDocs * 0.00002;
+              final estimadoFotosMB = (values[0] + values[1]) * 1.5; // ~1.5 MB por reporte
+
+              final List<Widget> cards = [
+                _limitCard(
+                  icon: Icons.chrome_reader_mode_rounded,
+                  title: 'Lecturas de Firestore',
+                  usado: estimadoLecturas.toString(),
+                  limite: _memoriaPeriod == '24h'
+                      ? '$limiteLecturas / día'
+                      : _memoriaPeriod == '7d'
+                          ? '$limiteLecturas / 7 días'
+                          : '$limiteLecturas / 30 días',
+                  ratio: estimadoLecturas / limiteLecturas,
+                  color: const Color(0xFF3B82F6),
+                ),
+                _limitCard(
+                  icon: Icons.edit_document,
+                  title: 'Escrituras de Firestore',
+                  usado: estimadoEscrituras.toString(),
+                  limite: _memoriaPeriod == '24h'
+                      ? '$limiteEscrituras / día'
+                      : _memoriaPeriod == '7d'
+                          ? '$limiteEscrituras / 7 días'
+                          : '$limiteEscrituras / 30 días',
+                  ratio: estimadoEscrituras / limiteEscrituras,
+                  color: const Color(0xFF8B5CF6),
+                ),
+                _limitCard(
+                  icon: Icons.delete_forever_rounded,
+                  title: 'Borrados de Firestore',
+                  usado: estimadoEliminaciones.toString(),
+                  limite: _memoriaPeriod == '24h'
+                      ? '$limiteEliminaciones / día'
+                      : _memoriaPeriod == '7d'
+                          ? '$limiteEliminaciones / 7 días'
+                          : '$limiteEliminaciones / 30 días',
+                  ratio: estimadoEliminaciones / limiteEliminaciones,
+                  color: const Color(0xFFEF4444),
+                ),
+                _limitCard(
+                  icon: Icons.image_rounded,
+                  title: 'Firebase Storage (Fotos)',
+                  usado: '${estimadoFotosMB.toStringAsFixed(2)} MB',
+                  limite: '$limiteStorageFotosGB GB total',
+                  ratio: estimadoFotosMB / (limiteStorageFotosGB * 1024),
+                  color: const Color(0xFF10B981),
+                ),
+                _limitCard(
+                  icon: Icons.storage_rounded,
+                  title: 'Almacenamiento Firestore',
+                  usado: '${estimadoFirestoreMB.toStringAsFixed(3)} MB',
+                  limite: '$limiteFirestoreStorageGB GB total',
+                  ratio: estimadoFirestoreMB / (limiteFirestoreStorageGB * 1024),
+                  color: const Color(0xFFF59E0B),
+                ),
+              ];
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  GridView.builder(
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: isMobile ? 1 : 2,
+                      mainAxisSpacing: 16,
+                      crossAxisSpacing: 16,
+                      childAspectRatio: isMobile ? 1.45 : 1.7,
+                    ),
+                    itemCount: cards.length,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemBuilder: (context, index) => cards[index],
+                  ),
+                  if (_memoriaPeriod == '7d' && breakdown != null) ...[
+                    const SizedBox(height: 28),
+                    _sectionHeader('Desglose Diario (Últimos 7 días)'),
+                    const SizedBox(height: 12),
+                    Card(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      elevation: 1,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: breakdown.length,
+                          separatorBuilder: (context, index) => const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                          itemBuilder: (context, index) {
+                            final day = breakdown[index];
+                            final date = day['fecha'] as DateTime;
+                            final reads = day['reads'] as int;
+                            final writes = day['writes'] as int;
+                            final deletes = day['deletes'] as int;
+                            final dateLabel = _formatDayLabel(date);
+
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF0F172A).withAlpha(12),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: const Icon(Icons.calendar_today_rounded, size: 18, color: Color(0xFF0F172A)),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          dateLabel,
+                                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: Color(0xFF0F172A)),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Wrap(
+                                          spacing: 12,
+                                          runSpacing: 6,
+                                          children: [
+                                            _miniMetric(Icons.chrome_reader_mode_rounded, 'Lecturas: $reads', const Color(0xFF3B82F6)),
+                                            _miniMetric(Icons.edit_document, 'Escrituras: $writes', const Color(0xFF8B5CF6)),
+                                            _miniMetric(Icons.delete_forever_rounded, 'Borrados: $deletes', const Color(0xFFEF4444)),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              );
+            },
           ),
         ],
       ),
