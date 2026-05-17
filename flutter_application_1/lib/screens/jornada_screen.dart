@@ -17,6 +17,7 @@ import 'widgets_conexion/connection_wrapper.dart';
 import 'widgets/menu_lateral.dart';
 import 'widgets/notificaciones_drawer.dart';
 import '../widgets/jornada_bottom_bar.dart';
+import 'contenedores_operador_screen.dart';
 import 'registro_origen_screen.dart';
 import 'registro_toneladas_screen.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
@@ -404,6 +405,89 @@ void _mostrarSeleccionEntradaMaterial() {
           placas: widget.placas,
         ),
       ),
+    );
+  }
+
+  void _irAContenedores() {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => ContenedoresOperadorScreen(
+        operador: widget.operador,
+        camion: widget.camion,
+        placas: widget.placas,
+      )),
+    );
+  }
+
+  Widget _buildContenedoresMiniRow() {
+    final ids = ['contenedor-1', 'contenedor-2', 'contenedor-3'];
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance.collection('contenedores').where(FieldPath.documentId, whereIn: ids).snapshots(),
+      builder: (context, snap) {
+        final docs = snap.data?.docs ?? [];
+        Map<String, Map<String, dynamic>> map = {};
+        for (final d in docs) map[d.id] = d.data();
+
+        Color _colorFor(String estado) {
+          switch (estado) {
+            case 'En proceso de llenado': return const Color(0xFFF59E0B);
+            case 'Lleno': return const Color(0xFF10B981);
+            case 'Fuera de servicio': return const Color(0xFFEF4444);
+            default: return const Color(0xFF64748B);
+          }
+        }
+
+        IconData _iconFor(String estado) {
+          switch (estado) {
+            case 'En proceso de llenado': return Icons.hourglass_top_rounded;
+            case 'Lleno': return Icons.done_all_rounded;
+            case 'Fuera de servicio': return Icons.build_circle_rounded;
+            default: return Icons.inventory_2_outlined;
+          }
+        }
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: ids.map((id) {
+            final d = map[id];
+            final estado = d?['estado']?.toString() ?? 'Fuera de servicio';
+            final color = _colorFor(estado);
+            final icon = _iconFor(estado);
+
+            return Expanded(
+              child: GestureDetector(
+                onTap: _irAContenedores,
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 6),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [color.withOpacity(0.12), Colors.white],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: color.withOpacity(0.22)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: color,
+                        child: Icon(icon, color: Colors.white, size: 18),
+                        radius: 18,
+                      ),
+                      const SizedBox(height: 8),
+                      Text('C ${id.split('-').last}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 4),
+                      Text(estado, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, color: Color(0xFF475569))),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        );
+      },
     );
   }
 
@@ -1281,8 +1365,8 @@ void _mostrarSeleccionEntradaMaterial() {
           bottomNavigationBar: JornadaBottomBar(
             activeIndex: 0,
             onInicio: _irAInicio,
+            onContenedores: _irAContenedores,
             onHistorial: _irAHistorial,
-            onReporte: _irAReporte,
             onPerfil: _irAPerfil,
           ),
           body: Stack(
@@ -1442,6 +1526,7 @@ void _mostrarSeleccionEntradaMaterial() {
                                   color: Colors.white.withValues(alpha: 0.22),
                                   height: 8,
                                 ),
+
                                 const SizedBox(height: 2),
                                 Row(
                                   children: [
@@ -2754,7 +2839,7 @@ class _InfoPill extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 2),
+                    const SizedBox(height: 2),
                 Text(
                   value,
                   maxLines: 2,
@@ -3001,6 +3086,18 @@ class RegistrosJornadaScreen extends StatelessWidget {
     );
   }
 
+  void _irAContenedores(BuildContext context) {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => ContenedoresOperadorScreen(
+          operador: operador,
+          camion: camion,
+          placas: placas,
+        ),
+      ),
+    );
+  }
+
   void _irAReporte(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -3195,10 +3292,10 @@ class RegistrosJornadaScreen extends StatelessWidget {
         ),
       ),
       bottomNavigationBar: JornadaBottomBar(
-        activeIndex: historial ? 1 : 0,
+        activeIndex: historial ? 2 : 0,
         onInicio: () => _irAInicio(context),
+        onContenedores: () => _irAContenedores(context),
         onHistorial: () => _irAHistorial(context),
-        onReporte: () => _irAReporte(context),
         onPerfil: () => _irAPerfil(context),
       ),
       body: SingleChildScrollView(
@@ -3396,6 +3493,18 @@ class PerfilOperadorScreen extends StatelessWidget {
     );
   }
 
+  void _irAContenedores(BuildContext context) {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => ContenedoresOperadorScreen(
+          operador: operador,
+          camion: camion,
+          placas: placas,
+        ),
+      ),
+    );
+  }
+
   void _irAReporte(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -3486,10 +3595,10 @@ class PerfilOperadorScreen extends StatelessWidget {
         ),
       ),
       bottomNavigationBar: JornadaBottomBar(
-        activeIndex: 2,
+        activeIndex: 3,
         onInicio: () => _irAInicio(context),
+        onContenedores: () => _irAContenedores(context),
         onHistorial: () => _irAHistorial(context),
-        onReporte: () => _irAReporte(context),
         onPerfil: () => _irAPerfil(context),
       ),
       body: StreamBuilder<DocumentSnapshot>(

@@ -8,6 +8,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'widgets_conexion/connection_wrapper.dart';
 import '../widgets/jornada_bottom_bar.dart';
 import 'jornada_screen.dart';
+import 'contenedores_operador_screen.dart';
 
 // ─── Paleta de colores ────────────────────────────────────────────────────────
 class _C {
@@ -165,7 +166,11 @@ class _ReporteScreenState extends State<ReporteScreen> {
               placas: widget.placas,
               historial: true)));
 
-  void _irAReporte() {}
+  void _irAContenedores() => Navigator.of(context).pushReplacement(MaterialPageRoute(
+      builder: (_) => ContenedoresOperadorScreen(
+          operador: widget.nombreUsuario,
+          camion: widget.camion,
+          placas: widget.placas)));
 
   void _irAPerfil() => Navigator.of(context).pushReplacement(MaterialPageRoute(
       builder: (_) => PerfilOperadorScreen(
@@ -181,10 +186,10 @@ class _ReporteScreenState extends State<ReporteScreen> {
         backgroundColor: _C.bg,
         appBar: _appBar(),
         bottomNavigationBar: JornadaBottomBar(
-          activeIndex: 3,
+          activeIndex: -1,
           onInicio   : _irAInicio,
+          onContenedores: _irAContenedores,
           onHistorial: _irAHistorial,
-          onReporte  : _irAReporte,
           onPerfil   : _irAPerfil,
         ),
         body: SafeArea(
