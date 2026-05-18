@@ -25,7 +25,6 @@ import 'screens/widgets/lista_incidentes_admin.dart';
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  // FCM muestra la notificación automáticamente — no hacer nada más aquí
 }
 
 void main() async {
@@ -179,12 +178,7 @@ class SessionBootstrapScreen extends StatefulWidget {
 class _SessionBootstrapScreenState extends State<SessionBootstrapScreen> {
   static const Duration _firebaseTimeout = Duration(seconds: 10);
 
-  String _normalizarCorreo(String value) => value.trim().toLowerCase();
-
-  // ── FIX: guardamos el tipo pendiente de navegación (app killed) ───────────
-  // getInitialMessage() solo funciona UNA vez al arrancar la app.
-  // Lo leemos aquí antes de que el navigator esté listo, lo guardamos,
-  // y lo consumimos DESPUÉS de que el usuario ya esté en su pantalla.
+  // Mensaje pendiente si la app estaba killed cuando llegó la notificación
   String? _tipoPendiente;
 
   @override
@@ -193,40 +187,62 @@ class _SessionBootstrapScreenState extends State<SessionBootstrapScreen> {
     _leerMensajeInicial();
   }
 
-  // Lee el mensaje que abrió la app (si la app estaba killed)
   Future<void> _leerMensajeInicial() async {
     try {
       final message = await FirebaseMessaging.instance.getInitialMessage();
       if (message != null) {
         final tipo = message.data['tipo']?.toString() ?? '';
-        if (tipo.isNotEmpty) {
-          _tipoPendiente = tipo;
-        }
+        if (tipo.isNotEmpty) _tipoPendiente = tipo;
       }
     } catch (_) {}
   }
 
+  String _normalizarCorreo(String value) => value.trim().toLowerCase();
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // FIX PRINCIPAL: esperar a que Firebase Auth restaure la sesión ANTES
+  // de hacer cualquier lectura en Firestore. En Android, Auth tarda entre
+  // 500 ms y 2 s en restaurar el token; sin esta espera Firestore recibe
+  // request.auth == null y lanza permission-denied aunque el usuario ya
+  // haya iniciado sesión anteriormente.
+  // ─────────────────────────────────────────────────────────────────────────
   Future<Widget> _resolverPantallaInicial() async {
     try {
+      // 1. Intentar obtener el usuario actual de manera inmediata
+      User? currentUser = FirebaseAuth.instance.currentUser;
+
+      // 2. Si no está disponible aún (común en Android al arrancar),
+      //    esperar hasta 5 segundos a que Auth emita su primer evento.
+      if (currentUser == null) {
+        currentUser = await FirebaseAuth.instance
+            .authStateChanges()
+            .first
+            .timeout(
+              const Duration(seconds: 5),
+              onTimeout: () => null,
+            );
+      }
+
+      // 3. Si tras esperar no hay usuario autenticado → ir al Login
+      if (currentUser == null) {
+        await SessionManager.limpiarSesion();
+        return const LoginScreen();
+      }
+
+      // ── A partir de aquí Auth está listo y Firestore puede leer ────────
+
       final sesionGuardada = await SessionManager.obtenerSesion();
       String? rol;
       String? nombre;
       String? usuarioDocId;
 
-      if (sesionGuardada != null) {
-        if (!_rolValido(sesionGuardada.rol)) {
-          await SessionManager.limpiarSesion();
-        } else {
-          rol          = sesionGuardada.rol;
-          nombre       = sesionGuardada.nombre;
-          usuarioDocId = sesionGuardada.usuarioDocId;
-        }
-      }
-
-      if (rol == null) {
-        final currentUser = FirebaseAuth.instance.currentUser;
-        if (currentUser == null) return const LoginScreen();
-
+      // Intentar usar sesión en caché local primero (más rápido)
+      if (sesionGuardada != null && _rolValido(sesionGuardada.rol)) {
+        rol          = sesionGuardada.rol;
+        nombre       = sesionGuardada.nombre;
+        usuarioDocId = sesionGuardada.usuarioDocId;
+      } else {
+        // Sesión no válida en caché → leer perfil desde Firestore
         final userDoc = await _obtenerPerfilUsuarioFirebase(currentUser);
         final data    = userDoc?.data();
         rol          = data?['rol']?.toString();
@@ -248,10 +264,11 @@ class _SessionBootstrapScreenState extends State<SessionBootstrapScreen> {
 
       rolActualNotifier.value = rol;
 
-      if (rol != null && usuarioDocId != null && usuarioDocId.isNotEmpty) {
+      // Registrar token FCM y arrancar listener de mensajes
+      if (usuarioDocId != null && usuarioDocId.isNotEmpty) {
         await PushNotificationsService.registerUserToken(
           usuarioDocId: usuarioDocId,
-          rol:          rol,
+          rol:          rol!,
         );
         await PushNotificationsService.startInAppMessagesListener(
           usuarioDocId: usuarioDocId,
@@ -260,7 +277,7 @@ class _SessionBootstrapScreenState extends State<SessionBootstrapScreen> {
         );
       }
 
-      // ── Resolver pantalla destino ─────────────────────────────────────────
+      // ── Resolver pantalla destino según rol ─────────────────────────────
       Widget pantallaDestino;
 
       if (rol == 'admin') {
@@ -278,8 +295,8 @@ class _SessionBootstrapScreenState extends State<SessionBootstrapScreen> {
         if (data?['jornada_activa'] == true) {
           pantallaDestino = JornadaScreen(
             operador: nombre!,
-            camion:   data?['camion_actual'] ?? '',
-            placas:   data?['placas_actuales'] ?? 'S/P',
+            camion:   data?['camion_actual']    ?? '',
+            placas:   data?['placas_actuales']  ?? 'S/P',
           );
         } else {
           pantallaDestino = OperadorScreen(nombreUsuario: nombre!);
@@ -288,10 +305,7 @@ class _SessionBootstrapScreenState extends State<SessionBootstrapScreen> {
         return const LoginScreen();
       }
 
-      // ── FIX: consumir navegación pendiente DESPUÉS de resolver la sesión ──
-      // En este punto el usuario ya sabe a qué pantalla va.
-      // Esperamos 500ms para que el widget árbol esté completamente montado
-      // antes de intentar navegar encima.
+      // Consumir navegación pendiente por notificación (app killed)
       if (_tipoPendiente != null && _tipoPendiente!.isNotEmpty) {
         final tipo = _tipoPendiente!;
         _tipoPendiente = null;
@@ -302,6 +316,7 @@ class _SessionBootstrapScreenState extends State<SessionBootstrapScreen> {
 
       return pantallaDestino;
     } catch (_) {
+      // Cualquier error inesperado → Login
       return const LoginScreen();
     }
   }
@@ -309,6 +324,7 @@ class _SessionBootstrapScreenState extends State<SessionBootstrapScreen> {
   Future<DocumentSnapshot<Map<String, dynamic>>?> _obtenerPerfilUsuarioFirebase(
     User currentUser,
   ) async {
+    // Buscar primero por UID
     final porUid = await FirebaseFirestore.instance
         .collection('usuarios')
         .doc(currentUser.uid)
@@ -317,6 +333,7 @@ class _SessionBootstrapScreenState extends State<SessionBootstrapScreen> {
 
     if (porUid.exists) return porUid;
 
+    // Si no existe por UID, intentar por email
     final email = currentUser.email;
     if (email == null || email.isEmpty) return null;
 
@@ -341,9 +358,34 @@ class _SessionBootstrapScreenState extends State<SessionBootstrapScreen> {
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+            backgroundColor: Colors.white,
+            body: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(
+                    color: Color(0xFF0F2754),
+                    strokeWidth: 3,
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    'Verificando sesión…',
+                    style: TextStyle(
+                      color: Color(0xFF64748B),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           );
         }
+
+        if (snapshot.hasError) {
+          return const LoginScreen();
+        }
+
         return snapshot.data ?? const LoginScreen();
       },
     );
