@@ -393,11 +393,11 @@ class _MapaGeneralOperadoresScreenState
                           children: [
                             // Tile con estilo claro
                             TileLayer(
-                              urlTemplate     : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                              userAgentPackageName: 'com.recicladora.guadalajara',
-                              tileDisplay     : const TileDisplay.fadeIn(
-                                  duration: Duration(milliseconds: 200)),
-                            ),
+  urlTemplate: 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+  userAgentPackageName: 'com.recicladora.guadalajara',
+  tileDisplay: const TileDisplay.fadeIn(
+      duration: Duration(milliseconds: 200)),
+),
                             PolylineLayer(polylines: trails),
                             MarkerLayer(markers: markers),
                             RichAttributionWidget(attributions: [

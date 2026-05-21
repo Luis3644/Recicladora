@@ -748,27 +748,28 @@ void _mostrarSeleccionEntradaMaterial() {
 
     await _posicionSub?.cancel();
 
-    final locationSettings = defaultTargetPlatform == TargetPlatform.android
-        ? AndroidSettings(
-            accuracy: LocationAccuracy.high,
-            distanceFilter: 5,
-            intervalDuration: const Duration(seconds: 5),
-            foregroundNotificationConfig: const ForegroundNotificationConfig(
-              notificationTitle: 'GPS Activo',
-              notificationText: 'Compartiendo ubicación con administración',
-              enableWakeLock: true,
-              notificationIcon: AndroidResource(
-                name: '@mipmap/ic_launcher',
-                defType: 'mipmap',
-              ),
-            ),
-          )
-        : AppleSettings(
-            accuracy: LocationAccuracy.high,
-            distanceFilter: 5,
-            pauseLocationUpdatesAutomatically: false,
-            showBackgroundLocationIndicator: true,
-          );
+  final locationSettings = defaultTargetPlatform == TargetPlatform.android
+    ? AndroidSettings(
+        accuracy: LocationAccuracy.bestForNavigation, // ← mejor para vehículos
+        distanceFilter: 10,        // ← 10m en moto es razonable
+        intervalDuration: const Duration(seconds: 3), // ← más frecuente
+        foregroundNotificationConfig: const ForegroundNotificationConfig(
+          notificationTitle: 'GPS Activo',
+          notificationText: 'Compartiendo ubicación con administración',
+          enableWakeLock: true,
+          notificationIcon: AndroidResource(
+            name: '@mipmap/ic_launcher',
+            defType: 'mipmap',
+          ),
+        ),
+      )
+    : AppleSettings(
+        accuracy: LocationAccuracy.bestForNavigation, // ← mejor para vehículos
+        distanceFilter: 10,
+        pauseLocationUpdatesAutomatically: false,
+        showBackgroundLocationIndicator: true,
+        activityType: ActivityType.automotiveNavigation, // ← iOS optimiza para vehículo
+      );
 
     _posicionSub = Geolocator.getPositionStream(
       locationSettings: locationSettings,
