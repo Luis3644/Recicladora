@@ -34,6 +34,10 @@ class _OperadorScreenState extends State<OperadorScreen> {
   bool _modoDescanso = false;
   bool _cargandoModoDescanso = true;
 
+  String _usuarioDocIdPreferido() {
+    return FirebaseAuth.instance.currentUser?.uid ?? widget.nombreUsuario;
+  }
+
   // ── Cerrar sesión ─────────────────────────────────────────────────────────
   Future<void> _cerrarSesion() async {
     try {
@@ -87,7 +91,7 @@ class _OperadorScreenState extends State<OperadorScreen> {
     try {
       final doc = await FirebaseFirestore.instance
           .collection("usuarios")
-          .doc(widget.nombreUsuario)
+          .doc(_usuarioDocIdPreferido())
           .get();
       if (doc.exists && mounted) {
         setState(() {
@@ -106,7 +110,7 @@ class _OperadorScreenState extends State<OperadorScreen> {
     try {
       await FirebaseFirestore.instance
           .collection("usuarios")
-          .doc(widget.nombreUsuario)
+          .doc(_usuarioDocIdPreferido())
           .set({"modo_descanso": valor}, SetOptions(merge: true));
       
       if (mounted) {
@@ -142,14 +146,22 @@ class _OperadorScreenState extends State<OperadorScreen> {
 
   // ── Limpiar camiones si no hay jornada ────────────────────────────────────
   Future<void> _sanearCamionesDelOperadorSiNoHayJornada() async {
-    final userRef = FirebaseFirestore.instance
-        .collection("usuarios")
-        .doc(widget.nombreUsuario);
-    final userDoc = await userRef.get();
-    if (!userDoc.exists) return;
+      final currentUser = FirebaseAuth.instance.currentUser;
+      final refs = <DocumentReference<Map<String, dynamic>>>[];
 
-    final data = userDoc.data() ?? <String, dynamic>{};
-    if (data["jornada_activa"] == true) return;
+      if (currentUser != null) {
+        refs.add(FirebaseFirestore.instance.collection("usuarios").doc(currentUser.uid));
+      }
+      refs.add(FirebaseFirestore.instance.collection("usuarios").doc(widget.nombreUsuario));
+
+      final docs = <DocumentSnapshot<Map<String, dynamic>>>[];
+      for (final ref in refs) {
+        final doc = await ref.get();
+        if (doc.exists) docs.add(doc);
+      }
+
+      final tieneJornadaActiva = docs.any((doc) => doc.data()?['jornada_activa'] == true);
+      if (tieneJornadaActiva) return;
 
     final camionesOcupados = await FirebaseFirestore.instance
         .collection("camiones")
@@ -157,16 +169,6 @@ class _OperadorScreenState extends State<OperadorScreen> {
         .get();
     for (final doc in camionesOcupados.docs) {
       await doc.reference.update({"ocupado": false, "operador": ""});
-    }
-
-    if ((data["camion_actual"] ?? "").toString().isNotEmpty ||
-        (data["placas_actuales"] ?? "").toString().isNotEmpty ||
-        (data["camion_id"] ?? "").toString().isNotEmpty) {
-      await userRef.set({
-        "camion_actual": "",
-        "placas_actuales": "",
-        "camion_id": "",
-      }, SetOptions(merge: true));
     }
   }
 
@@ -178,17 +180,48 @@ class _OperadorScreenState extends State<OperadorScreen> {
 
   // ── Verificar jornada activa → ir directo a JornadaScreen ─────────────────
   Future<bool> verificarJornada() async {
-    final doc = await FirebaseFirestore.instance
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final usuarioDocs = <DocumentSnapshot<Map<String, dynamic>>>[];
+
+    if (currentUser != null) {
+      final porUid = await FirebaseFirestore.instance
+          .collection("usuarios")
+          .doc(currentUser.uid)
+          .get();
+      if (porUid.exists) usuarioDocs.add(porUid);
+    }
+
+    final porNombre = await FirebaseFirestore.instance
         .collection("usuarios")
         .doc(widget.nombreUsuario)
         .get();
-    if (!doc.exists) return false;
+    if (porNombre.exists) usuarioDocs.add(porNombre);
+
+    if (usuarioDocs.isEmpty) return false;
+
+    final doc = usuarioDocs.firstWhere(
+      (d) => d.data()?['jornada_activa'] == true,
+      orElse: () => usuarioDocs.first,
+    );
 
     final jornadaActiva = doc.data()?["jornada_activa"] ?? false;
     if (!jornadaActiva) return false;
 
     final camion = doc.data()?["camion_actual"] ?? "";
     final placas = doc.data()?["placas_actuales"] ?? "S/P";
+
+    if (currentUser != null && doc.id != currentUser.uid) {
+      final uidRef = FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(currentUser.uid);
+      await uidRef.set({
+        'nombre': doc.data()?['nombre']?.toString() ?? widget.nombreUsuario,
+        'jornada_activa': true,
+        'camion_id': doc.data()?['camion_id'] ?? '',
+        'camion_actual': doc.data()?['camion_actual'] ?? '',
+        'placas_actuales': doc.data()?['placas_actuales'] ?? '',
+      }, SetOptions(merge: true));
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -308,15 +341,17 @@ class _OperadorScreenState extends State<OperadorScreen> {
     String placasRecibidas,
   ) async {
     try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      final usuarioRef = FirebaseFirestore.instance
+          .collection("usuarios")
+          .doc(currentUser?.uid ?? widget.nombreUsuario);
+
       await FirebaseFirestore.instance
           .collection("camiones")
           .doc(camionId)
           .update({"ocupado": true, "operador": widget.nombreUsuario});
 
-      await FirebaseFirestore.instance
-          .collection("usuarios")
-          .doc(widget.nombreUsuario)
-          .set({
+      await usuarioRef.set({
         "nombre": widget.nombreUsuario,
         "jornada_activa": true,
         "camion_id": camionId,

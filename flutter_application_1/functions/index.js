@@ -1,5 +1,5 @@
 const {setGlobalOptions}    = require("firebase-functions/v2");
-const {onDocumentCreated, onDocumentUpdated} = require("firebase-functions/v2/firestore");
+const {onDocumentCreated, onDocumentUpdated, onDocumentWritten} = require("firebase-functions/v2/firestore");
 const logger                = require("firebase-functions/logger");
 const admin                 = require("firebase-admin");
 
@@ -9,6 +9,43 @@ setGlobalOptions({maxInstances: 10});
 // ── HELPER: obtener token FCM ─────────────────────────────────────────────────
 function _getToken(docData) {
   return (docData.fcm_token || docData.fcmToken || "").toString().trim();
+}
+
+async function _notificarUsuariosConToken({ usuariosSnap, titulo, cuerpo, tipo, dataExtra = {} }) {
+  const envios = [];
+
+  for (const doc of usuariosSnap.docs) {
+    const token = _getToken(doc.data());
+    if (!token) continue;
+
+    envios.push(
+      admin.messaging().send({
+        token,
+        notification: {
+          title: titulo,
+          body: cuerpo,
+        },
+        android: {
+          priority: "high",
+          ttl: 86400000,
+          directBootOk: true,
+          notification: {
+            defaultVibrateTimings: true,
+            defaultSound: true,
+          },
+        },
+        apns: {
+          payload: { aps: { sound: "default", badge: 1 } },
+        },
+        data: {
+          tipo,
+          ...dataExtra,
+        },
+      }).catch(err => logger.error(`Error enviando push a ${doc.id}:`, err))
+    );
+  }
+
+  await Promise.allSettled(envios);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -259,5 +296,117 @@ exports.sendPushOnAdminNotification = onDocumentCreated(
     const exitosos   = resultados.filter(r => r.status === "fulfilled").length;
     const fallidos   = resultados.filter(r => r.status === "rejected").length;
     logger.info(`📢 Push masivo: ${exitosos} enviados, ${fallidos} fallidos`);
+
+    // Reenviar notificaciones de contenedores desde el aviso del admin
+    // hacia todos los operadores que estén en jornada activa.
+    const tipoNormalizado = (notificacion.tipo || "").toString();
+    const esContenedor = tipoNormalizado === "contenedor_llenando" || tipoNormalizado === "contenedor_lleno";
+    const destinoRol = (notificacion.destinatarioRol || "").toString();
+    const destinoTipo = (notificacion.destinoTipo || "").toString();
+
+    if (esContenedor && destinoRol === "admin" && destinoTipo === "rol") {
+      const operadoresActivos = await admin.firestore()
+        .collection("usuarios")
+        .where("rol", "==", "operador")
+        .where("jornada_activa", "==", true)
+        .get();
+
+      if (operadoresActivos.empty) {
+        logger.info("No hay operadores activos para reenviar notificación de contenedor");
+        return null;
+      }
+
+      const relayBatch = admin.firestore().batch();
+      for (const op of operadoresActivos.docs) {
+        relayBatch.set(admin.firestore().collection("notificaciones").doc(), {
+          mensaje,
+          enviadoPor: notificacion.enviadoPor || "Administración",
+          creadoEn: admin.firestore.FieldValue.serverTimestamp(),
+          tipo: notificacion.tipo,
+          destinoTipo: "individual",
+          destinatarioDocId: op.id,
+          destinatarioNombre: (op.data().nombre || "").toString(),
+          destinatarioRol: "operador",
+          paraTodos: false,
+          contenedorId: notificacion.contenedorId || "",
+          estadoContenedor: notificacion.estadoContenedor || "",
+          origenReenvio: "admin",
+        });
+      }
+
+      await relayBatch.commit();
+      logger.info(`🔁 Notificación de contenedor reenviada a ${operadoresActivos.size} operador(es)`);
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. Crea la notificación inicial del admin cuando un trabajador actualiza
+//    un contenedor a "En proceso de llenado" o "Lleno".
+// ─────────────────────────────────────────────────────────────────────────────
+exports.notificarContenedorActualizado = onDocumentWritten(
+  "contenedores/{contenedorId}",
+  async (event) => {
+    const before = event.data.before.exists ? event.data.before.data() : null;
+    const after = event.data.after.exists ? event.data.after.data() : null;
+    if (!after) return null;
+
+    const estadoAntes = (before?.estado || "").toString();
+    const estadoDespues = (after?.estado || "").toString();
+    if (estadoAntes === estadoDespues) return null;
+
+    const estadosValidos = new Set(["En proceso de llenado", "Lleno"]);
+    if (!estadosValidos.has(estadoDespues)) return null;
+
+    const contenedorId = event.params.contenedorId;
+    const labelId = contenedorId.replace("contenedor-", "C");
+    const actualizadoPor = (after.actualizadoPor || "Un trabajador").toString().trim();
+    const mensaje = estadoDespues === "Lleno"
+      ? `Contenedor ${labelId} listo para recoger. Aparta este contenedor si estás disponible. Reportado por ${actualizadoPor}.`
+      : `Contenedor ${labelId} en proceso de llenado, reportado por ${actualizadoPor}.`;
+
+    const operadoresSnap = await admin.firestore()
+      .collection("usuarios")
+      .where("rol", "==", "operador")
+      .where("jornada_activa", "==", true)
+      .get();
+
+    if (operadoresSnap.empty) {
+      logger.info(`No hay operadores activos para notificar sobre ${contenedorId}`);
+      return null;
+    }
+
+    const batch = admin.firestore().batch();
+    for (const operadorDoc of operadoresSnap.docs) {
+      const operadorData = operadorDoc.data() || {};
+      batch.set(admin.firestore().collection("notificaciones").doc(), {
+        mensaje,
+        enviadoPor: actualizadoPor,
+        creadoEn: admin.firestore.FieldValue.serverTimestamp(),
+        tipo: estadoDespues === "Lleno" ? "contenedor_lleno" : "contenedor_llenando",
+        destinoTipo: "individual",
+        destinatarioDocId: operadorDoc.id,
+        destinatarioNombre: (operadorData.nombre || "").toString().trim(),
+        destinatarioRol: "operador",
+        paraTodos: false,
+        contenedorId,
+        estadoContenedor: estadoDespues,
+      });
+    }
+    await batch.commit();
+
+    await _notificarUsuariosConToken({
+      usuariosSnap: operadoresSnap,
+      titulo: estadoDespues === "Lleno" ? "♻️ Contenedor listo" : "🟡 Contenedor en proceso",
+      cuerpo: mensaje,
+      tipo: estadoDespues === "Lleno" ? "contenedor_lleno" : "contenedor_llenando",
+      dataExtra: {
+        contenedorId,
+        estadoContenedor: estadoDespues,
+      },
+    });
+
+    logger.info(`Contenedor ${contenedorId} actualizado a ${estadoDespues} y notificado a operadores activos`);
+    return null;
   }
 );

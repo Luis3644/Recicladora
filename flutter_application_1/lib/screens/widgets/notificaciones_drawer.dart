@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 String _claveUsuarioNotificacion({
@@ -12,14 +13,17 @@ bool _esParaUsuarioNotificacion(
   Map<String, dynamic> data, {
   required String rolUsuario,
   required String nombreUsuario,
+  required String usuarioDocId,
 }) {
   if (data['paraTodos'] == true) return true;
 
   final destinoTipo = data['destinoTipo']?.toString() ?? '';
   final destinoRol = data['destinatarioRol']?.toString() ?? '';
   final destinoNombre = data['destinatarioNombre']?.toString() ?? '';
+  final destinoDocId = data['destinatarioDocId']?.toString() ?? '';
 
   if (destinoTipo == 'individual') {
+    if (destinoDocId.isNotEmpty && destinoDocId == usuarioDocId) return true;
     return destinoRol == rolUsuario && destinoNombre == nombreUsuario;
   }
 
@@ -74,16 +78,19 @@ class NotificacionesBellButton extends StatelessWidget {
   final String rolUsuario;
   final String nombreUsuario;
   final VoidCallback onPressed;
+  final Color iconColor;
 
   const NotificacionesBellButton({
     super.key,
     required this.rolUsuario,
     required this.nombreUsuario,
     required this.onPressed,
+    this.iconColor = Colors.black87,
   });
 
   @override
   Widget build(BuildContext context) {
+    final usuarioDocId = FirebaseAuth.instance.currentUser?.uid ?? '';
     final claveUsuario = _claveUsuarioNotificacion(
       rolUsuario: rolUsuario,
       nombreUsuario: nombreUsuario,
@@ -103,6 +110,7 @@ class NotificacionesBellButton extends StatelessWidget {
             data,
             rolUsuario: rolUsuario,
             nombreUsuario: nombreUsuario,
+            usuarioDocId: usuarioDocId,
           );
           if (!esParaUsuario) return false;
           if (_esEventoInicioSesion(data)) return false; // ocultar eventos de inicio de sesión
@@ -115,7 +123,10 @@ class NotificacionesBellButton extends StatelessWidget {
           icon: Stack(
             clipBehavior: Clip.none,
             children: [
-              const Icon(Icons.notifications_none_rounded),
+              Icon(
+                Icons.notifications_none_rounded,
+                color: iconColor,
+              ),
               if (noLeidas > 0)
                 Positioned(
                   right: -6,
@@ -165,6 +176,8 @@ class NotificacionesDrawer extends StatelessWidget {
     required this.nombreUsuario,
   });
 
+  String _usuarioDocIdActual() => FirebaseAuth.instance.currentUser?.uid ?? '';
+
   Future<void> _marcarComoLeida(
     DocumentSnapshot<Map<String, dynamic>> doc,
   ) async {
@@ -182,6 +195,7 @@ class NotificacionesDrawer extends StatelessWidget {
   Future<void> _marcarTodasComoLeidas(
     List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
   ) async {
+    final usuarioDocId = _usuarioDocIdActual();
     final claveUsuario = _claveUsuarioNotificacion(
       rolUsuario: rolUsuario,
       nombreUsuario: nombreUsuario,
@@ -194,6 +208,7 @@ class NotificacionesDrawer extends StatelessWidget {
         data,
         rolUsuario: rolUsuario,
         nombreUsuario: nombreUsuario,
+        usuarioDocId: usuarioDocId,
       );
       if (!esParaUsuario) continue;
 
@@ -212,6 +227,7 @@ class NotificacionesDrawer extends StatelessWidget {
   Future<void> _borrarTodasLasNotificaciones(
     List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
   ) async {
+    final usuarioDocId = _usuarioDocIdActual();
     final batch = FirebaseFirestore.instance.batch();
     for (final doc in docs) {
       final data = doc.data();
@@ -219,6 +235,7 @@ class NotificacionesDrawer extends StatelessWidget {
         data,
         rolUsuario: rolUsuario,
         nombreUsuario: nombreUsuario,
+        usuarioDocId: usuarioDocId,
       );
       if (!esParaUsuario) continue;
 
@@ -297,6 +314,7 @@ class NotificacionesDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final usuarioDocId = _usuarioDocIdActual();
     final claveUsuario = _claveUsuarioNotificacion(
       rolUsuario: rolUsuario,
       nombreUsuario: nombreUsuario,
@@ -332,6 +350,7 @@ class NotificacionesDrawer extends StatelessWidget {
                 data,
                 rolUsuario: rolUsuario,
                 nombreUsuario: nombreUsuario,
+                usuarioDocId: usuarioDocId,
               );
             }).toList();
             final noLeidas = filtradas.where((doc) {

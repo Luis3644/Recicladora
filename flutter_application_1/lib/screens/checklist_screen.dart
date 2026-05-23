@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'jornada_screen.dart';
 import 'operador_screen.dart';
 
@@ -57,7 +58,8 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     try {
       final db = FirebaseFirestore.instance;
       final camionRef  = db.collection('camiones').doc(widget.camionId);
-      final usuarioRef = db.collection('usuarios').doc(widget.nombreUsuario);
+      final currentUser = FirebaseAuth.instance.currentUser;
+      final usuarioRef = db.collection('usuarios').doc(currentUser?.uid ?? widget.nombreUsuario);
       final ahora      = DateTime.now();
 
       // ── TRANSACCIÓN ATÓMICA ───────────────────────────────────────────────
@@ -91,6 +93,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
           'camion_id':       widget.camionId,
           'camion_actual':   widget.camion,
           'placas_actuales': widget.placas,
+          'alerta_ubicacion_desactivada_mostrada': false,
         }, SetOptions(merge: true));
       });
 
@@ -108,16 +111,10 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
         'equipo_completo': !faltaAlgo,
       });
 
-      // Notificar al administrador
       String msjNotif = '${widget.nombreUsuario} ha iniciado su jornada con el camión ${widget.camion}.';
       if (faltaAlgo) {
         msjNotif = '⚠️ ATENCIÓN: ${widget.nombreUsuario} inició jornada con EQUIPO INCOMPLETO. Nota: "${reporteController.text.trim()}".';
       }
-      
-      await _enviarNotificacionAdmin(
-        tipo: 'operador',
-        mensaje: msjNotif,
-      );
 
       if (!mounted) return;
       Navigator.pushReplacement(

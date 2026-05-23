@@ -682,7 +682,8 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<bool> _validarYRegistrarSesionUnica(
     DocumentSnapshot<Map<String, dynamic>> userDoc,
   ) async {
-    // Nuevo comportamiento: permitir hasta 2 sesiones simultáneas por cuenta.
+    const maxSesionesSimultaneas = 5;
+
     final data = userDoc.data() ?? {};
     final uidAuth = _auth.currentUser?.uid ?? '';
     final emailAuth = _auth.currentUser?.email == null
@@ -732,8 +733,8 @@ class _LoginScreenState extends State<LoginScreen> {
       return true;
     }
 
-    // Si hay menos de 2 sesiones, y ya existe una distinta -> mostrar aviso
-    if (sesiones.length < 2) {
+    // Si hay menos del máximo permitido, permitir sumar otra sesión.
+    if (sesiones.length < maxSesionesSimultaneas) {
       if (sesiones.length == 1 && !existeActual) {
         // Mostrar alerta simple con 2 botones: Mantener sesión o Cerrar en el otro dispositivo
         final otra = sesiones.first;
@@ -800,7 +801,7 @@ class _LoginScreenState extends State<LoginScreen> {
         return false;
       }
 
-      // Si no existe sesión previa (sesiones.length == 0) o ya existe la actual, crearla
+      // Si no existe sesión previa o ya existe la actual, crearla
       await sesionesRef.doc(dispositivoId).set({
         'dispositivo_id': dispositivoId,
         'dispositivo_nombre': dispositivoActualNombre,
@@ -810,7 +811,7 @@ class _LoginScreenState extends State<LoginScreen> {
       return true;
     }
 
-    // Hay 2 sesiones distintas ya abiertas: mostrar diálogo y ofrecer cerrar una remota
+    // Ya alcanzó el máximo de sesiones: mostrar diálogo y ofrecer cerrar una remota
     if (!mounted) return false;
 
     final cerrar = await showDialog<String?>(
@@ -824,7 +825,7 @@ class _LoginScreenState extends State<LoginScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Tu cuenta ya tiene 2 sesiones abiertas. Puedes cerrar una sesión remota para iniciar aquí.',
+                'Tu cuenta ya tiene 5 sesiones abiertas. Puedes cerrar una sesión remota para iniciar aquí.',
               ),
               const SizedBox(height: 12),
               ...sesiones.map((s) {

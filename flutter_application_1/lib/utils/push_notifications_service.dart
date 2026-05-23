@@ -229,6 +229,12 @@ static void navegarSegunTipo(String tipo) {
           continue;
         }
 
+        final tipoContenedor = (data['tipo']?.toString() ?? '').toLowerCase();
+        if (tipoContenedor == 'contenedor_llenando' || tipoContenedor == 'contenedor_lleno') {
+          _notificacionesMostradas.add(doc.id);
+          continue;
+        }
+
         if (estaEnForeground) {
           final mensaje    = data['mensaje']?.toString() ?? '';
           final enviadoPor = data['enviadoPor']?.toString() ?? 'Administración';

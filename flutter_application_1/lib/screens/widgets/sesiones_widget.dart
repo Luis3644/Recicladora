@@ -41,10 +41,10 @@ class _SesionesWidgetState extends State<SesionesWidget> {
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: Text('Sesiones abiertas (máx. 2)', style: TextStyle(fontWeight: FontWeight.w700)),
+                child: Text('Sesiones abiertas (máx. 5)', style: TextStyle(fontWeight: FontWeight.w700)),
               ),
             ),
-            ...sesiones.take(2).map((s) {
+            ...sesiones.take(5).map((s) {
               final name = s['dispositivo_nombre']?.toString() ?? s['dispositivo_id'];
               final id = s['dispositivo_id']?.toString() ?? '';
               final inicio = s['inicio']?.toString() ?? '';

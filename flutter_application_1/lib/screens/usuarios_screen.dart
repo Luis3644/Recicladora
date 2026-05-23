@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import '../config/session_manager.dart';
 
 class UsuariosScreen extends StatefulWidget {
   const UsuariosScreen({super.key});
@@ -80,10 +81,11 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
     required String nombre,
     required bool sesionActiva,
   }) async {
-    if (!sesionActiva) {
+    final sesiones = await SessionManager.listarSesionesUsuario(uid);
+    if (!sesionActiva && sesiones.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('La cuenta de $nombre no tiene una sesión activa.'),
+          content: Text('La cuenta de $nombre no tiene sesiones abiertas.'),
           backgroundColor: const Color(0xFF64748B),
         ),
       );
@@ -91,26 +93,21 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
     }
 
     final confirmar = await _confirmarAccion(
-      titulo: 'Liberar sesión activa',
+      titulo: 'Limpiar sesiones abiertas',
       mensaje:
-          'Se cerrará la sesión remota de $nombre para permitir iniciar en otro dispositivo. ¿Deseas continuar?',
-      textoConfirmar: 'LIBERAR',
+          'Se cerrarán todas las sesiones abiertas de $nombre y se limpiará el conteo de dispositivos. ¿Deseas continuar?',
+      textoConfirmar: 'LIMPIAR',
     );
 
     if (!confirmar) return;
 
     try {
-      await FirebaseFirestore.instance.collection('usuarios').doc(uid).set({
-        'sesion_activa': false,
-        'sesion_dispositivo_id': '',
-        'sesion_dispositivo_nombre': '',
-        'sesion_ultima_salida': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      await SessionManager.limpiarTodasLasSesionesUsuario(uid);
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Sesión liberada para $nombre.'),
+          content: Text('Sesiones limpiadas para $nombre.'),
           backgroundColor: const Color(0xFF16A34A),
         ),
       );
@@ -1090,7 +1087,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                                     nombre: nombre,
                                     sesionActiva: sesionActiva,
                                   ),
-                                  tooltip: 'Liberar sesión activa',
+                                  tooltip: 'Limpiar sesiones abiertas',
                                 ),
                               ),
                               const SizedBox(width: 8),

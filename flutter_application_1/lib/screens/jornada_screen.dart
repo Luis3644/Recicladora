@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -84,7 +85,7 @@ class _JornadaScreenState extends State<JornadaScreen> {
   void initState() {
     super.initState();
     _inicializarNotificacionesUbicacion();
-    _iniciarMonitoreoUbicacion();
+    _inicializarMonitoreoUbicacion();
     _escucharCambiosServicioUbicacion();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -663,6 +664,16 @@ void _mostrarSeleccionEntradaMaterial() {
     if (_alertaUbicacionMostrada) return;
     _alertaUbicacionMostrada = true;
 
+    try {
+      await FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(widget.operador)
+          .set({
+        'alerta_ubicacion_desactivada_mostrada': true,
+        'alerta_ubicacion_desactivada_en': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (_) {}
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -695,6 +706,32 @@ void _mostrarSeleccionEntradaMaterial() {
 
   void _limpiarAlertaUbicacion() {
     _alertaUbicacionMostrada = false;
+
+    FirebaseFirestore.instance
+        .collection('usuarios')
+        .doc(widget.operador)
+        .set({
+      'alerta_ubicacion_desactivada_mostrada': false,
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> _cargarEstadoAlertaUbicacion() async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(widget.operador)
+          .get();
+      final data = doc.data();
+      _alertaUbicacionMostrada =
+          data?['alerta_ubicacion_desactivada_mostrada'] == true;
+    } catch (_) {
+      _alertaUbicacionMostrada = false;
+    }
+  }
+
+  Future<void> _inicializarMonitoreoUbicacion() async {
+    await _cargarEstadoAlertaUbicacion();
+    await _iniciarMonitoreoUbicacion();
   }
 
   Future<void> _detenerMonitoreoUbicacion({String? motivo}) async {
@@ -1196,17 +1233,11 @@ void _mostrarSeleccionEntradaMaterial() {
   Future<void> finalizarJornada() async {
     await _detenerMonitoreoUbicacion(motivo: 'Jornada finalizada');
 
-    // Notificar al administrador
-    await _enviarNotificacionAdmin(
-      tipo: 'operador',
-      mensaje: '${widget.operador} ha FINALIZADO su jornada laboral.',
-    );
-
-    final userRef = FirebaseFirestore.instance
-        .collection("usuarios")
-        .doc(widget.operador);
+    final usuariosRef = FirebaseFirestore.instance.collection("usuarios");
+    final userRef = usuariosRef.doc(widget.operador);
     final userDoc = await userRef.get();
     final camionId = (userDoc.data()?['camion_id'] ?? '').toString();
+    final uidDocId = FirebaseAuth.instance.currentUser?.uid ?? '';
 
     if (camionId.isNotEmpty) {
       await FirebaseFirestore.instance.collection("camiones").doc(camionId).set(
@@ -1225,14 +1256,20 @@ void _mostrarSeleccionEntradaMaterial() {
       await doc.reference.update({"ocupado": false, "operador": ""});
     }
 
-    /// cerrar jornada del operador
-    await userRef.update({
+    final cierreJornada = <String, dynamic>{
       "jornada_activa": false,
       "camion_id": "",
       "camion_actual": "",
       "placas_actuales": "",
       "gps_activo": false,
-    });
+      "alerta_ubicacion_desactivada_mostrada": false,
+    };
+
+    /// cerrar jornada del operador en ambos identificadores posibles
+    await userRef.set(cierreJornada, SetOptions(merge: true));
+    if (uidDocId.isNotEmpty && uidDocId != widget.operador) {
+      await usuariosRef.doc(uidDocId).set(cierreJornada, SetOptions(merge: true));
+    }
 
     ScaffoldMessenger.of(
       context,
@@ -1352,6 +1389,7 @@ void _mostrarSeleccionEntradaMaterial() {
                 builder: (context) => NotificacionesBellButton(
                   rolUsuario: 'operador',
                   nombreUsuario: widget.operador,
+                  iconColor: Colors.white,
                   onPressed: () => Scaffold.of(context).openEndDrawer(),
                 ),
               ),
@@ -3278,6 +3316,13 @@ class RegistrosJornadaScreen extends StatelessWidget {
         foregroundColor: Colors.white,
         backgroundColor: const Color(0xFF031A47),
         automaticallyImplyLeading: false,
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu_rounded),
+            tooltip: 'Menú',
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
+        ),
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
@@ -3291,6 +3336,26 @@ class RegistrosJornadaScreen extends StatelessWidget {
           titulo,
           style: const TextStyle(fontWeight: FontWeight.w700),
         ),
+        actions: [
+          Builder(
+            builder: (context) => NotificacionesBellButton(
+              rolUsuario: 'operador',
+              nombreUsuario: operador,
+              iconColor: Colors.white,
+              onPressed: () => Scaffold.of(context).openEndDrawer(),
+            ),
+          ),
+        ],
+      ),
+      drawer: MenuLateral(
+        nombreUsuario: operador,
+        camion: camion,
+        placas: placas,
+        mostrarCerrarSesion: false,
+      ),
+      endDrawer: NotificacionesDrawer(
+        rolUsuario: 'operador',
+        nombreUsuario: operador,
       ),
       bottomNavigationBar: JornadaBottomBar(
         activeIndex: historial ? 2 : 0,
@@ -3574,6 +3639,8 @@ class PerfilOperadorScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final usuarioDocId = FirebaseAuth.instance.currentUser?.uid ?? operador;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF1F3F6),
       appBar: AppBar(
@@ -3605,7 +3672,7 @@ class PerfilOperadorScreen extends StatelessWidget {
       body: StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance
             .collection('usuarios')
-            .doc(operador)
+            .doc(usuarioDocId)
             .snapshots(),
         builder: (context, snapshot) {
           final data = snapshot.data?.data() as Map<String, dynamic>?;

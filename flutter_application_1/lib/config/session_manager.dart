@@ -94,6 +94,29 @@ class SessionManager {
     }
   }
 
+  static Future<void> limpiarTodasLasSesionesUsuario(String usuarioDocId) async {
+    try {
+      final usuarioRef = FirebaseFirestore.instance.collection('usuarios').doc(usuarioDocId);
+      final sesionesSnap = await usuarioRef.collection('sesiones').get();
+
+      final batch = FirebaseFirestore.instance.batch();
+      for (final doc in sesionesSnap.docs) {
+        batch.delete(doc.reference);
+      }
+
+      batch.set(usuarioRef, {
+        'sesion_activa': false,
+        'sesion_dispositivo_id': '',
+        'sesion_dispositivo_nombre': '',
+        'sesion_ultima_salida': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      await batch.commit();
+    } catch (_) {
+      // ignore
+    }
+  }
+
   static Future<void> guardarSesionDesdePerfil(
     Map<String, dynamic> perfil,
   ) async {

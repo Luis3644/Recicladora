@@ -15,7 +15,7 @@ import 'widgets/reporte_gasolina_camiones_screen.dart';
 import 'widgets/notificaciones_drawer.dart';
 import 'widgets/reportes_equipo_screen.dart';
 import 'widgets/reporte_toneladas_camiones_screen.dart';
- 
+
 import 'gestion_camiones_screen.dart';
 import 'ReportesCamionesAdminScreen.dart';
 
@@ -44,7 +44,8 @@ class _AnimatedOptionCard extends StatefulWidget {
   State<_AnimatedOptionCard> createState() => _AnimatedOptionCardState();
 }
 
-class _AnimatedOptionCardState extends State<_AnimatedOptionCard> with SingleTickerProviderStateMixin {
+class _AnimatedOptionCardState extends State<_AnimatedOptionCard>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
   bool _isHovered = false;
@@ -52,8 +53,14 @@ class _AnimatedOptionCardState extends State<_AnimatedOptionCard> with SingleTic
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 1.05,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -220,7 +227,8 @@ class AdminScreen extends StatefulWidget {
 }
 
 class _AdminScreenState extends State<AdminScreen>
-    with TickerProviderStateMixin {          // ← TickerProviderStateMixin para múltiples controllers
+    with TickerProviderStateMixin {
+  // ← TickerProviderStateMixin para múltiples controllers
   String nombreUsuario = '';
   bool isLoading = true;
   bool _avisoPrecaucionMostrado = false;
@@ -235,10 +243,10 @@ class _AdminScreenState extends State<AdminScreen>
 
   // ── Colores ───────────────────────────────────────────────────────────────
   final Color primaryColor = const Color(0xFF0f172a);
-  final Color accentColor  = const Color(0xFF06b6d4);
+  final Color accentColor = const Color(0xFF06b6d4);
   final Color successColor = const Color(0xFF10b981);
   final Color warningColor = const Color(0xFFf59e0b);
-  final Color bgColor      = const Color(0xFFF0F9FF);
+  final Color bgColor = const Color(0xFFF0F9FF);
 
   final FlutterLocalNotificationsPlugin _notificaciones =
       FlutterLocalNotificationsPlugin();
@@ -292,12 +300,11 @@ class _AdminScreenState extends State<AdminScreen>
       if (!mounted) return;
 
       setState(() {
-        nombreUsuario =
-            data?['nombre']?.toString().trim().isNotEmpty == true
-                ? data!['nombre'].toString().trim()
-                : user.displayName?.trim().isNotEmpty == true
-                    ? user.displayName!.trim()
-                    : 'Administrador';
+        nombreUsuario = data?['nombre']?.toString().trim().isNotEmpty == true
+            ? data!['nombre'].toString().trim()
+            : user.displayName?.trim().isNotEmpty == true
+            ? user.displayName!.trim()
+            : 'Administrador';
         isLoading = false;
       });
     } catch (_) {
@@ -325,93 +332,87 @@ class _AdminScreenState extends State<AdminScreen>
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al cerrar sesión: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error al cerrar sesión: $e')));
     }
   }
 
   Future<void> _confirmarYCerrarSesion() async {
     final confirmar =
-            await showDialog<bool>(
-              context: context,
-              builder: (_) => AlertDialog(
-                title: const Text('Cerrar sesión'),
-                content: const Text('¿Estás seguro de salir de la sesión?'),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(false),
-                    child: const Text('Cancelar'),
-                  ),
-                  ElevatedButton(
-                    onPressed: () => Navigator.of(context).pop(true),
-                    child: const Text('Sí, salir'),
-                  ),
-                ],
+        await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Cerrar sesión'),
+            content: const Text('¿Estás seguro de salir de la sesión?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancelar'),
               ),
-            ) ??
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Sí, salir'),
+              ),
+            ],
+          ),
+        ) ??
         false;
     if (!confirmar) return;
     await _cerrarSesion();
   }
 
   void _abrirUsuarios() => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const UsuariosScreen()),
-      );
+    context,
+    MaterialPageRoute(builder: (_) => const UsuariosScreen()),
+  );
 
   void _abrirReportes() => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const ReportesEquipoScreen()),
-      );
+    context,
+    MaterialPageRoute(builder: (_) => const ReportesEquipoScreen()),
+  );
 
   void _abrirIncidentes() => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const ListaIncidentesAdmin()),
-      );
+    context,
+    MaterialPageRoute(builder: (_) => const ListaIncidentesAdmin()),
+  );
 
   void _abrirReporteGasolina() => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const ReporteGasolinaCamionesScreen(),
-        ),
-      );
+    context,
+    MaterialPageRoute(builder: (_) => const ReporteGasolinaCamionesScreen()),
+  );
 
   void _abrirReporteToneladas() => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const ReporteToneladasAdminScreen(),
-        ),
-      );
+    context,
+    MaterialPageRoute(builder: (_) => const ReporteToneladasAdminScreen()),
+  );
 
   void _abrirReportesCamiones() => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const ReportesCamionesAdminScreen(),
-        ),
-      );
+    context,
+    MaterialPageRoute(builder: (_) => const ReportesCamionesAdminScreen()),
+  );
 
   void _abrirGestionCamiones() => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const GestionCamionesScreen()),
-      );
+    context,
+    MaterialPageRoute(builder: (_) => const GestionCamionesScreen()),
+  );
 
   void _abrirPanelGeneralUsuarios() => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const PanelGeneralUsuariosScreen()),
-      );
+    context,
+    MaterialPageRoute(builder: (_) => const PanelGeneralUsuariosScreen()),
+  );
 
   void _abrirMapaGeneralOperadores() => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const MapaGeneralOperadoresScreen()),
-      );
+    context,
+    MaterialPageRoute(builder: (_) => const MapaGeneralOperadoresScreen()),
+  );
 
   void _abrirNotificacionesAdmin() => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => AdminNotificacionesScreen(adminNombre: nombreUsuario),
-        ),
-      );
+    context,
+    MaterialPageRoute(
+      builder: (_) => AdminNotificacionesScreen(adminNombre: nombreUsuario),
+    ),
+  );
 
   // ── Precauciones ──────────────────────────────────────────────────────────
   Future<void> _inicializarAvisoPrecauciones() async {
@@ -438,16 +439,14 @@ class _AdminScreenState extends State<AdminScreen>
       );
       final androidImpl = _notificaciones
           .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>();
+            AndroidFlutterLocalNotificationsPlugin
+          >();
       await androidImpl?.requestNotificationsPermission();
       final iosImpl = _notificaciones
           .resolvePlatformSpecificImplementation<
-              IOSFlutterLocalNotificationsPlugin>();
-      await iosImpl?.requestPermissions(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
+            IOSFlutterLocalNotificationsPlugin
+          >();
+      await iosImpl?.requestPermissions(alert: true, badge: true, sound: true);
 
       const details = NotificationDetails(
         android: AndroidNotificationDetails(
@@ -602,8 +601,7 @@ class _AdminScreenState extends State<AdminScreen>
           InkWell(
             onTap: _toggleCamiones,
             child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               child: Row(
                 children: [
                   Icon(Icons.local_shipping_rounded, color: accentColor),
@@ -612,13 +610,17 @@ class _AdminScreenState extends State<AdminScreen>
                     child: Text(
                       'Camiones',
                       style: TextStyle(
-                          fontWeight: FontWeight.w700, fontSize: 15),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
                     ),
                   ),
                   RotationTransition(
                     turns: _drawerRotateAnim,
-                    child: const Icon(Icons.keyboard_arrow_down_rounded,
-                        color: Colors.grey),
+                    child: const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: Colors.grey,
+                    ),
                   ),
                 ],
               ),
@@ -637,7 +639,9 @@ class _AdminScreenState extends State<AdminScreen>
                 color: accentColor.withValues(alpha: 0.05),
                 border: Border(
                   left: BorderSide(
-                      color: accentColor.withValues(alpha: 0.4), width: 3),
+                    color: accentColor.withValues(alpha: 0.4),
+                    width: 3,
+                  ),
                 ),
               ),
               margin: const EdgeInsets.only(left: 24, right: 8, bottom: 4),
@@ -646,41 +650,52 @@ class _AdminScreenState extends State<AdminScreen>
                   // → Gestión de Camiones
                   ListTile(
                     dense: true,
-                    leading: Icon(Icons.settings_rounded,
-                        color: accentColor, size: 20),
+                    leading: Icon(
+                      Icons.settings_rounded,
+                      color: accentColor,
+                      size: 20,
+                    ),
                     title: const Text(
                       'Gestión de Camiones',
                       style: TextStyle(fontWeight: FontWeight.w600),
                     ),
-                    subtitle: const Text('Administrar flota',
-                        style: TextStyle(fontSize: 11)),
+                    subtitle: const Text(
+                      'Administrar flota',
+                      style: TextStyle(fontSize: 11),
+                    ),
                     onTap: () {
                       Navigator.pop(context);
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (_) => const GestionCamionesScreen()),
+                          builder: (_) => const GestionCamionesScreen(),
+                        ),
                       );
                     },
                   ),
                   // → Reportes de Camiones
                   ListTile(
                     dense: true,
-                    leading: const Icon(Icons.warning_amber_rounded,
-                        color: Color(0xFFF59E0B), size: 20),
+                    leading: const Icon(
+                      Icons.warning_amber_rounded,
+                      color: Color(0xFFF59E0B),
+                      size: 20,
+                    ),
                     title: const Text(
                       'Reportes de Camiones',
                       style: TextStyle(fontWeight: FontWeight.w600),
                     ),
-                    subtitle: const Text('Incidentes y averías',
-                        style: TextStyle(fontSize: 11)),
+                    subtitle: const Text(
+                      'Incidentes y averías',
+                      style: TextStyle(fontSize: 11),
+                    ),
                     onTap: () {
                       Navigator.pop(context);
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (_) =>
-                                const ReportesCamionesAdminScreen()),
+                          builder: (_) => const ReportesCamionesAdminScreen(),
+                        ),
                       );
                     },
                   ),
@@ -772,6 +787,7 @@ class _AdminScreenState extends State<AdminScreen>
             builder: (context) => NotificacionesBellButton(
               rolUsuario: 'admin',
               nombreUsuario: nombreUsuario,
+              iconColor: Colors.white,
               onPressed: () => Scaffold.of(context).openEndDrawer(),
             ),
           ),
@@ -818,7 +834,12 @@ class _AdminScreenState extends State<AdminScreen>
       onRefresh: _recargarPanelAdmin,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.fromLTRB(isMobile ? 12 : 20, 16, isMobile ? 12 : 20, 24),
+        padding: EdgeInsets.fromLTRB(
+          isMobile ? 12 : 20,
+          16,
+          isMobile ? 12 : 20,
+          24,
+        ),
         children: [
           _buildWelcomeBanner(),
           const SizedBox(height: 16),
@@ -885,7 +906,12 @@ class _AdminScreenState extends State<AdminScreen>
       child: Column(
         children: [
           Padding(
-            padding: EdgeInsets.fromLTRB(isMobile ? 12 : 20, 16, isMobile ? 12 : 20, 12),
+            padding: EdgeInsets.fromLTRB(
+              isMobile ? 12 : 20,
+              16,
+              isMobile ? 12 : 20,
+              12,
+            ),
             child: Align(
               alignment: Alignment.centerLeft,
               child: _sectionHeader('Usuarios'),
@@ -893,7 +919,12 @@ class _AdminScreenState extends State<AdminScreen>
           ),
           Expanded(
             child: Padding(
-              padding: EdgeInsets.fromLTRB(isMobile ? 12 : 20, 0, isMobile ? 12 : 20, 12),
+              padding: EdgeInsets.fromLTRB(
+                isMobile ? 12 : 20,
+                0,
+                isMobile ? 12 : 20,
+                12,
+              ),
               child: _buildUsuariosPanelEmbed(),
             ),
           ),
@@ -907,7 +938,12 @@ class _AdminScreenState extends State<AdminScreen>
       onRefresh: _recargarPanelAdmin,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.fromLTRB(isMobile ? 12 : 20, 16, isMobile ? 12 : 20, 24),
+        padding: EdgeInsets.fromLTRB(
+          isMobile ? 12 : 20,
+          16,
+          isMobile ? 12 : 20,
+          24,
+        ),
         children: [
           _sectionHeader('Reportes'),
           const SizedBox(height: 16),
@@ -1002,7 +1038,12 @@ class _AdminScreenState extends State<AdminScreen>
       onRefresh: _recargarPanelAdmin,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.fromLTRB(isMobile ? 12 : 20, 16, isMobile ? 12 : 20, 24),
+        padding: EdgeInsets.fromLTRB(
+          isMobile ? 12 : 20,
+          16,
+          isMobile ? 12 : 20,
+          24,
+        ),
         children: [
           _sectionHeader('Ajustes'),
           const SizedBox(height: 16),
@@ -1068,14 +1109,19 @@ class _AdminScreenState extends State<AdminScreen>
   // ── Firestore helpers para conteo y borrado por lotes ───────────────────
   Future<int> _contarDocumentos(String collectionPath) async {
     try {
-      final snap = await FirebaseFirestore.instance.collection(collectionPath).get();
+      final snap = await FirebaseFirestore.instance
+          .collection(collectionPath)
+          .get();
       return snap.size;
     } catch (_) {
       return 0;
     }
   }
 
-  Future<void> _borrarColeccion(String collectionPath, {int batchSize = 500}) async {
+  Future<void> _borrarColeccion(
+    String collectionPath, {
+    int batchSize = 500,
+  }) async {
     final coll = FirebaseFirestore.instance.collection(collectionPath);
     try {
       var totalDeleted = 0;
@@ -1110,20 +1156,26 @@ class _AdminScreenState extends State<AdminScreen>
   }
 
   // Contadores por periodo
-  Future<int> _countAddsInRange(String collectionPath, DateTime start, DateTime end) async {
+  Future<int> _countAddsInRange(
+    String collectionPath,
+    DateTime start,
+    DateTime end,
+  ) async {
     try {
       final col = FirebaseFirestore.instance.collection(collectionPath);
       final startTs = Timestamp.fromDate(start);
       final endTs = Timestamp.fromDate(end);
-      
+
       String field = 'fecha';
       if (collectionPath == 'registros_toneladas') {
         field = 'fecha_registro';
       } else if (collectionPath == 'notificaciones') {
         field = 'creadoEn';
       }
-      
-      final q = col.where(field, isGreaterThanOrEqualTo: startTs).where(field, isLessThan: endTs);
+
+      final q = col
+          .where(field, isGreaterThanOrEqualTo: startTs)
+          .where(field, isLessThan: endTs);
       final snap = await q.get();
       return snap.size;
     } catch (_) {
@@ -1154,8 +1206,17 @@ class _AdminScreenState extends State<AdminScreen>
     final now = DateTime.now();
     final list = <int>[];
     for (int i = days - 1; i >= 0; i--) {
-      final day = DateTime(now.year, now.month, now.day).subtract(Duration(days: i));
-      final start = DateTime(day.year, day.month, day.day, 1); // contamos desde la 1 AM
+      final day = DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).subtract(Duration(days: i));
+      final start = DateTime(
+        day.year,
+        day.month,
+        day.day,
+        1,
+      ); // contamos desde la 1 AM
       final end = start.add(const Duration(days: 1));
       final c = await _countAddsInRange(collectionPath, start, end);
       list.add(c);
@@ -1167,7 +1228,11 @@ class _AdminScreenState extends State<AdminScreen>
     final now = DateTime.now();
     final list = <int>[];
     for (int i = days - 1; i >= 0; i--) {
-      final day = DateTime(now.year, now.month, now.day).subtract(Duration(days: i));
+      final day = DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).subtract(Duration(days: i));
       final start = DateTime(day.year, day.month, day.day, 1);
       final end = start.add(const Duration(days: 1));
       final c = await _countAdminDeletionsInRange(start, end);
@@ -1178,14 +1243,22 @@ class _AdminScreenState extends State<AdminScreen>
 
   String _getWeekdayName(int weekday) {
     switch (weekday) {
-      case 1: return 'Lunes';
-      case 2: return 'Martes';
-      case 3: return 'Miércoles';
-      case 4: return 'Jueves';
-      case 5: return 'Viernes';
-      case 6: return 'Sábado';
-      case 7: return 'Domingo';
-      default: return '';
+      case 1:
+        return 'Lunes';
+      case 2:
+        return 'Martes';
+      case 3:
+        return 'Miércoles';
+      case 4:
+        return 'Jueves';
+      case 5:
+        return 'Viernes';
+      case 6:
+        return 'Sábado';
+      case 7:
+        return 'Domingo';
+      default:
+        return '';
     }
   }
 
@@ -1248,11 +1321,23 @@ class _AdminScreenState extends State<AdminScreen>
 
   Future<Map<String, dynamic>> _fetchMemoriaMetrics() async {
     final now = DateTime.now();
-    final collections = ['checklist', 'reportes', 'reportes_camiones', 'registros_gasolina', 'registros_toneladas', 'notificaciones'];
+    final collections = [
+      'checklist',
+      'reportes',
+      'reportes_camiones',
+      'registros_gasolina',
+      'registros_toneladas',
+      'notificaciones',
+    ];
 
     final generalCounts = await Future.wait(
-      ['reportes', 'reportes_camiones', 'registros_gasolina', 'registros_toneladas', 'notificaciones']
-          .map((p) => _contarDocumentos(p)),
+      [
+        'reportes',
+        'reportes_camiones',
+        'registros_gasolina',
+        'registros_toneladas',
+        'notificaciones',
+      ].map((p) => _contarDocumentos(p)),
     );
 
     DateTime start;
@@ -1262,9 +1347,19 @@ class _AdminScreenState extends State<AdminScreen>
         start = start.subtract(const Duration(days: 1));
       }
     } else if (_memoriaPeriod == '7d') {
-      start = DateTime(now.year, now.month, now.day, 1).subtract(const Duration(days: 6));
+      start = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        1,
+      ).subtract(const Duration(days: 6));
     } else {
-      start = DateTime(now.year, now.month, now.day, 1).subtract(const Duration(days: 29));
+      start = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        1,
+      ).subtract(const Duration(days: 29));
     }
 
     final end = now;
@@ -1280,7 +1375,11 @@ class _AdminScreenState extends State<AdminScreen>
     if (_memoriaPeriod == '7d') {
       breakdownList = [];
       for (int i = 6; i >= 0; i--) {
-        final day = DateTime(now.year, now.month, now.day).subtract(Duration(days: i));
+        final day = DateTime(
+          now.year,
+          now.month,
+          now.day,
+        ).subtract(Duration(days: i));
         final dayStart = DateTime(day.year, day.month, day.day, 1);
         final dayEnd = dayStart.add(const Duration(days: 1));
 
@@ -1288,7 +1387,10 @@ class _AdminScreenState extends State<AdminScreen>
         for (final coll in collections) {
           dailyAdds += await _countAddsInRange(coll, dayStart, dayEnd);
         }
-        final dailyDeletes = await _countAdminDeletionsInRange(dayStart, dayEnd);
+        final dailyDeletes = await _countAdminDeletionsInRange(
+          dayStart,
+          dayEnd,
+        );
 
         final dailyReads = (dailyAdds * 2.5).round();
         final dailyWrites = dailyAdds;
@@ -1318,7 +1420,9 @@ class _AdminScreenState extends State<AdminScreen>
     required double ratio,
     required Color color,
   }) {
-    final displayRatio = (ratio.isFinite && ratio > 0) ? ratio.clamp(0.0, 1.0) : 0.0;
+    final displayRatio = (ratio.isFinite && ratio > 0)
+        ? ratio.clamp(0.0, 1.0)
+        : 0.0;
     Color barColor;
     if (displayRatio < 0.5) {
       barColor = const Color(0xFF10B981); // Success
@@ -1359,7 +1463,11 @@ class _AdminScreenState extends State<AdminScreen>
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: Color(0xFF0F172A)),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                    color: Color(0xFF0F172A),
+                  ),
                 ),
               ),
             ],
@@ -1388,7 +1496,11 @@ class _AdminScreenState extends State<AdminScreen>
             alignment: Alignment.centerRight,
             child: Text(
               '${(displayRatio * 100).toStringAsFixed(1)}% usado',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: barColor),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: barColor,
+              ),
             ),
           ),
         ],
@@ -1403,7 +1515,12 @@ class _AdminScreenState extends State<AdminScreen>
         children: [
           Text(
             label,
-            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF94A3B8), letterSpacing: 0.5),
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF94A3B8),
+              letterSpacing: 0.5,
+            ),
             textAlign: TextAlign.center,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -1413,7 +1530,11 @@ class _AdminScreenState extends State<AdminScreen>
             fit: BoxFit.scaleDown,
             child: Text(
               value,
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: valueColor),
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                color: valueColor,
+              ),
               textAlign: TextAlign.center,
             ),
           ),
@@ -1434,11 +1555,28 @@ class _AdminScreenState extends State<AdminScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Text(title, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w700)),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF64748B),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
             const SizedBox(height: 8),
-            Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF0F172A),
+              ),
+            ),
             const SizedBox(height: 6),
-            Text(limit, style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+            Text(
+              limit,
+              style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+            ),
           ],
         ),
       ),
@@ -1482,7 +1620,12 @@ class _AdminScreenState extends State<AdminScreen>
       onRefresh: _recargarPanelAdmin,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.fromLTRB(isMobile ? 12 : 20, 16, isMobile ? 12 : 20, 24),
+        padding: EdgeInsets.fromLTRB(
+          isMobile ? 12 : 20,
+          16,
+          isMobile ? 12 : 20,
+          24,
+        ),
         children: [
           _sectionHeader('Memoria y Limpieza'),
           const SizedBox(height: 12),
@@ -1501,24 +1644,37 @@ class _AdminScreenState extends State<AdminScreen>
               final cards = collectionsToShow.map((cfg) {
                 return FutureBuilder<int>(
                   future: Future.wait<int>(
-                    (cfg['paths'] as List<String>).map((p) => _contarDocumentos(p)),
+                    (cfg['paths'] as List<String>).map(
+                      (p) => _contarDocumentos(p),
+                    ),
                   ).then((list) => list.fold<int>(0, (a, b) => a + b)),
                   builder: (context, snap) {
                     final total = snap.data ?? 0;
                     return Card(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       elevation: 1,
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
                         child: Row(
                           children: [
                             Container(
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
-                                color: (cfg['color'] as Color).withValues(alpha: 0.12),
+                                color: (cfg['color'] as Color).withValues(
+                                  alpha: 0.12,
+                                ),
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: Icon(cfg['icon'] as IconData, color: cfg['color'] as Color, size: 24),
+                              child: Icon(
+                                cfg['icon'] as IconData,
+                                color: cfg['color'] as Color,
+                                size: 24,
+                              ),
                             ),
                             const SizedBox(width: 14),
                             Expanded(
@@ -1526,9 +1682,22 @@ class _AdminScreenState extends State<AdminScreen>
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Text(cfg['label'] as String, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
+                                  Text(
+                                    cfg['label'] as String,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 13.5,
+                                    ),
+                                  ),
                                   const SizedBox(height: 4),
-                                  Text('Documentos: $total', style: TextStyle(color: Colors.grey[700], fontSize: 12, fontWeight: FontWeight.w600)),
+                                  Text(
+                                    'Documentos: $total',
+                                    style: TextStyle(
+                                      color: Colors.grey[700],
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
@@ -1538,22 +1707,42 @@ class _AdminScreenState extends State<AdminScreen>
                                 backgroundColor: (cfg['color'] as Color),
                                 foregroundColor: Colors.white,
                                 elevation: 0,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
                               ),
                               onPressed: total == 0
                                   ? null
                                   : () async {
-                                      final confirmar = await showDialog<bool>(
+                                      final confirmar =
+                                          await showDialog<bool>(
                                             context: context,
                                             builder: (_) => AlertDialog(
-                                              title: Text('Borrar: ${cfg['label']}'),
-                                              content: const Text('Se eliminarán los documentos seleccionados. Esta acción es irreversible.'),
+                                              title: Text(
+                                                'Borrar: ${cfg['label']}',
+                                              ),
+                                              content: const Text(
+                                                'Se eliminarán los documentos seleccionados. Esta acción es irreversible.',
+                                              ),
                                               actions: [
-                                                TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
+                                                TextButton(
+                                                  onPressed: () => Navigator.of(
+                                                    context,
+                                                  ).pop(false),
+                                                  child: const Text('Cancelar'),
+                                                ),
                                                 FilledButton(
-                                                  onPressed: () => Navigator.of(context).pop(true),
-                                                  style: FilledButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
+                                                  onPressed: () => Navigator.of(
+                                                    context,
+                                                  ).pop(true),
+                                                  style: FilledButton.styleFrom(
+                                                    backgroundColor:
+                                                        const Color(0xFFDC2626),
+                                                  ),
                                                   child: const Text('Borrar'),
                                                 ),
                                               ],
@@ -1564,19 +1753,46 @@ class _AdminScreenState extends State<AdminScreen>
                                       if (!confirmar) return;
                                       // ejecutar borrado para cada path
                                       try {
-                                        for (final p in (cfg['paths'] as List<String>)) {
+                                        for (final p
+                                            in (cfg['paths'] as List<String>)) {
                                           await _borrarColeccion(p);
                                         }
                                         if (!mounted) return;
-                                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Borrado completado: ${cfg['label']}')));
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              'Borrado completado: ${cfg['label']}',
+                                            ),
+                                          ),
+                                        );
                                         setState(() {});
                                       } catch (e) {
                                         if (!mounted) return;
-                                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al borrar: $e')));
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              'Error al borrar: $e',
+                                            ),
+                                          ),
+                                        );
                                       }
                                     },
-                              icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.white),
-                              label: const Text('Borrar', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.white)),
+                              icon: const Icon(
+                                Icons.delete_outline_rounded,
+                                size: 18,
+                                color: Colors.white,
+                              ),
+                              label: const Text(
+                                'Borrar',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -1589,7 +1805,14 @@ class _AdminScreenState extends State<AdminScreen>
               if (isMobile) {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: cards.map((c) => Padding(padding: const EdgeInsets.only(bottom: 12), child: c)).toList(),
+                  children: cards
+                      .map(
+                        (c) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: c,
+                        ),
+                      )
+                      .toList(),
                 );
               } else {
                 return GridView.count(
@@ -1614,19 +1837,29 @@ class _AdminScreenState extends State<AdminScreen>
                 backgroundColor: const Color(0xFFDC2626),
                 foregroundColor: Colors.white,
                 minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               onPressed: () async {
-                final confirmar = await showDialog<bool>(
+                final confirmar =
+                    await showDialog<bool>(
                       context: context,
                       builder: (_) => AlertDialog(
                         title: const Text('Borrar todo (seleccionado)'),
-                        content: const Text('Esto borrará todos los registros listados arriba. NO eliminará usuarios ni configuraciones. ¿Deseas continuar?'),
+                        content: const Text(
+                          'Esto borrará todos los registros listados arriba. NO eliminará usuarios ni configuraciones. ¿Deseas continuar?',
+                        ),
                         actions: [
-                          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(false),
+                            child: const Text('Cancelar'),
+                          ),
                           FilledButton(
                             onPressed: () => Navigator.of(context).pop(true),
-                            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xFFDC2626),
+                            ),
                             child: const Text('Borrar todo'),
                           ),
                         ],
@@ -1636,18 +1869,37 @@ class _AdminScreenState extends State<AdminScreen>
                 if (!confirmar) return;
                 try {
                   // ejecutar borrado en todas las rutas anteriores excepto usuarios
-                  final allPaths = ['checklist', 'reportes', 'reportes_camiones', 'registros_gasolina', 'registros_toneladas', 'notificaciones'];
+                  final allPaths = [
+                    'checklist',
+                    'reportes',
+                    'reportes_camiones',
+                    'registros_gasolina',
+                    'registros_toneladas',
+                    'notificaciones',
+                  ];
                   for (final p in allPaths) await _borrarColeccion(p);
                   if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Borrado completo ejecutado.')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Borrado completo ejecutado.'),
+                    ),
+                  );
                   setState(() {});
                 } catch (e) {
                   if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al borrar: $e')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error al borrar: $e')),
+                  );
                 }
               },
               icon: const Icon(Icons.delete_sweep_rounded, color: Colors.white),
-              label: const Text('Borrar todo (seleccionado)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+              label: const Text(
+                'Borrar todo (seleccionado)',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
           ),
 
@@ -1695,11 +1947,15 @@ class _AdminScreenState extends State<AdminScreen>
                 );
               }
 
-              final values = (snap.data?['generalCounts'] as List<int>?) ?? [0,0,0,0,0];
-              final totalDocs = values.fold<int>(0, (a,b)=>a+b);
+              final values =
+                  (snap.data?['generalCounts'] as List<int>?) ??
+                  [0, 0, 0, 0, 0];
+              final totalDocs = values.fold<int>(0, (a, b) => a + b);
               final addsInRange = (snap.data?['addsInRange'] as int?) ?? 0;
-              final deletesInRange = (snap.data?['deletesInRange'] as int?) ?? 0;
-              final breakdown = snap.data?['breakdown'] as List<Map<String, dynamic>>?;
+              final deletesInRange =
+                  (snap.data?['deletesInRange'] as int?) ?? 0;
+              final breakdown =
+                  snap.data?['breakdown'] as List<Map<String, dynamic>>?;
 
               // Límites del plan gratuito (referencia)
               int limiteLecturas = 50000;
@@ -1720,11 +1976,12 @@ class _AdminScreenState extends State<AdminScreen>
               }
 
               // Estimaciones (proxy)
-              final estimadoLecturas = (addsInRange * 2.5).round(); 
+              final estimadoLecturas = (addsInRange * 2.5).round();
               final estimadoEscrituras = addsInRange;
               final estimadoEliminaciones = deletesInRange;
               final estimadoFirestoreMB = totalDocs * 0.00002;
-              final estimadoFotosMB = (values[0] + values[1]) * 1.5; // ~1.5 MB por reporte
+              final estimadoFotosMB =
+                  (values[0] + values[1]) * 1.5; // ~1.5 MB por reporte
 
               final List<Widget> cards = [
                 _limitCard(
@@ -1734,8 +1991,8 @@ class _AdminScreenState extends State<AdminScreen>
                   limite: _memoriaPeriod == '24h'
                       ? '$limiteLecturas / día'
                       : _memoriaPeriod == '7d'
-                          ? '$limiteLecturas / 7 días'
-                          : '$limiteLecturas / 30 días',
+                      ? '$limiteLecturas / 7 días'
+                      : '$limiteLecturas / 30 días',
                   ratio: estimadoLecturas / limiteLecturas,
                   color: const Color(0xFF3B82F6),
                 ),
@@ -1746,8 +2003,8 @@ class _AdminScreenState extends State<AdminScreen>
                   limite: _memoriaPeriod == '24h'
                       ? '$limiteEscrituras / día'
                       : _memoriaPeriod == '7d'
-                          ? '$limiteEscrituras / 7 días'
-                          : '$limiteEscrituras / 30 días',
+                      ? '$limiteEscrituras / 7 días'
+                      : '$limiteEscrituras / 30 días',
                   ratio: estimadoEscrituras / limiteEscrituras,
                   color: const Color(0xFF8B5CF6),
                 ),
@@ -1758,8 +2015,8 @@ class _AdminScreenState extends State<AdminScreen>
                   limite: _memoriaPeriod == '24h'
                       ? '$limiteEliminaciones / día'
                       : _memoriaPeriod == '7d'
-                          ? '$limiteEliminaciones / 7 días'
-                          : '$limiteEliminaciones / 30 días',
+                      ? '$limiteEliminaciones / 7 días'
+                      : '$limiteEliminaciones / 30 días',
                   ratio: estimadoEliminaciones / limiteEliminaciones,
                   color: const Color(0xFFEF4444),
                 ),
@@ -1776,7 +2033,8 @@ class _AdminScreenState extends State<AdminScreen>
                   title: 'Almacenamiento Firestore',
                   usado: '${estimadoFirestoreMB.toStringAsFixed(3)} MB',
                   limite: '$limiteFirestoreStorageGB GB total',
-                  ratio: estimadoFirestoreMB / (limiteFirestoreStorageGB * 1024),
+                  ratio:
+                      estimadoFirestoreMB / (limiteFirestoreStorageGB * 1024),
                   color: const Color(0xFFF59E0B),
                 ),
               ];
@@ -1801,15 +2059,23 @@ class _AdminScreenState extends State<AdminScreen>
                     _sectionHeader('Desglose Diario (Últimos 7 días)'),
                     const SizedBox(height: 12),
                     Card(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                       elevation: 1,
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
                         child: ListView.separated(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
                           itemCount: breakdown.length,
-                          separatorBuilder: (context, index) => const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                          separatorBuilder: (context, index) => const Divider(
+                            height: 1,
+                            color: Color(0xFFE2E8F0),
+                          ),
                           itemBuilder: (context, index) {
                             final day = breakdown[index];
                             final date = day['fecha'] as DateTime;
@@ -1825,28 +2091,51 @@ class _AdminScreenState extends State<AdminScreen>
                                   Container(
                                     padding: const EdgeInsets.all(8),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF0F172A).withAlpha(12),
+                                      color: const Color(
+                                        0xFF0F172A,
+                                      ).withAlpha(12),
                                       borderRadius: BorderRadius.circular(10),
                                     ),
-                                    child: const Icon(Icons.calendar_today_rounded, size: 18, color: Color(0xFF0F172A)),
+                                    child: const Icon(
+                                      Icons.calendar_today_rounded,
+                                      size: 18,
+                                      color: Color(0xFF0F172A),
+                                    ),
                                   ),
                                   const SizedBox(width: 14),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           dateLabel,
-                                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: Color(0xFF0F172A)),
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 13.5,
+                                            color: Color(0xFF0F172A),
+                                          ),
                                         ),
                                         const SizedBox(height: 6),
                                         Wrap(
                                           spacing: 12,
                                           runSpacing: 6,
                                           children: [
-                                            _miniMetric(Icons.chrome_reader_mode_rounded, 'Lecturas: $reads', const Color(0xFF3B82F6)),
-                                            _miniMetric(Icons.edit_document, 'Escrituras: $writes', const Color(0xFF8B5CF6)),
-                                            _miniMetric(Icons.delete_forever_rounded, 'Borrados: $deletes', const Color(0xFFEF4444)),
+                                            _miniMetric(
+                                              Icons.chrome_reader_mode_rounded,
+                                              'Lecturas: $reads',
+                                              const Color(0xFF3B82F6),
+                                            ),
+                                            _miniMetric(
+                                              Icons.edit_document,
+                                              'Escrituras: $writes',
+                                              const Color(0xFF8B5CF6),
+                                            ),
+                                            _miniMetric(
+                                              Icons.delete_forever_rounded,
+                                              'Borrados: $deletes',
+                                              const Color(0xFFEF4444),
+                                            ),
                                           ],
                                         ),
                                       ],
@@ -1883,9 +2172,7 @@ class _AdminScreenState extends State<AdminScreen>
         ],
       ),
       clipBehavior: Clip.antiAlias,
-      child: const SizedBox.expand(
-        child: UsuariosScreen(),
-      ),
+      child: const SizedBox.expand(child: UsuariosScreen()),
     );
   }
 
@@ -2016,7 +2303,11 @@ class _AdminScreenState extends State<AdminScreen>
                       color: Colors.white.withValues(alpha: 0.12),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(icon, color: Colors.white, size: compact ? 18 : 26),
+                    child: Icon(
+                      icon,
+                      color: Colors.white,
+                      size: compact ? 18 : 26,
+                    ),
                   ),
                   SizedBox(height: compact ? 8 : 18),
                   Text(
@@ -2083,11 +2374,14 @@ class _AdminScreenState extends State<AdminScreen>
             return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: _streamReportesCamiones(),
               builder: (context, camionesSnapshot) {
-                final reportesEquipoDocs = equipoSnapshot.data?.docs ??
+                final reportesEquipoDocs =
+                    equipoSnapshot.data?.docs ??
                     <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-                final incidentesOperadorDocs = incidentesSnapshot.data?.docs ??
+                final incidentesOperadorDocs =
+                    incidentesSnapshot.data?.docs ??
                     <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-                final reportesCamionesDocs = camionesSnapshot.data?.docs ??
+                final reportesCamionesDocs =
+                    camionesSnapshot.data?.docs ??
                     <QueryDocumentSnapshot<Map<String, dynamic>>>[];
 
                 final reportesEquipo = reportesEquipoDocs.length;
@@ -2096,7 +2390,9 @@ class _AdminScreenState extends State<AdminScreen>
                 final totalReportes =
                     reportesEquipo + incidentesOperador + reportesCamiones;
                 final hoyEquipo = _contarReportesHoy(reportesEquipoDocs);
-                final hoyOperadores = _contarReportesHoy(incidentesOperadorDocs);
+                final hoyOperadores = _contarReportesHoy(
+                  incidentesOperadorDocs,
+                );
                 final hoyCamiones = _contarReportesHoy(reportesCamionesDocs);
                 final hoyTotal = hoyEquipo + hoyOperadores + hoyCamiones;
 
@@ -2185,9 +2481,21 @@ class _AdminScreenState extends State<AdminScreen>
                         spacing: 8,
                         runSpacing: 8,
                         children: [
-                          _buildMiniStatPill('Equipo', reportesEquipo, const Color(0xFF60A5FA)),
-                          _buildMiniStatPill('Operadores', incidentesOperador, const Color(0xFFA855F7)),
-                          _buildMiniStatPill('Camiones', reportesCamiones, const Color(0xFFF97316)),
+                          _buildMiniStatPill(
+                            'Equipo',
+                            reportesEquipo,
+                            const Color(0xFF60A5FA),
+                          ),
+                          _buildMiniStatPill(
+                            'Operadores',
+                            incidentesOperador,
+                            const Color(0xFFA855F7),
+                          ),
+                          _buildMiniStatPill(
+                            'Camiones',
+                            reportesCamiones,
+                            const Color(0xFFF97316),
+                          ),
                         ],
                       ),
                     ],
@@ -2285,7 +2593,9 @@ class _AdminScreenState extends State<AdminScreen>
             label: Text(
               label,
               style: const TextStyle(
-                  fontWeight: FontWeight.w700, letterSpacing: 0.2),
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.2,
+              ),
             ),
           ),
         ),
@@ -2295,23 +2605,27 @@ class _AdminScreenState extends State<AdminScreen>
 
   // ── Streams ───────────────────────────────────────────────────────────────
   Stream<QuerySnapshot<Map<String, dynamic>>> _streamUsuariosActivos() =>
-      FirebaseFirestore.instance
-          .collection('usuarios')
-          .where('jornada_activa', isEqualTo: true)
-          .snapshots();
+      FirebaseFirestore.instance.collection('usuarios').snapshots();
 
-  Stream<QuerySnapshot<Map<String, dynamic>>> _streamReportesEquipoPendientes() => FirebaseFirestore.instance
+  bool _esUsuarioActivo(Map<String, dynamic> data) {
+    final activo = data['activo'] != false;
+    final jornadaActiva = data['jornada_activa'] == true;
+    final sesionActiva = data['sesion_activa'] == true;
+
+    return activo && (jornadaActiva || sesionActiva);
+  }
+
+  Stream<QuerySnapshot<Map<String, dynamic>>>
+  _streamReportesEquipoPendientes() => FirebaseFirestore.instance
       .collection('checklist')
       .where('equipo_completo', isEqualTo: false)
       .snapshots();
 
-  Stream<QuerySnapshot<Map<String, dynamic>>> _streamIncidentesOperadores() => FirebaseFirestore.instance
-      .collection('reportes')
-      .snapshots();
+  Stream<QuerySnapshot<Map<String, dynamic>>> _streamIncidentesOperadores() =>
+      FirebaseFirestore.instance.collection('reportes').snapshots();
 
-  Stream<QuerySnapshot<Map<String, dynamic>>> _streamReportesCamiones() => FirebaseFirestore.instance
-      .collection('reportes_camiones')
-      .snapshots();
+  Stream<QuerySnapshot<Map<String, dynamic>>> _streamReportesCamiones() =>
+      FirebaseFirestore.instance.collection('reportes_camiones').snapshots();
 
   int _contarReportesHoy(
     List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
@@ -2330,7 +2644,9 @@ class _AdminScreenState extends State<AdminScreen>
         fecha = valorFecha;
       }
 
-      if (fecha != null && !fecha.isBefore(inicioHoy) && fecha.isBefore(finHoy)) {
+      if (fecha != null &&
+          !fecha.isBefore(inicioHoy) &&
+          fecha.isBefore(finHoy)) {
         total++;
       }
     }
@@ -2342,7 +2658,9 @@ class _AdminScreenState extends State<AdminScreen>
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: _streamUsuariosActivos(),
       builder: (context, usuariosSnapshot) {
-        final usuariosActivos = usuariosSnapshot.data?.docs ?? [];
+        final usuariosActivos = (usuariosSnapshot.data?.docs ?? [])
+            .where((doc) => _esUsuarioActivo(doc.data()))
+            .toList();
         final cantidadActivos = usuariosActivos.length;
 
         return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
@@ -2354,12 +2672,14 @@ class _AdminScreenState extends State<AdminScreen>
                 return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
                   stream: _streamReportesCamiones(),
                   builder: (context, camionesSnapshot) {
-                    final reportesEquipoDocs = equipoSnapshot.data?.docs ??
+                    final reportesEquipoDocs =
+                        equipoSnapshot.data?.docs ??
                         <QueryDocumentSnapshot<Map<String, dynamic>>>[];
                     final incidentesOperadorDocs =
                         incidentesSnapshot.data?.docs ??
-                            <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-                    final reportesCamionesDocs = camionesSnapshot.data?.docs ??
+                        <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+                    final reportesCamionesDocs =
+                        camionesSnapshot.data?.docs ??
                         <QueryDocumentSnapshot<Map<String, dynamic>>>[];
 
                     final reportesEquipo = reportesEquipoDocs.length;
@@ -2368,9 +2688,12 @@ class _AdminScreenState extends State<AdminScreen>
                     final totalReportes =
                         reportesEquipo + incidentesOperador + reportesCamiones;
                     final hoyEquipo = _contarReportesHoy(reportesEquipoDocs);
-                    final hoyOperadores =
-                        _contarReportesHoy(incidentesOperadorDocs);
-                    final hoyCamiones = _contarReportesHoy(reportesCamionesDocs);
+                    final hoyOperadores = _contarReportesHoy(
+                      incidentesOperadorDocs,
+                    );
+                    final hoyCamiones = _contarReportesHoy(
+                      reportesCamionesDocs,
+                    );
                     final hoyTotal = hoyEquipo + hoyOperadores + hoyCamiones;
 
                     return LayoutBuilder(
@@ -2385,13 +2708,14 @@ class _AdminScreenState extends State<AdminScreen>
                           physics: const NeverScrollableScrollPhysics(),
                           mainAxisSpacing: isMobileStats ? 10 : 14,
                           crossAxisSpacing: isMobileStats ? 10 : 14,
-                            childAspectRatio: statAspectRatio,
+                          childAspectRatio: statAspectRatio,
                           children: [
                             _buildStatCard(
                               icon: Icons.people_outline_rounded,
                               label: 'Usuarios Activos',
                               statusText: 'Jornada activa',
-                              value: usuariosSnapshot.connectionState ==
+                              value:
+                                  usuariosSnapshot.connectionState ==
                                       ConnectionState.waiting
                                   ? '...'
                                   : cantidadActivos.toString(),
@@ -2401,20 +2725,21 @@ class _AdminScreenState extends State<AdminScreen>
                                 accentColor.withValues(alpha: 0.04),
                               ],
                               onTap: () => _mostrarDetalleUsuariosActivos(
-                                  usuariosActivos),
+                                usuariosActivos,
+                              ),
                               compact: isMobileStats,
                             ),
-                              _buildReportSummaryCard(
-                                totalReportes: totalReportes,
-                                reportesEquipo: reportesEquipo,
-                                incidentesOperador: incidentesOperador,
-                                reportesCamiones: reportesCamiones,
-                                hoyTotal: hoyTotal,
-                                hoyEquipo: hoyEquipo,
-                                hoyOperadores: hoyOperadores,
-                                hoyCamiones: hoyCamiones,
-                                compact: isMobileStats,
-                              ),
+                            _buildReportSummaryCard(
+                              totalReportes: totalReportes,
+                              reportesEquipo: reportesEquipo,
+                              incidentesOperador: incidentesOperador,
+                              reportesCamiones: reportesCamiones,
+                              hoyTotal: hoyTotal,
+                              hoyEquipo: hoyEquipo,
+                              hoyOperadores: hoyOperadores,
+                              hoyCamiones: hoyCamiones,
+                              compact: isMobileStats,
+                            ),
                           ],
                         );
                       },
@@ -2474,8 +2799,7 @@ class _AdminScreenState extends State<AdminScreen>
                       color: color.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child:
-                        Icon(icon, color: color, size: compact ? 18 : 20),
+                    child: Icon(icon, color: color, size: compact ? 18 : 20),
                   ),
                   const Spacer(),
                   if (onTap != null)
@@ -2673,8 +2997,7 @@ class _AdminScreenState extends State<AdminScreen>
                       color: accentColor.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child:
-                        Icon(Icons.people_alt_rounded, color: accentColor),
+                    child: Icon(Icons.people_alt_rounded, color: accentColor),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -2684,12 +3007,16 @@ class _AdminScreenState extends State<AdminScreen>
                         const Text(
                           'Usuarios Activos',
                           style: TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold),
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         Text(
                           '${usuarios.length} en línea',
                           style: TextStyle(
-                              color: Colors.grey[600], fontSize: 13),
+                            color: Colors.grey[600],
+                            fontSize: 13,
+                          ),
                         ),
                       ],
                     ),
@@ -2705,8 +3032,11 @@ class _AdminScreenState extends State<AdminScreen>
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.person_off_rounded,
-                              size: 44, color: Colors.grey[350]),
+                          Icon(
+                            Icons.person_off_rounded,
+                            size: 44,
+                            color: Colors.grey[350],
+                          ),
                           const SizedBox(height: 10),
                           Text(
                             'No hay usuarios activos en este momento',
@@ -2723,12 +3053,11 @@ class _AdminScreenState extends State<AdminScreen>
                         final data = usuarios[index].data();
                         final nombre =
                             (data['nombre']?.toString().trim().isNotEmpty ??
-                                    false)
-                                ? data['nombre'].toString().trim()
-                                : 'Sin nombre';
+                                false)
+                            ? data['nombre'].toString().trim()
+                            : 'Sin nombre';
                         final rol = data['rol']?.toString() ?? 'usuario';
-                        final camion =
-                            data['camion_actual']?.toString() ?? '';
+                        final camion = data['camion_actual']?.toString() ?? '';
                         final inicial = nombre.isNotEmpty
                             ? nombre.substring(0, 1).toUpperCase()
                             : '?';
@@ -2760,8 +3089,9 @@ class _AdminScreenState extends State<AdminScreen>
                             children: [
                               CircleAvatar(
                                 radius: 24,
-                                backgroundColor:
-                                    accentColor.withValues(alpha: 0.18),
+                                backgroundColor: accentColor.withValues(
+                                  alpha: 0.18,
+                                ),
                                 child: Text(
                                   inicial,
                                   style: TextStyle(
@@ -2774,28 +3104,33 @@ class _AdminScreenState extends State<AdminScreen>
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(nombre,
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 14)),
+                                    Text(
+                                      nombre,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                    ),
                                     const SizedBox(height: 4),
-                                    Text(rol,
-                                        style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.grey[700])),
+                                    Text(
+                                      rol,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[700],
+                                      ),
+                                    ),
                                     if (camion.isNotEmpty)
                                       Padding(
-                                        padding:
-                                            const EdgeInsets.only(top: 6),
+                                        padding: const EdgeInsets.only(top: 6),
                                         child: Row(
                                           children: [
                                             Icon(
-                                                Icons.local_shipping_rounded,
-                                                size: 14,
-                                                color: successColor),
+                                              Icons.local_shipping_rounded,
+                                              size: 14,
+                                              color: successColor,
+                                            ),
                                             const SizedBox(width: 6),
                                             Text(
                                               camion,
@@ -2813,7 +3148,9 @@ class _AdminScreenState extends State<AdminScreen>
                               ),
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 6),
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
                                     colors: [
@@ -2829,8 +3166,11 @@ class _AdminScreenState extends State<AdminScreen>
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.check_circle_rounded,
-                                        color: successColor, size: 14),
+                                    Icon(
+                                      Icons.check_circle_rounded,
+                                      color: successColor,
+                                      size: 14,
+                                    ),
                                     const SizedBox(width: 4),
                                     Text(
                                       'En jornada',
@@ -2929,8 +3269,7 @@ class _AdminScreenState extends State<AdminScreen>
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label,
-            style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+        Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
         Text(
           value,
           style: TextStyle(
@@ -2965,5 +3304,3 @@ class _RecomendacionItemAdmin extends StatelessWidget {
     );
   }
 }
-
-

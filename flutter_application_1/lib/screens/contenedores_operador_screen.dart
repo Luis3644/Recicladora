@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'widgets/menu_lateral.dart';
+import 'widgets/notificaciones_drawer.dart';
 import '../widgets/jornada_bottom_bar.dart';
 import 'jornada_screen.dart';
 
@@ -294,10 +296,36 @@ class _ContenedoresOperadorScreenState
             'tipo': 'operador_compromiso_recogida',
             'destinoTipo': 'individual',
             'destinatarioDocId': tQuery.docs.first.id,
+            'destinatarioNombre': trabajadorNombre,
             'destinatarioRol': 'trabajador',
             'contenedorId': contenedorId,
           });
         }
+      }
+
+      final otrosOperadoresSnap = await FirebaseFirestore.instance
+          .collection('usuarios')
+          .where('rol', isEqualTo: 'operador')
+          .where('jornada_activa', isEqualTo: true)
+          .get();
+
+      final labelId = contenedorId.replaceAll('contenedor-', 'C');
+      for (final op in otrosOperadoresSnap.docs) {
+        if (op.id == currentUser.uid) continue;
+
+        await FirebaseFirestore.instance.collection('notificaciones').add({
+          'mensaje':
+              '$operadorNombre tomó el Contenedor $labelId y lo recogerá en $tiempoEstimado.',
+          'enviadoPor': operadorNombre,
+          'creadoEn': now,
+          'tipo': 'operador_compromiso_recogida',
+          'destinoTipo': 'individual',
+          'destinatarioDocId': op.id,
+          'destinatarioNombre': op.data()['nombre']?.toString() ?? '',
+          'destinatarioRol': 'operador',
+          'contenedorId': contenedorId,
+          'paraTodos': false,
+        });
       }
 
       if (!mounted) return;
@@ -943,14 +971,32 @@ class _ContenedoresOperadorScreenState
 
   @override
   Widget build(BuildContext context) {
+    final nombreUsuario = widget.operador ?? 'Operador';
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
+      drawer: MenuLateral(
+        nombreUsuario: nombreUsuario,
+        camion: widget.camion ?? '',
+        placas: widget.placas ?? '',
+        mostrarCerrarSesion: false,
+      ),
+      endDrawer: NotificacionesDrawer(
+        rolUsuario: 'operador',
+        nombreUsuario: nombreUsuario,
+      ),
       appBar: AppBar(
         automaticallyImplyLeading: false,
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu_rounded, color: Colors.white),
+            onPressed: () => Scaffold.of(context).openDrawer(),
+            tooltip: 'Menú',
+          ),
+        ),
         title: const Text(
           'Contenedores',
-          style:
-              TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
         ),
         centerTitle: false,
         flexibleSpace: Container(
@@ -962,6 +1008,16 @@ class _ContenedoresOperadorScreenState
             ),
           ),
         ),
+        actions: [
+          Builder(
+            builder: (context) => NotificacionesBellButton(
+              rolUsuario: 'operador',
+              nombreUsuario: nombreUsuario,
+              iconColor: Colors.white,
+              onPressed: () => Scaffold.of(context).openEndDrawer(),
+            ),
+          ),
+        ],
       ),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: FirebaseFirestore.instance

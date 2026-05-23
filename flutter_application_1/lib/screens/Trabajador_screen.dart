@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter/services.dart';
 import '../config/session_manager.dart';
 
 import 'login_screen.dart';
@@ -20,6 +21,9 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
   String nombreUsuario = '';
   bool isLoading = true;
   bool _avisoPrecaucionMostrado = false;
+  bool _monitoreoContenedoresActivo = false;
+  bool _cargandoActivacionMonitoreo = false;
+  bool _finalizandoMonitoreoContenedores = false;
 
   late AnimationController _pulseController;
   late Animation<double> _pulseOpacity;
@@ -53,6 +57,12 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
     'Fuera de servicio',
     'En proceso de llenado',
     'Lleno',
+  ];
+
+  static const List<String> _idsContenedoresMonitoreo = [
+    'contenedor-1',
+    'contenedor-2',
+    'contenedor-3',
   ];
 
   String _formatTimestamp(Timestamp? ts) {
@@ -118,61 +128,21 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
           .doc(contenedorId)
           .set(update, SetOptions(merge: true));
 
-      String mensaje = '';
-      String tipo = '';
+      final labelId = contenedorId.replaceAll('contenedor-', 'C');
+
       if (nuevoEstado == 'En proceso de llenado') {
-        mensaje =
-            'Contenedor $contenedorId en proceso de llenado (reportado por $nombreUsuario).';
-        tipo = 'contenedor_llenando';
       } else if (nuevoEstado == 'Lleno') {
-        mensaje =
-            'Contenedor $contenedorId lleno y en espera de recolección (reportado por $nombreUsuario).';
-        tipo = 'contenedor_lleno';
-      } else {
-        mensaje =
-            'Contenedor $contenedorId fuera de servicio (reportado por $nombreUsuario).';
-        tipo = 'contenedor_fuera_servicio';
-      }
-
-      // Notificar a operadores activos
-      final opsSnapshot = await FirebaseFirestore.instance
-          .collection('usuarios')
-          .where('rol', isEqualTo: 'operador')
-          .where('jornada_activa', isEqualTo: true)
-          .get();
-
-      for (final op in opsSnapshot.docs) {
-        await FirebaseFirestore.instance.collection('notificaciones').add({
-          'mensaje': mensaje,
-          'enviadoPor': nombreUsuario,
-          'creadoEn': now,
-          'tipo': tipo,
-          'destinoTipo': 'individual',
-          'destinatarioDocId': op.id,
-          'destinatarioRol': 'operador',
-        });
-      }
-
-      // Notificar a admin
-      await FirebaseFirestore.instance.collection('notificaciones').add({
-        'mensaje': mensaje,
-        'enviadoPor': nombreUsuario,
-        'creadoEn': now,
-        'tipo': tipo,
-        'destinoTipo': 'rol',
-        'destinatarioRol': 'admin',
-        'paraTodos': false,
-      });
+      } else {}
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Estado actualizado')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Estado actualizado')));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al actualizar: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error al actualizar: $e')));
     }
   }
 
@@ -182,55 +152,67 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
     String contenedorId,
     String operadorNombre,
   ) async {
-    final confirmar = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-        title: const Row(
-          children: [
-            Icon(Icons.done_all_rounded, color: Color(0xFF059669), size: 26),
-            SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'Confirmar Recogida',
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 17,
-                  color: Color(0xFF0F172A),
+    final confirmar =
+        await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(22),
+            ),
+            title: const Row(
+              children: [
+                Icon(
+                  Icons.done_all_rounded,
+                  color: Color(0xFF059669),
+                  size: 26,
                 ),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Confirmar Recogida',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 17,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            content: Text(
+              '¿$operadorNombre ya recogió el material de este contenedor?',
+              style: const TextStyle(
+                color: Color(0xFF64748B),
+                fontSize: 13,
+                height: 1.4,
               ),
             ),
-          ],
-        ),
-        content: Text(
-          '¿$operadorNombre ya recogió el material de este contenedor?',
-          style: const TextStyle(
-            color: Color(0xFF64748B),
-            fontSize: 13,
-            height: 1.4,
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text(
+                  'No',
+                  style: TextStyle(color: Color(0xFF64748B)),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF059669),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: const Text(
+                  'Sí, fue recogido',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('No',
-                style: TextStyle(color: Color(0xFF64748B))),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF059669),
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
-            ),
-            child: const Text('Sí, fue recogido',
-                style: TextStyle(fontWeight: FontWeight.w700)),
-          ),
-        ],
-      ),
-    ) ??
+        ) ??
         false;
 
     if (!confirmar) return;
@@ -244,15 +226,15 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
           .collection('contenedores')
           .doc(contenedorId)
           .set({
-        'estado': 'Fuera de servicio',
-        'estadoRecogida': 'pendiente',
-        'actualizadoPor': nombreUsuario,
-        'actualizadoEn': now,
-        'operadorRecogida': '',
-        'tiempoEstimadoRecogida': '',
-        'operadorAsignado': '',
-        'fechaCompromisoRecogida': null,
-      }, SetOptions(merge: true));
+            'estado': 'Fuera de servicio',
+            'estadoRecogida': 'pendiente',
+            'actualizadoPor': nombreUsuario,
+            'actualizadoEn': now,
+            'operadorRecogida': '',
+            'tiempoEstimadoRecogida': '',
+            'operadorAsignado': '',
+            'fechaCompromisoRecogida': null,
+          }, SetOptions(merge: true));
 
       final mensaje =
           '$nombreUsuario confirmó que el material del Contenedor $labelId fue recogido por $operadorNombre.';
@@ -283,6 +265,7 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
           'tipo': 'material_recogido',
           'destinoTipo': 'individual',
           'destinatarioDocId': op.id,
+          'destinatarioNombre': op.data()['nombre']?.toString() ?? '',
           'destinatarioRol': 'operador',
         });
       }
@@ -296,9 +279,9 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al confirmar: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error al confirmar: $e')));
     }
   }
 
@@ -317,19 +300,20 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
 
   Future<void> _mostrarNotificacionPrecauciones() async {
     try {
-      const androidInit =
-          AndroidInitializationSettings('@mipmap/ic_launcher');
+      const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
       const iosInit = DarwinInitializationSettings(
         requestAlertPermission: false,
         requestBadgePermission: false,
         requestSoundPermission: false,
       );
       await _notificaciones.initialize(
-          const InitializationSettings(android: androidInit, iOS: iosInit));
+        const InitializationSettings(android: androidInit, iOS: iosInit),
+      );
 
       final androidImpl = _notificaciones
           .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>();
+            AndroidFlutterLocalNotificationsPlugin
+          >();
       await androidImpl?.requestNotificationsPermission();
 
       await _notificaciones.show(
@@ -357,19 +341,24 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
     await showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: const Row(
           children: [
-            Icon(Icons.health_and_safety_rounded,
-                color: Color(0xFF10B981), size: 28),
+            Icon(
+              Icons.health_and_safety_rounded,
+              color: Color(0xFF10B981),
+              size: 28,
+            ),
             SizedBox(width: 10),
             Expanded(
-              child: Text('Seguridad en Planta',
-                  style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 18,
-                      color: Color(0xFF0F172A))),
+              child: Text(
+                'Seguridad en Planta',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 18,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
             ),
           ],
         ),
@@ -380,29 +369,32 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
               Text(
                 'Recuerda utilizar tu equipo de protección personal.',
                 style: TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF64748B),
-                    height: 1.4),
+                  fontSize: 13,
+                  color: Color(0xFF64748B),
+                  height: 1.4,
+                ),
               ),
               SizedBox(height: 16),
               _RecomendacionItemTrabajador(
-                  icon: Icons.pan_tool_rounded,
-                  texto:
-                      'Usa guantes resistentes para manipular vidrio.'),
+                icon: Icons.pan_tool_rounded,
+                texto: 'Usa guantes resistentes para manipular vidrio.',
+              ),
               _RecomendacionItemTrabajador(
-                  icon: Icons.remove_red_eye_rounded,
-                  texto:
-                      'Porta lentes de seguridad en áreas de carga.'),
+                icon: Icons.remove_red_eye_rounded,
+                texto: 'Porta lentes de seguridad en áreas de carga.',
+              ),
               _RecomendacionItemTrabajador(
-                  icon: Icons.masks_rounded,
-                  texto: 'Utiliza cubrebocas en todo momento.'),
+                icon: Icons.masks_rounded,
+                texto: 'Utiliza cubrebocas en todo momento.',
+              ),
               _RecomendacionItemTrabajador(
-                  icon: Icons.checkroom_rounded,
-                  texto: 'Usa el uniforme oficial de planta.'),
+                icon: Icons.checkroom_rounded,
+                texto: 'Usa el uniforme oficial de planta.',
+              ),
               _RecomendacionItemTrabajador(
-                  icon: Icons.shield_rounded,
-                  texto:
-                      'Revisa tu equipo antes de iniciar la jornada.'),
+                icon: Icons.shield_rounded,
+                texto: 'Revisa tu equipo antes de iniciar la jornada.',
+              ),
             ],
           ),
         ),
@@ -417,11 +409,13 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
                 foregroundColor: Colors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
-              child: const Text('Entendido, ¡cuidarme es primero!',
-                  style: TextStyle(
-                      fontWeight: FontWeight.w700, fontSize: 13)),
+              child: const Text(
+                'Entendido, ¡cuidarme es primero!',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+              ),
             ),
           ),
         ],
@@ -432,7 +426,7 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
   // ─── Perfil / sesión ───────────────────────────────────────────────────────
 
   Future<DocumentSnapshot<Map<String, dynamic>>?>
-      _obtenerPerfilUsuario() async {
+  _obtenerPerfilUsuario() async {
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) return null;
     final doc = await FirebaseFirestore.instance
@@ -455,14 +449,157 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
     final doc = await _obtenerPerfilUsuario();
     if (!mounted) return;
     setState(() {
-      nombreUsuario =
-          doc?.data()?['nombre']?.toString() ?? 'Trabajador';
+      nombreUsuario = doc?.data()?['nombre']?.toString() ?? 'Trabajador';
+      _monitoreoContenedoresActivo =
+          doc?.data()?['jornada_activa'] == true ||
+          doc?.data()?['sesion_activa'] == true;
       isLoading = false;
     });
   }
 
+  Future<DocumentReference<Map<String, dynamic>>?>
+  _referenciaUsuarioActual() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return null;
+
+    final usuariosRef = FirebaseFirestore.instance.collection('usuarios');
+    final uidRef = usuariosRef.doc(currentUser.uid);
+    final uidDoc = await uidRef.get();
+    if (uidDoc.exists) return uidRef;
+
+    final email = currentUser.email;
+    if (email == null || email.isEmpty) return null;
+
+    final query = await usuariosRef
+        .where('email', isEqualTo: email)
+        .limit(1)
+        .get();
+    if (query.docs.isEmpty) return null;
+    return query.docs.first.reference;
+  }
+
+  Future<void> _actualizarEstadoMonitoreo({required bool activo}) async {
+    final ref = await _referenciaUsuarioActual();
+    if (ref == null) return;
+
+    await ref.set({
+      'jornada_activa': activo,
+      'sesion_activa': activo,
+      'estado_jornada': activo
+          ? 'Monitoreando contenedores'
+          : 'Monitoreo detenido',
+      'ultima_actualizacion_jornada': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  bool _todosContenedoresFueraDeServicio(
+    Map<String, Map<String, dynamic>> contenedores,
+  ) {
+    return _idsContenedoresMonitoreo.every((id) {
+      final estado = contenedores[id]?['estado']?.toString() ?? '';
+      return estado == 'Fuera de servicio';
+    });
+  }
+
+  List<String> _contenedoresPendientes(
+    Map<String, Map<String, dynamic>> contenedores,
+  ) {
+    return _idsContenedoresMonitoreo
+        .where((id) {
+          final estado = contenedores[id]?['estado']?.toString() ?? '';
+          return estado != 'Fuera de servicio';
+        })
+        .map((id) => id.replaceAll('contenedor-', 'Contenedor '))
+        .toList();
+  }
+
+  Future<void> _finalizarMonitoreoContenedores({
+    required bool puedeFinalizar,
+    required List<String> contenedoresPendientes,
+  }) async {
+    if (_finalizandoMonitoreoContenedores) return;
+
+    if (!puedeFinalizar) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFFB91C1C),
+          content: Text(
+            contenedoresPendientes.isEmpty
+                ? 'No puedes finalizar todavía. Todos los contenedores deben estar fuera de servicio.'
+                : 'Aún quedan activos: ${contenedoresPendientes.join(', ')}.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _finalizandoMonitoreoContenedores = true;
+    });
+
+    try {
+      await _actualizarEstadoMonitoreo(activo: false);
+      if (!mounted) return;
+      setState(() {
+        _monitoreoContenedoresActivo = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: Color(0xFF059669),
+          content: Text('Monitoreo de contenedores finalizado'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo finalizar el monitoreo: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _finalizandoMonitoreoContenedores = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _iniciarMonitoreoContenedores() async {
+    if (_cargandoActivacionMonitoreo || _monitoreoContenedoresActivo) return;
+
+    setState(() {
+      _cargandoActivacionMonitoreo = true;
+    });
+
+    try {
+      await _actualizarEstadoMonitoreo(activo: true);
+      if (!mounted) return;
+      setState(() {
+        _monitoreoContenedoresActivo = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Monitoreo de contenedores activado'),
+          backgroundColor: Color(0xFF059669),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo activar el monitoreo: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _cargandoActivacionMonitoreo = false;
+        });
+      }
+    }
+  }
+
   Future<void> _cerrarSesion() async {
     try {
+      await _actualizarEstadoMonitoreo(activo: false);
       await SessionManager.limpiarSesionRemota();
       await FirebaseAuth.instance.signOut();
       await SessionManager.limpiarSesion();
@@ -473,28 +610,35 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
   Future<void> _confirmarYCerrarSesion() async {
-    final confirmar = await showDialog<bool>(
+    final confirmar =
+        await showDialog<bool>(
           context: context,
           builder: (_) => AlertDialog(
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20)),
-            title: const Text('Cerrar sesión',
-                style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF0F172A))),
-            content:
-                const Text('¿Estás seguro de salir de la sesión?'),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: const Text(
+              'Cerrar sesión',
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF0F172A),
+              ),
+            ),
+            content: const Text('¿Estás seguro de salir de la sesión?'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancelar',
-                    style: TextStyle(color: Color(0xFF64748B))),
+                child: const Text(
+                  'Cancelar',
+                  style: TextStyle(color: Color(0xFF64748B)),
+                ),
               ),
               ElevatedButton(
                 onPressed: () => Navigator.of(context).pop(true),
@@ -503,10 +647,13 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
                   foregroundColor: Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
-                child: const Text('Sí, salir',
-                    style: TextStyle(fontWeight: FontWeight.w700)),
+                child: const Text(
+                  'Sí, salir',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
               ),
             ],
           ),
@@ -526,8 +673,7 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
           UserAccountsDrawerHeader(
             accountName: Text(
               isLoading ? 'Cargando...' : nombreUsuario,
-              style: const TextStyle(
-                  fontWeight: FontWeight.w800, fontSize: 16),
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
             ),
             accountEmail: Text(
               FirebaseAuth.instance.currentUser?.email ?? 'Sin correo',
@@ -535,8 +681,11 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
             ),
             currentAccountPicture: const CircleAvatar(
               backgroundColor: Colors.white,
-              child: Icon(Icons.person_rounded,
-                  color: Color(0xFF059669), size: 36),
+              child: Icon(
+                Icons.person_rounded,
+                color: Color(0xFF059669),
+                size: 36,
+              ),
             ),
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -547,22 +696,29 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
             ),
           ),
           ListTile(
-            leading: const Icon(Icons.dashboard_rounded,
-                color: Color(0xFF059669)),
-            title: const Text('Panel trabajador',
-                style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF0F172A))),
+            leading: const Icon(
+              Icons.dashboard_rounded,
+              color: Color(0xFF059669),
+            ),
+            title: const Text(
+              'Panel trabajador',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF0F172A),
+              ),
+            ),
             onTap: () => Navigator.of(context).pop(),
           ),
           const Spacer(),
           ListTile(
-            leading: const Icon(Icons.logout_rounded,
-                color: Color(0xFFEF4444)),
-            title: const Text('Cerrar sesión',
-                style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFFEF4444))),
+            leading: const Icon(Icons.logout_rounded, color: Color(0xFFEF4444)),
+            title: const Text(
+              'Cerrar sesión',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: Color(0xFFEF4444),
+              ),
+            ),
             onTap: () async {
               Navigator.of(context).pop();
               await _confirmarYCerrarSesion();
@@ -584,27 +740,22 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
           .snapshots(),
       builder: (context, snap) {
         final data = snap.data?.data() ?? {};
-        final estado =
-            data['estado']?.toString() ?? 'Fuera de servicio';
-        final actualizadoPor =
-            data['actualizadoPor']?.toString() ?? '—';
+        final estado = data['estado']?.toString() ?? 'Fuera de servicio';
+        final actualizadoPor = data['actualizadoPor']?.toString() ?? '—';
         final ts = data['actualizadoEn'] is Timestamp
             ? data['actualizadoEn'] as Timestamp
             : null;
         final estadoRecogida =
             data['estadoRecogida']?.toString() ?? 'pendiente';
-        final operadorRecogida =
-            data['operadorRecogida']?.toString() ?? '';
-        final tiempoEstimado =
-            data['tiempoEstimadoRecogida']?.toString() ?? '';
+        final operadorRecogida = data['operadorRecogida']?.toString() ?? '';
+        final tiempoEstimado = data['tiempoEstimadoRecogida']?.toString() ?? '';
 
         final color = _colorFor(estado);
         final icon = _iconFor(estado);
         final labelId = id.replaceAll('contenedor-', 'C');
         final fechaStr = _formatTimestamp(ts);
         final esLleno = estado == 'Lleno';
-        final hayOperador =
-            esLleno && estadoRecogida == 'comprometido';
+        final hayOperador = esLleno && estadoRecogida == 'comprometido';
 
         Color statusBgColor;
         Color statusTextColor;
@@ -633,7 +784,9 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
             children: [
               // Barra lateral
               Positioned(
-                left: 0, top: 0, bottom: 0,
+                left: 0,
+                top: 0,
+                bottom: 0,
                 child: Container(width: 6, color: color),
               ),
               Padding(
@@ -655,8 +808,7 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 'Contenedor $labelId',
@@ -683,12 +835,11 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
                         // Menú cambiar estado
                         PopupMenuButton<String>(
                           initialValue: estado,
-                          onSelected: (v) =>
-                              _cambiarEstadoContenedor(id, v),
+                          onSelected: (v) => _cambiarEstadoContenedor(id, v),
                           shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16)),
-                          itemBuilder: (context) =>
-                              _estadosContenedor.map((e) {
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          itemBuilder: (context) => _estadosContenedor.map((e) {
                             final eColor = _colorFor(e);
                             return PopupMenuItem(
                               value: e,
@@ -698,28 +849,33 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
                                     width: 8,
                                     height: 8,
                                     decoration: BoxDecoration(
-                                        color: eColor,
-                                        shape: BoxShape.circle),
+                                      color: eColor,
+                                      shape: BoxShape.circle,
+                                    ),
                                   ),
                                   const SizedBox(width: 10),
-                                  Text(e,
-                                      style: const TextStyle(
-                                          fontSize: 13,
-                                          fontWeight:
-                                              FontWeight.w700)),
+                                  Text(
+                                    e,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
                                 ],
                               ),
                             );
                           }).toList(),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 6),
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
                             decoration: BoxDecoration(
                               color: statusBgColor,
                               borderRadius: BorderRadius.circular(30),
                               border: Border.all(
-                                  color:
-                                      statusTextColor.withOpacity(0.15)),
+                                color: statusTextColor.withOpacity(0.15),
+                              ),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -728,8 +884,9 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
                                   width: 6,
                                   height: 6,
                                   decoration: BoxDecoration(
-                                      color: statusTextColor,
-                                      shape: BoxShape.circle),
+                                    color: statusTextColor,
+                                    shape: BoxShape.circle,
+                                  ),
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
@@ -741,8 +898,11 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
                                   ),
                                 ),
                                 const SizedBox(width: 4),
-                                Icon(Icons.keyboard_arrow_down_rounded,
-                                    size: 14, color: statusTextColor),
+                                Icon(
+                                  Icons.keyboard_arrow_down_rounded,
+                                  size: 14,
+                                  color: statusTextColor,
+                                ),
                               ],
                             ),
                           ),
@@ -756,8 +916,7 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
                     if (estado == 'En proceso de llenado' ||
                         estado == 'Lleno') ...[
                       Row(
-                        mainAxisAlignment:
-                            MainAxisAlignment.spaceBetween,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
                             estado == 'Lleno'
@@ -784,8 +943,7 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
                         child: LinearProgressIndicator(
                           value: estado == 'Lleno' ? 1.0 : 0.65,
                           backgroundColor: color.withOpacity(0.1),
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(color),
+                          valueColor: AlwaysStoppedAnimation<Color>(color),
                           minHeight: 8,
                         ),
                       ),
@@ -796,7 +954,8 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
                           value: 0.0,
                           backgroundColor: Color(0xFFE2E8F0),
                           valueColor: AlwaysStoppedAnimation<Color>(
-                              Color(0xFF94A3B8)),
+                            Color(0xFF94A3B8),
+                          ),
                           minHeight: 8,
                         ),
                       ),
@@ -810,26 +969,42 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(children: [
-                          const Icon(Icons.person_pin_rounded,
-                              size: 13, color: Color(0xFF94A3B8)),
-                          const SizedBox(width: 4),
-                          Text('Por: $actualizadoPor',
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.person_pin_rounded,
+                              size: 13,
+                              color: Color(0xFF94A3B8),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Por: $actualizadoPor',
                               style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Color(0xFF64748B),
-                                  fontWeight: FontWeight.w600)),
-                        ]),
-                        Row(children: [
-                          const Icon(Icons.access_time_rounded,
-                              size: 13, color: Color(0xFF94A3B8)),
-                          const SizedBox(width: 4),
-                          Text(fechaStr,
+                                fontSize: 11,
+                                color: Color(0xFF64748B),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.access_time_rounded,
+                              size: 13,
+                              color: Color(0xFF94A3B8),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              fechaStr,
                               style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Color(0xFF64748B),
-                                  fontWeight: FontWeight.w600)),
-                        ]),
+                                fontSize: 11,
+                                color: Color(0xFF64748B),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
 
@@ -845,19 +1020,21 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
                             color: const Color(0xFFECFDF5),
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
-                                color: const Color(0xFFD1FAE5),
-                                width: 1.5),
+                              color: const Color(0xFFD1FAE5),
+                              width: 1.5,
+                            ),
                           ),
                           child: Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               // Encabezado
                               const Row(
                                 children: [
-                                  Icon(Icons.local_shipping_rounded,
-                                      color: Color(0xFF059669),
-                                      size: 18),
+                                  Icon(
+                                    Icons.local_shipping_rounded,
+                                    color: Color(0xFF059669),
+                                    size: 18,
+                                  ),
                                   SizedBox(width: 8),
                                   Text(
                                     'Operador en camino',
@@ -874,9 +1051,10 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
                               Row(
                                 children: [
                                   const Icon(
-                                      Icons.person_rounded,
-                                      size: 15,
-                                      color: Color(0xFF059669)),
+                                    Icons.person_rounded,
+                                    size: 15,
+                                    color: Color(0xFF059669),
+                                  ),
                                   const SizedBox(width: 6),
                                   Expanded(
                                     child: Text(
@@ -894,9 +1072,11 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
                                 const SizedBox(height: 6),
                                 Row(
                                   children: [
-                                    const Icon(Icons.schedule_rounded,
-                                        size: 15,
-                                        color: Color(0xFF059669)),
+                                    const Icon(
+                                      Icons.schedule_rounded,
+                                      size: 15,
+                                      color: Color(0xFF059669),
+                                    ),
                                     const SizedBox(width: 6),
                                     Text(
                                       'Llega en: $tiempoEstimado',
@@ -915,27 +1095,28 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
                                 width: double.infinity,
                                 height: 44,
                                 child: ElevatedButton.icon(
-                                  onPressed: () =>
-                                      _confirmarMaterialRecogido(
-                                          id, operadorRecogida),
+                                  onPressed: () => _confirmarMaterialRecogido(
+                                    id,
+                                    operadorRecogida,
+                                  ),
                                   icon: const Icon(
-                                      Icons.done_all_rounded,
-                                      size: 18),
+                                    Icons.done_all_rounded,
+                                    size: 18,
+                                  ),
                                   label: const Text(
                                     'Confirmar Material Recogido',
                                     style: TextStyle(
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 13),
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 13,
+                                    ),
                                   ),
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor:
-                                        const Color(0xFF047857),
+                                    backgroundColor: const Color(0xFF047857),
                                     foregroundColor: Colors.white,
                                     elevation: 0,
                                     shape: RoundedRectangleBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(
-                                                12)),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
                                   ),
                                 ),
                               ),
@@ -952,20 +1133,24 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
                           ),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 10),
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFFFFF7ED),
-                              borderRadius:
-                                  BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                  color: const Color(0xFFFDE68A),
-                                  width: 1.5),
+                                color: const Color(0xFFFDE68A),
+                                width: 1.5,
+                              ),
                             ),
                             child: const Row(
                               children: [
-                                Icon(Icons.hourglass_top_rounded,
-                                    color: Color(0xFFD97706),
-                                    size: 18),
+                                Icon(
+                                  Icons.hourglass_top_rounded,
+                                  color: Color(0xFFD97706),
+                                  size: 18,
+                                ),
                                 SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
@@ -1001,16 +1186,18 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF10B981)
-                        .withOpacity(_pulseOpacity.value * 0.2),
+                    color: const Color(
+                      0xFF10B981,
+                    ).withOpacity(_pulseOpacity.value * 0.2),
                     blurRadius: 16,
                     spreadRadius: 1,
                     offset: const Offset(0, 4),
                   ),
                 ],
                 border: Border.all(
-                  color: const Color(0xFF10B981)
-                      .withOpacity(0.3 + _pulseOpacity.value * 0.4),
+                  color: const Color(
+                    0xFF10B981,
+                  ).withOpacity(0.3 + _pulseOpacity.value * 0.4),
                   width: 1.5 + _pulseOpacity.value * 0.5,
                 ),
               ),
@@ -1032,8 +1219,7 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
                 offset: const Offset(0, 6),
               ),
             ],
-            border: Border.all(
-                color: color.withOpacity(0.15), width: 1.5),
+            border: Border.all(color: color.withOpacity(0.15), width: 1.5),
           ),
           child: cardInner,
         );
@@ -1044,50 +1230,334 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
   // ─── Sección contenedores ──────────────────────────────────────────────────
 
   Widget _buildContenedoresSection() {
-    final ids = ['contenedor-1', 'contenedor-2', 'contenedor-3'];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const Text(
-          'Monitoreo de Contenedores',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-            color: Color(0xFF0F172A),
-            letterSpacing: -0.5,
-          ),
-        ),
-        const SizedBox(height: 14),
-        ...ids.map((id) => _buildContenedorCard(id)),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: const Color(0xFFEFF6FF),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFBFDBFE)),
-          ),
-          child: const Row(
-            children: [
-              Icon(Icons.notification_important_rounded,
-                  color: Color(0xFF2563EB), size: 20),
-              SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Cuando un operador se comprometa a recoger verás su nombre y tiempo estimado aquí.',
-                  style: TextStyle(
-                    color: Color(0xFF1E40AF),
-                    fontSize: 11,
-                    height: 1.4,
-                    fontWeight: FontWeight.w600,
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance.collection('contenedores').snapshots(),
+      builder: (context, snapshot) {
+        final contenedores = <String, Map<String, dynamic>>{};
+        for (final doc in snapshot.data?.docs ?? const []) {
+          contenedores[doc.id] = doc.data();
+        }
+
+        final puedeFinalizar = _todosContenedoresFueraDeServicio(contenedores);
+        final contenedoresPendientes = _contenedoresPendientes(contenedores);
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Monitoreo de Contenedores',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF0F172A),
+                letterSpacing: -0.5,
+              ),
+            ),
+            const SizedBox(height: 14),
+            ..._idsContenedoresMonitoreo.map((id) => _buildContenedorCard(id)),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFBFDBFE)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(
+                    Icons.notification_important_rounded,
+                    color: Color(0xFF2563EB),
+                    size: 20,
+                  ),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Cuando un operador se comprometa a recoger verás su nombre y tiempo estimado aquí.',
+                      style: TextStyle(
+                        color: Color(0xFF1E40AF),
+                        fontSize: 11,
+                        height: 1.4,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: puedeFinalizar
+                    ? const Color(0xFFECFDF5)
+                    : const Color(0xFFFFF7ED),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: puedeFinalizar
+                      ? const Color(0xFFA7F3D0)
+                      : const Color(0xFFFCD34D),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    puedeFinalizar
+                        ? Icons.check_circle_rounded
+                        : Icons.info_rounded,
+                    color: puedeFinalizar
+                        ? const Color(0xFF059669)
+                        : const Color(0xFFD97706),
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      puedeFinalizar
+                          ? 'Todos los contenedores están fuera de servicio. Ya puedes deslizar para finalizar el monitoreo.'
+                          : contenedoresPendientes.isEmpty
+                          ? 'No puedes finalizar todavía. Todos los contenedores deben estar fuera de servicio.'
+                          : 'No puedes finalizar todavía. Deben estar fuera de servicio: ${contenedoresPendientes.join(', ')}.',
+                      style: TextStyle(
+                        color: puedeFinalizar
+                            ? const Color(0xFF047857)
+                            : const Color(0xFF92400E),
+                        fontSize: 11.5,
+                        height: 1.4,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F0F1),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 6,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(
+                        Icons.flag_outlined,
+                        color: Color(0xFFE53E3E),
+                        size: 20,
+                      ),
+                      SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Finalizar monitoreo de los contenedores',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1F2937),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    puedeFinalizar
+                        ? _finalizandoMonitoreoContenedores
+                              ? 'Finalizando...'
+                              : 'Desliza izquierda a derecha para confirmar'
+                        : 'Debes dejar todos los contenedores fuera de servicio antes de finalizar.',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF8E95A3),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _SwipeToConfirmButton(
+                    text: _finalizandoMonitoreoContenedores
+                        ? 'Finalizando monitoreo...'
+                        : 'Desliza para finalizar monitoreo de los contenedores',
+                    enabled:
+                        puedeFinalizar && !_finalizandoMonitoreoContenedores,
+                    onCompleted: () => _finalizarMonitoreoContenedores(
+                      puedeFinalizar: puedeFinalizar,
+                      contenedoresPendientes: contenedoresPendientes,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildPantallaInicioMonitoreo() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedBuilder(
+              animation: _pulseOpacity,
+              builder: (context, child) {
+                return Opacity(opacity: _pulseOpacity.value, child: child);
+              },
+              child: Container(
+                width: 96,
+                height: 96,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFECFDF5),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF059669).withOpacity(0.18),
+                      blurRadius: 24,
+                      offset: const Offset(0, 12),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.inventory_2_rounded,
+                  size: 44,
+                  color: Color(0xFF059669),
+                ),
+              ),
+            ),
+            const SizedBox(height: 22),
+            const Text(
+              'Haz clic para empezar a monitorear el estado de los contenedores',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF0F172A),
+                height: 1.2,
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'Al iniciar, tu usuario quedará como activo para administración y se abrirá el panel de contenedores.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color: Color(0xFF64748B),
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: ElevatedButton.icon(
+                onPressed: _cargandoActivacionMonitoreo
+                    ? null
+                    : _iniciarMonitoreoContenedores,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF059669),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                icon: _cargandoActivacionMonitoreo
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
+                        ),
+                      )
+                    : const Icon(Icons.play_arrow_rounded),
+                label: Text(
+                  _cargandoActivacionMonitoreo
+                      ? 'Activando monitoreo...'
+                      : 'Empezar monitoreo',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-        const SizedBox(height: 24),
-      ],
+      ),
+    );
+  }
+
+  Widget _buildPanelContenedoresActivo() {
+    return RefreshIndicator(
+      color: const Color(0xFF059669),
+      onRefresh: () async => await obtenerNombre(),
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF065F46), Color(0xFF047857)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF059669).withOpacity(0.15),
+                  blurRadius: 16,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isLoading ? 'Cargando...' : '¡Hola, $nombreUsuario!',
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Monitoreo activo. Desde aquí administras el estado de los contenedores.',
+                  style: TextStyle(
+                    color: Color(0xFFD1FAE5),
+                    fontSize: 12,
+                    height: 1.4,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          _buildContenedoresSection(),
+        ],
+      ),
     );
   }
 
@@ -1108,10 +1578,13 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
           title: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Trabajador',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800)),
+              const Text(
+                'Trabajador',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
               const SizedBox(width: 10),
               ClipRRect(
                 borderRadius: BorderRadius.circular(10),
@@ -1141,71 +1614,15 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
               builder: (context) => NotificacionesBellButton(
                 rolUsuario: 'trabajador',
                 nombreUsuario: nombreUsuario,
-                onPressed: () =>
-                    Scaffold.of(context).openEndDrawer(),
+                iconColor: Colors.white,
+                onPressed: () => Scaffold.of(context).openEndDrawer(),
               ),
             ),
           ],
         ),
-        body: RefreshIndicator(
-          color: const Color(0xFF059669),
-          onRefresh: () async => await obtenerNombre(),
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16),
-            children: [
-              // Banner bienvenida
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF065F46), Color(0xFF047857)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color:
-                          const Color(0xFF059669).withOpacity(0.15),
-                      blurRadius: 16,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      isLoading
-                          ? 'Cargando...'
-                          : '¡Hola, $nombreUsuario!',
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'Administra el estado de los contenedores. Cuando un operador confirme la recogida verás su información aquí.',
-                      style: TextStyle(
-                        color: Color(0xFFD1FAE5),
-                        fontSize: 12,
-                        height: 1.4,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              _buildContenedoresSection(),
-            ],
-          ),
-        ),
+        body: _monitoreoContenedoresActivo
+            ? _buildPanelContenedoresActivo()
+            : _buildPantallaInicioMonitoreo(),
       ),
     );
   }
@@ -1217,8 +1634,7 @@ class _RecomendacionItemTrabajador extends StatelessWidget {
   final IconData icon;
   final String texto;
 
-  const _RecomendacionItemTrabajador(
-      {required this.icon, required this.texto});
+  const _RecomendacionItemTrabajador({required this.icon, required this.texto});
 
   @override
   Widget build(BuildContext context) {
@@ -1248,6 +1664,149 @@ class _RecomendacionItemTrabajador extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _SwipeToConfirmButton extends StatefulWidget {
+  final String text;
+  final bool enabled;
+  final Future<void> Function() onCompleted;
+
+  const _SwipeToConfirmButton({
+    required this.text,
+    required this.enabled,
+    required this.onCompleted,
+  });
+
+  @override
+  State<_SwipeToConfirmButton> createState() => _SwipeToConfirmButtonState();
+}
+
+class _SwipeToConfirmButtonState extends State<_SwipeToConfirmButton> {
+  double _dragX = 0;
+  bool _loading = false;
+
+  @override
+  void didUpdateWidget(covariant _SwipeToConfirmButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.enabled) {
+      _loading = false;
+    } else {
+      _dragX = 0;
+      _loading = true;
+    }
+  }
+
+  Future<void> _handlePanEnd(double maxDrag) async {
+    if (_loading || !widget.enabled) {
+      setState(() => _dragX = 0);
+      return;
+    }
+
+    final progress = maxDrag <= 0 ? 0.0 : (_dragX / maxDrag);
+    if (progress >= 0.85) {
+      HapticFeedback.mediumImpact();
+      setState(() {
+        _dragX = maxDrag;
+        _loading = true;
+      });
+      await widget.onCompleted();
+      return;
+    }
+
+    setState(() => _dragX = 0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const knobSize = 66.0;
+        final double maxDrag = (constraints.maxWidth - knobSize)
+            .clamp(0.0, double.infinity)
+            .toDouble();
+        final double fillWidth = (_dragX + knobSize)
+            .clamp(knobSize, constraints.maxWidth)
+            .toDouble();
+
+        return Container(
+          height: 74,
+          decoration: BoxDecoration(
+            color: const Color(0xFFFDECEC),
+            borderRadius: BorderRadius.circular(40),
+            border: Border.all(color: const Color(0xFFF2B7B7)),
+          ),
+          child: Stack(
+            alignment: Alignment.centerLeft,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 120),
+                curve: Curves.easeOut,
+                width: fillWidth,
+                height: 74,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE11D48).withValues(alpha: 0.20),
+                  borderRadius: BorderRadius.circular(40),
+                ),
+              ),
+              Center(
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 180),
+                  opacity: _dragX > maxDrag * 0.2 ? 0.35 : 1,
+                  child: Text(
+                    widget.text,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFFDF3B3B),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: _dragX,
+                child: GestureDetector(
+                  onHorizontalDragUpdate: (!widget.enabled || _loading)
+                      ? null
+                      : (details) {
+                          setState(() {
+                            _dragX = (_dragX + details.delta.dx)
+                                .clamp(0.0, maxDrag)
+                                .toDouble();
+                          });
+                        },
+                  onHorizontalDragEnd: (!widget.enabled || _loading)
+                      ? null
+                      : (_) {
+                          _handlePanEnd(maxDrag);
+                        },
+                  child: Container(
+                    width: knobSize,
+                    height: knobSize,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE53935),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.18),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.arrow_forward_rounded,
+                      color: Colors.white,
+                      size: 30,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
