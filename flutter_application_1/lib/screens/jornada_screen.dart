@@ -25,6 +25,33 @@ import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatf
 import 'package:geolocator_android/geolocator_android.dart';
 import 'package:geolocator_apple/geolocator_apple.dart';
 
+Widget _buildReportAppBarAction(VoidCallback onPressed) {
+  return Padding(
+    padding: const EdgeInsets.only(right: 8),
+    child: TextButton(
+      style: TextButton.styleFrom(
+        backgroundColor: const Color(0xFFFFF8E1),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      ),
+      onPressed: onPressed,
+      child: Row(
+        children: const [
+          Icon(Icons.report_problem_rounded, color: Color(0xFFBF360C), size: 24),
+          SizedBox(width: 6),
+          Text(
+            'Reportar',
+            style: TextStyle(
+              color: Color(0xFFBF360C),
+              fontWeight: FontWeight.w800,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
 
 
 class JornadaScreen extends StatefulWidget {
@@ -1385,11 +1412,12 @@ void _mostrarSeleccionEntradaMaterial() {
               ),
             ),
             actions: [
+              _buildReportAppBarAction(_irAReporte),
               Builder(
                 builder: (context) => NotificacionesBellButton(
                   rolUsuario: 'operador',
                   nombreUsuario: widget.operador,
-                  iconColor: Colors.white,
+                  iconColor: Colors.yellow,
                   onPressed: () => Scaffold.of(context).openEndDrawer(),
                 ),
               ),
@@ -2220,6 +2248,18 @@ class _RegistroGasolinaScreenState extends State<RegistroGasolinaScreen>
     Navigator.of(context).pop();
   }
 
+  void _irAReporte() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ReporteScreen(
+          nombreUsuario: widget.operador,
+          camion: widget.camion,
+          placas: widget.placas,
+        ),
+      ),
+    );
+  }
+
   Widget _buildFieldLabel(String text) {
     return Text(
       text,
@@ -2286,6 +2326,9 @@ class _RegistroGasolinaScreenState extends State<RegistroGasolinaScreen>
           'Registro de Combustible',
           style: TextStyle(fontWeight: FontWeight.w800, color: Colors.white),
         ),
+        actions: [
+          _buildReportAppBarAction(_irAReporte),
+        ],
       ),
       body: Stack(
         children: [
@@ -3337,6 +3380,7 @@ class RegistrosJornadaScreen extends StatelessWidget {
           style: const TextStyle(fontWeight: FontWeight.w700),
         ),
         actions: [
+          _buildReportAppBarAction(() => _irAReporte(context)),
           Builder(
             builder: (context) => NotificacionesBellButton(
               rolUsuario: 'operador',
@@ -3661,6 +3705,9 @@ class PerfilOperadorScreen extends StatelessWidget {
           'Perfil',
           style: TextStyle(fontWeight: FontWeight.w700),
         ),
+        actions: [
+          _buildReportAppBarAction(() => _irAReporte(context)),
+        ],
       ),
       bottomNavigationBar: JornadaBottomBar(
         activeIndex: 3,

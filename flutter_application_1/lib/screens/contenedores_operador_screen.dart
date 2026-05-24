@@ -6,6 +6,7 @@ import 'widgets/menu_lateral.dart';
 import 'widgets/notificaciones_drawer.dart';
 import '../widgets/jornada_bottom_bar.dart';
 import 'jornada_screen.dart';
+import 'reporte_screen.dart';
 
 class ContenedoresOperadorScreen extends StatefulWidget {
   final String? operador;
@@ -1009,6 +1010,23 @@ class _ContenedoresOperadorScreenState
           ),
         ),
         actions: [
+          IconButton(
+            tooltip: 'Reportar problema',
+            icon: const Icon(Icons.report_problem_rounded,
+                color: Color(0xFFFFD54F), size: 28),
+            onPressed: () {
+              final nombre = nombreUsuario;
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ReporteScreen(
+                    nombreUsuario: nombre,
+                    camion: widget.camion ?? '',
+                    placas: widget.placas ?? '',
+                  ),
+                ),
+              );
+            },
+          ),
           Builder(
             builder: (context) => NotificacionesBellButton(
               rolUsuario: 'operador',

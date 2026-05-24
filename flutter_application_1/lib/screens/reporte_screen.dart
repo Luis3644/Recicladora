@@ -10,22 +10,27 @@ import '../widgets/jornada_bottom_bar.dart';
 import 'jornada_screen.dart';
 import 'contenedores_operador_screen.dart';
 
-// ─── Paleta de colores ────────────────────────────────────────────────────────
+// ─── Paleta recicladora ───────────────────────────────────────────────────────
 class _C {
-  static const bg       = Color(0xFFF5F7FA); // fondo general
-  static const surface  = Color(0xFFFFFFFF); // tarjetas
-  static const navy     = Color(0xFF0F2754); // azul marino principal
-  static const navyMid  = Color(0xFF1A3A6B); // azul marino medio
-  static const blue     = Color(0xFF1D4ED8); // acento botones
-  static const blueSoft = Color(0xFFEFF6FF); // fondo suave azul
-  static const sky      = Color(0xFF3B82F6); // highlights
-  static const danger   = Color(0xFFEF4444);
-  static const dangerBg = Color(0xFFFEF2F2);
-  static const success  = Color(0xFF10B981);
-  static const successBg= Color(0xFFECFDF5);
-  static const text     = Color(0xFF0F172A); // texto principal
-  static const textSub  = Color(0xFF64748B); // texto secundario
-  static const border   = Color(0xFFE2E8F0); // bordes
+  static const bg        = Color(0xFFF0F4F8);
+  static const surface   = Color(0xFFFFFFFF);
+  static const navy      = Color(0xFF0F2754);
+  static const navyMid   = Color(0xFF1A3A6B);
+  static const navyLight = Color(0xFFE8EEF8);
+  static const blue      = Color(0xFF1D4ED8);
+  static const blueSoft  = Color(0xFFEFF6FF);
+  static const danger    = Color(0xFFDC2626);
+  static const dangerMid = Color(0xFFEF4444);
+  static const dangerBg  = Color(0xFFFFF1F1);
+  static const dangerBorder = Color(0xFFFECACA);
+  static const success   = Color(0xFF059669);
+  static const successBg = Color(0xFFECFDF5);
+  static const amber     = Color(0xFFF59E0B);
+  static const amberBg   = Color(0xFFFFFBEB);
+  static const text      = Color(0xFF0F172A);
+  static const textSub   = Color(0xFF475569);
+  static const textMuted = Color(0xFF94A3B8);
+  static const border    = Color(0xFFDDE3ED);
 }
 
 class ReporteScreen extends StatefulWidget {
@@ -44,22 +49,49 @@ class ReporteScreen extends StatefulWidget {
   State<ReporteScreen> createState() => _ReporteScreenState();
 }
 
-class _ReporteScreenState extends State<ReporteScreen> {
+class _ReporteScreenState extends State<ReporteScreen>
+    with TickerProviderStateMixin {
   final _desc   = TextEditingController();
   final _picker = ImagePicker();
 
-  final List<XFile>     _xFiles   = [];
+  final List<XFile>      _xFiles   = [];
   final List<Uint8List?> _webBytes = [];
 
   bool _subiendo = false;
 
-  // ── Seleccionar imagen ────────────────────────────────────────────────────
+  late final AnimationController _shakeCtrl;
+  late final Animation<double>   _shakeAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _shakeCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _shakeAnim = TweenSequence([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: -8.0), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: -8.0, end: 8.0), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: 8.0, end: -6.0), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: -6.0, end: 6.0), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: 6.0, end: 0.0), weight: 1),
+    ]).animate(CurvedAnimation(parent: _shakeCtrl, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _desc.dispose();
+    _shakeCtrl.dispose();
+    super.dispose();
+  }
+
+  // ── Fotos ─────────────────────────────────────────────────────────────────
   Future<void> _pick(ImageSource src) async {
     if (_xFiles.length >= 3) {
       _snack('Máximo 3 fotos permitidas', isError: true);
       return;
     }
-    final f = await _picker.pickImage(source: src, imageQuality: 65);
+    final f = await _picker.pickImage(source: src, imageQuality: 70);
     if (f == null) return;
     if (kIsWeb) {
       final b = await f.readAsBytes();
@@ -72,11 +104,12 @@ class _ReporteScreenState extends State<ReporteScreen> {
   void _remove(int i) =>
       setState(() { _xFiles.removeAt(i); _webBytes.removeAt(i); });
 
-  // ── Enviar reporte ────────────────────────────────────────────────────────
+  // ── Enviar ────────────────────────────────────────────────────────────────
   Future<void> _enviar() async {
     final msg = _desc.text.trim();
     if (msg.isEmpty) {
-      _snack('Por favor describe el problema antes de enviar', isError: true);
+      _shakeCtrl.forward(from: 0);
+      _snack('Describe el problema antes de enviar', isError: true);
       return;
     }
     setState(() => _subiendo = true);
@@ -91,7 +124,6 @@ class _ReporteScreenState extends State<ReporteScreen> {
             : ref.putFile(File(_xFiles[i].path), meta);
         urls.add(await (await task).ref.getDownloadURL());
       }
-
       await FirebaseFirestore.instance.collection('reportes').add({
         'camion'  : widget.camion,
         'fecha'   : FieldValue.serverTimestamp(),
@@ -101,14 +133,11 @@ class _ReporteScreenState extends State<ReporteScreen> {
         'fotosUrl': urls,
         'visto'   : false,
       });
-
-      // Notificar al administrador
       await _enviarNotificacionAdmin(
         tipo: 'equipo',
         mensaje:
-            'NUEVO REPORTE DE EQUIPO: ${widget.nombreUsuario} (Camión: ${widget.placas}) ha reportado un incidente: "$msg".',
+            'NUEVO REPORTE DE: ${widget.nombreUsuario} (Camión: ${widget.placas}) ha reportado: "$msg".',
       );
-
       if (mounted) {
         Navigator.pop(context);
         _snack('✓ Reporte enviado al Administrador');
@@ -126,45 +155,56 @@ class _ReporteScreenState extends State<ReporteScreen> {
   }) async {
     try {
       await FirebaseFirestore.instance.collection('notificaciones').add({
-        'mensaje': mensaje,
-        'creadoEn': FieldValue.serverTimestamp(),
-        'enviadoPor': widget.nombreUsuario,
-        'destinoTipo': 'rol',
-        'paraTodos': false,
-        'destinatarioRol': 'admin',
-        'tipo': tipo,
-        'leidoPor': <String, bool>{},
+        'mensaje'         : mensaje,
+        'creadoEn'        : FieldValue.serverTimestamp(),
+        'enviadoPor'      : widget.nombreUsuario,
+        'destinoTipo'     : 'rol',
+        'paraTodos'       : false,
+        'destinatarioRol' : 'admin',
+        'tipo'            : tipo,
+        'leidoPor'        : <String, bool>{},
       });
     } catch (e) {
-      debugPrint('Error enviando notificación al admin: $e');
+      debugPrint('Error notificación admin: $e');
     }
   }
 
   void _snack(String msg, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+      content: Row(children: [
+        Icon(
+          isError ? Icons.error_rounded : Icons.check_circle_rounded,
+          color: Colors.white,
+          size: 18,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(msg,
+              style: const TextStyle(
+                  fontWeight: FontWeight.w600, fontSize: 13)),
+        ),
+      ]),
       backgroundColor: isError ? _C.danger : _C.success,
       behavior: SnackBarBehavior.floating,
-      margin: const EdgeInsets.all(16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      elevation: 8,
     ));
   }
 
-  // ── Navegación ────────────────────────────────────────────────────────────
+  // ── Navegación ─────────────────────────────────────────────────────────────
   void _irAInicio() => Navigator.of(context).pushReplacement(MaterialPageRoute(
       builder: (_) => JornadaScreen(
           operador: widget.nombreUsuario,
           camion: widget.camion,
           placas: widget.placas)));
 
-  void _irAHistorial() =>
-      Navigator.of(context).pushReplacement(MaterialPageRoute(
-          builder: (_) => RegistrosJornadaScreen(
-              operador: widget.nombreUsuario,
-              camion: widget.camion,
-              placas: widget.placas,
-              historial: true)));
+  void _irAHistorial() => Navigator.of(context).pushReplacement(MaterialPageRoute(
+      builder: (_) => RegistrosJornadaScreen(
+          operador: widget.nombreUsuario,
+          camion: widget.camion,
+          placas: widget.placas,
+          historial: true)));
 
   void _irAContenedores() => Navigator.of(context).pushReplacement(MaterialPageRoute(
       builder: (_) => ContenedoresOperadorScreen(
@@ -178,19 +218,19 @@ class _ReporteScreenState extends State<ReporteScreen> {
           camion: widget.camion,
           placas: widget.placas)));
 
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Build ──────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return ConnectionWrapper(
       child: Scaffold(
         backgroundColor: _C.bg,
-        appBar: _appBar(),
+        appBar: _buildAppBar(),
         bottomNavigationBar: JornadaBottomBar(
-          activeIndex: -1,
-          onInicio   : _irAInicio,
+          activeIndex   : -1,
+          onInicio      : _irAInicio,
           onContenedores: _irAContenedores,
-          onHistorial: _irAHistorial,
-          onPerfil   : _irAPerfil,
+          onHistorial   : _irAHistorial,
+          onPerfil      : _irAPerfil,
         ),
         body: SafeArea(
           child: SingleChildScrollView(
@@ -199,43 +239,70 @@ class _ReporteScreenState extends State<ReporteScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Tarjeta del operador ─────────────────────────
-                _OperatorCard(nombre: widget.nombreUsuario, placas: widget.placas),
-                const SizedBox(height: 20),
+                // ── Tarjeta operador ─────────────────────────────
+                _OperatorCard(
+                  nombre: widget.nombreUsuario,
+                  camion: widget.camion,
+                  placas: widget.placas,
+                ),
+                const SizedBox(height: 16),
 
-                // ── Aviso ────────────────────────────────────────
-                _InfoBanner(),
-                const SizedBox(height: 24),
+                // ── Banner alerta ─────────────────────────────────
+                _AlertBanner(),
+                const SizedBox(height: 22),
 
-                // ── Campo descripción ────────────────────────────
-                _Label(text: '¿Qué está pasando?'),
-                const SizedBox(height: 8),
-                _DescField(controller: _desc),
-                const SizedBox(height: 24),
+                // ── Sección: descripción ─────────────────────────
+                _SectionHeader(
+                  icon : Icons.edit_note_rounded,
+                  label: '¿Qué está pasando?',
+                  color: _C.navy,
+                ),
+                const SizedBox(height: 10),
+                AnimatedBuilder(
+                  animation: _shakeAnim,
+                  builder: (_, child) => Transform.translate(
+                    offset: Offset(_shakeAnim.value, 0),
+                    child: child,
+                  ),
+                  child: _DescField(controller: _desc),
+                ),
+                const SizedBox(height: 22),
 
-                // ── Fotos ────────────────────────────────────────
-                _Label(text: 'Fotos del incidente'),
-                const SizedBox(height: 4),
-                Text('',
-                    style: TextStyle(color: _C.textSub, fontSize: 12)),
+                // ── Sección: fotos ────────────────────────────────
+                _SectionHeader(
+                  icon : Icons.camera_alt_rounded,
+                  label: 'Evidencia fotográfica',
+                  color: _C.navy,
+                  badge: '${_xFiles.length}/3',
+                ),
+                const SizedBox(height: 6),
+                
                 const SizedBox(height: 12),
                 _PhotoArea(
-                  xFiles   : _xFiles,
-                  webBytes : _webBytes,
-                  onPick   : _pick,
-                  onRemove : _remove,
+                  xFiles  : _xFiles,
+                  webBytes: _webBytes,
+                  onPick  : _pick,
+                  onRemove: _remove,
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 28),
 
-                // ── Botón enviar ─────────────────────────────────
+                // ── Botón enviar ──────────────────────────────────
                 _SendBtn(subiendo: _subiendo, onPressed: _enviar),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
 
-                // ── Nota final ───────────────────────────────────
+                // ── Nota ──────────────────────────────────────────
                 Center(
-                  child: Text(
-                    '',
-                    style: TextStyle(color: _C.textSub, fontSize: 12),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(Icons.lock_outline_rounded,
+                          size: 12, color: _C.textMuted),
+                      SizedBox(width: 5),
+                      Text(
+                        'Tu reporte es confidencial y llega al administrador',
+                        style: TextStyle(color: _C.textMuted, fontSize: 11.5),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -246,47 +313,68 @@ class _ReporteScreenState extends State<ReporteScreen> {
     );
   }
 
-  PreferredSizeWidget _appBar() => AppBar(
-        automaticallyImplyLeading: false,
-        backgroundColor: _C.navy,
-        elevation: 0,
-        titleSpacing: 16,
-        title: Row(children: [
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      automaticallyImplyLeading: false,
+      backgroundColor: _C.navy,
+      elevation: 0,
+      titleSpacing: 0,
+      title: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(children: [
+          // Ícono de alerta con fondo rojo
           Container(
-            padding: const EdgeInsets.all(8),
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(10),
+              color: _C.danger,
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.report_problem_rounded,
-                color: Colors.white, size: 20),
+            child: const Icon(Icons.warning_amber_rounded,
+                color: Colors.white, size: 22),
           ),
           const SizedBox(width: 12),
-          const Text('Reportar Incidente',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800)),
+          const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Reportar Incidente',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.2)),
+              Text('Notificación inmediata al admin',
+                  style: TextStyle(
+                      color: Color(0xFF93B4D8),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500)),
+            ],
+          ),
         ]),
-      );
-
-  @override
-  void dispose() {
-    _desc.dispose();
-    super.dispose();
+      ),
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Container(height: 1, color: _C.navyMid.withOpacity(0.6)),
+      ),
+    );
   }
 }
 
 // ─── Tarjeta del operador ─────────────────────────────────────────────────────
 class _OperatorCard extends StatelessWidget {
   final String nombre;
+  final String camion;
   final String placas;
-  const _OperatorCard({required this.nombre, required this.placas});
+  const _OperatorCard({
+    required this.nombre,
+    required this.camion,
+    required this.placas,
+  });
 
   @override
   Widget build(BuildContext context) {
-    // Iniciales del operador
-    final partes = nombre.trim().split(' ');
+    final partes   = nombre.trim().split(' ');
     final iniciales = partes.length >= 2
         ? '${partes[0][0]}${partes[1][0]}'.toUpperCase()
         : nombre.substring(0, nombre.length.clamp(0, 2)).toUpperCase();
@@ -294,79 +382,81 @@ class _OperatorCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _C.surface,
-        borderRadius: BorderRadius.circular(18),
+        color: _C.navy,
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-              color: _C.navy.withOpacity(0.08),
-              blurRadius: 16,
-              offset: const Offset(0, 4)),
+              color: _C.navy.withOpacity(0.28),
+              blurRadius: 18,
+              offset: const Offset(0, 6)),
         ],
-        border: Border.all(color: _C.border),
       ),
       child: Row(children: [
-        // Avatar con iniciales
+        // Avatar
         Container(
-          width: 52,
-          height: 52,
+          width: 54,
+          height: 54,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [_C.navy, _C.navyMid],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(14),
+            color: Colors.white.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(
+                color: Colors.white.withOpacity(0.25), width: 1.5),
           ),
           child: Center(
             child: Text(iniciales,
                 style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 18,
+                    fontSize: 20,
                     fontWeight: FontWeight.w800)),
           ),
         ),
         const SizedBox(width: 14),
 
+        // Nombre y datos
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(nombre,
                   style: const TextStyle(
-                      color: _C.text,
+                      color: Colors.white,
                       fontSize: 16,
                       fontWeight: FontWeight.w800)),
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
               Row(children: [
-                const Icon(Icons.pin_rounded, size: 14, color: _C.textSub),
-                const SizedBox(width: 4),
-                Text(placas,
-                    style: const TextStyle(
-                        color: _C.textSub,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600)),
+                _DataChip(
+                  icon: Icons.local_shipping_rounded,
+                  label: camion,
+                ),
+                const SizedBox(width: 8),
+                _DataChip(
+                  icon: Icons.pin_rounded,
+                  label: placas,
+                ),
               ]),
             ],
           ),
         ),
 
-        // Punto activo
+        // Badge activo
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
-            color: _C.successBg,
+            color: _C.success.withOpacity(0.18),
             borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+                color: _C.success.withOpacity(0.4), width: 1),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             Container(
               width: 7, height: 7,
               decoration: const BoxDecoration(
-                  color: _C.success, shape: BoxShape.circle),
+                  color: Color(0xFF34D399), shape: BoxShape.circle),
             ),
             const SizedBox(width: 5),
-            const Text('En turno',
+            const Text('Activo',
                 style: TextStyle(
-                    color: _C.success,
+                    color: Color(0xFF34D399),
                     fontSize: 11,
                     fontWeight: FontWeight.w700)),
           ]),
@@ -376,27 +466,72 @@ class _OperatorCard extends StatelessWidget {
   }
 }
 
-// ─── Banner informativo ───────────────────────────────────────────────────────
-class _InfoBanner extends StatelessWidget {
+class _DataChip extends StatelessWidget {
+  final IconData icon;
+  final String   label;
+  const _DataChip({required this.icon, required this.label});
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: _C.blueSoft,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _C.sky.withOpacity(0.3)),
+        color: Colors.white.withOpacity(0.10),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 12, color: const Color(0xFF93B4D8)),
+        const SizedBox(width: 4),
+        Text(label,
+            style: const TextStyle(
+                color: Color(0xFFCBDAEE),
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600)),
+      ]),
+    );
+  }
+}
+
+// ─── Banner de alerta ─────────────────────────────────────────────────────────
+class _AlertBanner extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+      decoration: BoxDecoration(
+        color: _C.amberBg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _C.amber.withOpacity(0.35), width: 1.5),
       ),
       child: Row(children: [
-        const Icon(Icons.bolt_rounded, color: _C.blue, size: 20),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            'Tu reporte llegará inmediatamente al administrador. '
-            '',
-            style: TextStyle(
-                color: _C.navyMid, fontSize: 12, height: 1.5,
-                fontWeight: FontWeight.w500),
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: _C.amber.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: const Icon(Icons.bolt_rounded, color: _C.amber, size: 18),
+        ),
+        const SizedBox(width: 12),
+        const Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Envío inmediato',
+                  style: TextStyle(
+                      color: Color(0xFF92400E),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800)),
+              SizedBox(height: 2),
+              Text(
+                'El administrador recibirá tu reporte en tiempo real.',
+                style: TextStyle(
+                    color: Color(0xFFB45309),
+                    fontSize: 12,
+                    height: 1.4,
+                    fontWeight: FontWeight.w500),
+              ),
+            ],
           ),
         ),
       ]),
@@ -404,51 +539,159 @@ class _InfoBanner extends StatelessWidget {
   }
 }
 
-// ─── Etiqueta de sección ──────────────────────────────────────────────────────
-class _Label extends StatelessWidget {
-  final String text;
-  const _Label({required this.text});
+// ─── Encabezado de sección ────────────────────────────────────────────────────
+class _SectionHeader extends StatelessWidget {
+  final IconData icon;
+  final String   label;
+  final Color    color;
+  final String?  badge;
+  const _SectionHeader({
+    required this.icon,
+    required this.label,
+    required this.color,
+    this.badge,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Text(text,
-        style: const TextStyle(
-            color: _C.text,
-            fontSize: 15,
-            fontWeight: FontWeight.w800));
+    return Row(children: [
+      Container(
+        padding: const EdgeInsets.all(7),
+        decoration: BoxDecoration(
+          color: _C.navyLight,
+          borderRadius: BorderRadius.circular(9),
+        ),
+        child: Icon(icon, size: 16, color: color),
+      ),
+      const SizedBox(width: 10),
+      Text(label,
+          style: TextStyle(
+              color: color,
+              fontSize: 14,
+              fontWeight: FontWeight.w800)),
+      if (badge != null) ...[
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: _C.border,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(badge!,
+              style: const TextStyle(
+                  color: _C.textSub,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700)),
+        ),
+      ],
+    ]);
   }
 }
 
+class _SubLabel extends StatelessWidget {
+  final String text;
+  const _SubLabel({required this.text});
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(left: 2),
+    child: Text(text,
+        style: const TextStyle(
+            color: _C.textMuted,
+            fontSize: 12,
+            fontWeight: FontWeight.w500)),
+  );
+}
+
 // ─── Campo descripción ────────────────────────────────────────────────────────
-class _DescField extends StatelessWidget {
+class _DescField extends StatefulWidget {
   final TextEditingController controller;
   const _DescField({required this.controller});
+  @override
+  State<_DescField> createState() => _DescFieldState();
+}
+
+class _DescFieldState extends State<_DescField> {
+  bool _focused = false;
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      maxLines: 5,
-      style: const TextStyle(color: _C.text, fontSize: 14, height: 1.6),
-      cursorColor: _C.blue,
-      decoration: InputDecoration(
-        hintText: 'Escribe a qui...',
-        hintStyle: TextStyle(color: _C.textSub.withOpacity(0.7), fontSize: 13),
-        filled: true,
-        fillColor: _C.surface,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: _C.border, width: 1.5),
+    return Focus(
+      onFocusChange: (v) => setState(() => _focused = v),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        decoration: BoxDecoration(
+          color: _C.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: _focused ? _C.navy : _C.border,
+            width: _focused ? 2 : 1.5,
+          ),
+          boxShadow: _focused
+              ? [BoxShadow(
+                  color: _C.navy.withOpacity(0.10),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4))]
+              : [BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2))],
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: _C.border, width: 1.5),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: _C.blue, width: 2),
+        child: Column(
+          children: [
+            // Cabecera del campo
+            Container(
+              padding: const EdgeInsets.fromLTRB(14, 11, 14, 11),
+              decoration: BoxDecoration(
+                color: _focused ? _C.navyLight : _C.bg,
+                borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(14)),
+                border: Border(
+                  bottom: BorderSide(
+                    color: _focused ? _C.navy.withOpacity(0.15) : _C.border,
+                    width: 1,
+                  ),
+                ),
+              ),
+              child: Row(children: [
+                Icon(
+                  Icons.chat_bubble_outline_rounded,
+                  size: 14,
+                  color: _focused ? _C.navy : _C.textMuted,
+                ),
+                const SizedBox(width: 7),
+                Text(
+                  'Descripción del incidente',
+                  style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: _focused ? _C.navy : _C.textMuted,
+                      letterSpacing: 0.3),
+                ),
+              ]),
+            ),
+            // Área de texto
+            TextField(
+              controller: widget.controller,
+              maxLines: 5,
+              style: const TextStyle(
+                  color: _C.text, fontSize: 14, height: 1.7),
+              cursorColor: _C.navy,
+              decoration: const InputDecoration(
+                hintText:
+                    'Escribe a qui...',
+                hintStyle: TextStyle(
+                    color: _C.textMuted,
+                    fontSize: 13,
+                    height: 1.6),
+                filled: false,
+                contentPadding: EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 14),
+                border     : InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -472,30 +715,32 @@ class _PhotoArea extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      // Scroll horizontal de fotos ya seleccionadas
+      // Grid de fotos seleccionadas
       if (xFiles.isNotEmpty) ...[
         SizedBox(
-          height: 100,
+          height: 108,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: xFiles.length,
             separatorBuilder: (_, __) => const SizedBox(width: 10),
             itemBuilder: (_, i) => _Thumb(
-              xFile: xFiles[i],
-              bytes: webBytes[i],
+              xFile   : xFiles[i],
+              bytes   : webBytes[i],
+              index   : i + 1,
               onRemove: () => onRemove(i),
             ),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
       ],
 
-      // Botones Cámara y Galería siempre visibles
+      // Botones cámara / galería
       Row(children: [
         Expanded(
           child: _PhotoBtn(
             label   : 'Cámara',
             icon    : Icons.photo_camera_rounded,
+            sublabel: 'Tomar foto',
             disabled: xFiles.length >= 3,
             onTap   : () => onPick(ImageSource.camera),
             primary : true,
@@ -506,6 +751,7 @@ class _PhotoArea extends StatelessWidget {
           child: _PhotoBtn(
             label   : 'Galería',
             icon    : Icons.photo_library_rounded,
+            sublabel: 'Elegir foto',
             disabled: xFiles.length >= 3,
             onTap   : () => onPick(ImageSource.gallery),
             primary : false,
@@ -516,35 +762,58 @@ class _PhotoArea extends StatelessWidget {
   }
 }
 
-// ─── Miniatura de foto ────────────────────────────────────────────────────────
+// ─── Miniatura ────────────────────────────────────────────────────────────────
 class _Thumb extends StatelessWidget {
   final XFile      xFile;
   final Uint8List? bytes;
+  final int        index;
   final VoidCallback onRemove;
-  const _Thumb({required this.xFile, required this.bytes, required this.onRemove});
+  const _Thumb({
+    required this.xFile,
+    required this.bytes,
+    required this.index,
+    required this.onRemove,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Stack(clipBehavior: Clip.none, children: [
       Container(
-        width: 100, height: 100,
+        width: 108, height: 108,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(color: _C.border, width: 1.5),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.06),
-                blurRadius: 8, offset: const Offset(0, 2)),
+            BoxShadow(color: Colors.black.withOpacity(0.08),
+                blurRadius: 10, offset: const Offset(0, 3)),
           ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           child: kIsWeb && bytes != null
               ? Image.memory(bytes!, fit: BoxFit.cover)
               : Image.file(File(xFile.path), fit: BoxFit.cover),
         ),
       ),
+      // Número de foto
       Positioned(
-        top: -7, right: -7,
+        left: 8, bottom: 8,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+          decoration: BoxDecoration(
+            color: _C.navy.withOpacity(0.75),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text('Foto $index',
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700)),
+        ),
+      ),
+      // Botón eliminar
+      Positioned(
+        top: -6, right: -6,
         child: GestureDetector(
           onTap: onRemove,
           child: Container(
@@ -553,11 +822,12 @@ class _Thumb extends StatelessWidget {
               color: _C.danger,
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white, width: 2),
-              boxShadow: [BoxShadow(
-                  color: _C.danger.withOpacity(0.35), blurRadius: 6)],
+              boxShadow: [
+                BoxShadow(color: _C.danger.withOpacity(0.4), blurRadius: 8),
+              ],
             ),
             child: const Icon(Icons.close_rounded,
-                color: Colors.white, size: 12),
+                color: Colors.white, size: 13),
           ),
         ),
       ),
@@ -568,51 +838,90 @@ class _Thumb extends StatelessWidget {
 // ─── Botón de foto ────────────────────────────────────────────────────────────
 class _PhotoBtn extends StatelessWidget {
   final String     label;
+  final String     sublabel;
   final IconData   icon;
   final bool       disabled;
   final bool       primary;
   final VoidCallback onTap;
   const _PhotoBtn({
-    required this.label, required this.icon,
-    required this.disabled, required this.onTap,
+    required this.label,
+    required this.sublabel,
+    required this.icon,
+    required this.disabled,
+    required this.onTap,
     required this.primary,
   });
 
   @override
   Widget build(BuildContext context) {
+    final active = !disabled;
     return GestureDetector(
-      onTap: disabled ? null : onTap,
-      child: Container(
-        height: 50,
+      onTap: active ? onTap : null,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        height: 62,
         decoration: BoxDecoration(
           color: disabled
-              ? _C.bg
+              ? const Color(0xFFF8FAFC)
               : (primary ? _C.navy : _C.surface),
-          borderRadius: BorderRadius.circular(13),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: disabled ? _C.border : (primary ? _C.navy : _C.border),
+            color: disabled
+                ? _C.border
+                : (primary ? _C.navy : _C.border),
             width: 1.5,
           ),
           boxShadow: disabled
               ? null
-              : [BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
-                  blurRadius: 8, offset: const Offset(0, 2))],
+              : [
+                  BoxShadow(
+                    color: primary
+                        ? _C.navy.withOpacity(0.20)
+                        : Colors.black.withOpacity(0.06),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
         ),
         child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(icon,
+          Container(
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
               color: disabled
-                  ? _C.border
-                  : (primary ? Colors.white : _C.navy),
-              size: 20),
-          const SizedBox(width: 8),
-          Text(label,
-              style: TextStyle(
-                  color: disabled
-                      ? _C.border
-                      : (primary ? Colors.white : _C.navy),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700)),
+                  ? _C.border.withOpacity(0.4)
+                  : (primary
+                      ? Colors.white.withOpacity(0.15)
+                      : _C.navyLight),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(icon,
+                color: disabled
+                    ? _C.textMuted
+                    : (primary ? Colors.white : _C.navy),
+                size: 18),
+          ),
+          const SizedBox(width: 10),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label,
+                  style: TextStyle(
+                      color: disabled
+                          ? _C.textMuted
+                          : (primary ? Colors.white : _C.navy),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800)),
+              Text(sublabel,
+                  style: TextStyle(
+                      color: disabled
+                          ? _C.textMuted.withOpacity(0.6)
+                          : (primary
+                              ? Colors.white.withOpacity(0.65)
+                              : _C.textSub),
+                      fontSize: 11)),
+            ],
+          ),
         ]),
       ),
     );
@@ -632,38 +941,53 @@ class _SendBtn extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         width: double.infinity,
-        height: 58,
+        height: 60,
         decoration: BoxDecoration(
-          color: subiendo ? _C.danger.withOpacity(0.7) : _C.danger,
-          borderRadius: BorderRadius.circular(16),
+          color: subiendo ? _C.danger.withOpacity(0.75) : _C.danger,
+          borderRadius: BorderRadius.circular(18),
           boxShadow: subiendo
               ? []
               : [
                   BoxShadow(
-                      color: _C.danger.withOpacity(0.35),
-                      blurRadius: 16,
+                      color: _C.danger.withOpacity(0.40),
+                      blurRadius: 18,
                       offset: const Offset(0, 6)),
+                  BoxShadow(
+                      color: _C.danger.withOpacity(0.15),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2)),
                 ],
         ),
         child: subiendo
             ? const Center(
-                child: SizedBox(
-                  width: 26, height: 26,
-                  child: CircularProgressIndicator(
-                      color: Colors.white, strokeWidth: 2.5),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 20, height: 20,
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2.5),
+                    ),
+                    SizedBox(width: 12),
+                    Text('Enviando reporte…',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700)),
+                  ],
                 ),
               )
             : const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.send_rounded, color: Colors.white, size: 22),
+                  Icon(Icons.send_rounded, color: Colors.white, size: 20),
                   SizedBox(width: 10),
                   Text('ENVIAR REPORTE',
                       style: TextStyle(
                           color: Colors.white,
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
-                          letterSpacing: 0.6)),
+                          letterSpacing: 0.8)),
                 ],
               ),
       ),
