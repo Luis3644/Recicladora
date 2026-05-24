@@ -1,7 +1,8 @@
-# Copia este archivo como key.properties y completa los valores reales.
-# key.properties esta ignorado por git para no subir credenciales.
+## Ejemplo de archivo key.properties
+# Copia este archivo a `android/key.properties` y reemplaza los valores.
+# No subas el archivo real al repositorio.
 
-storeFile=../keystores/recicladora-internal.jks
-storePassword=CAMBIAR_ESTA_PASSWORD
+storeFile=keystores/recicladora-internal.jks
+storePassword=CHANGE_ME_STORE_PASSWORD
 keyAlias=recicladora_internal
-keyPassword=CAMBIAR_ESTA_PASSWORD
+keyPassword=CHANGE_ME_KEY_PASSWORD

@@ -15,6 +15,7 @@ import 'widgets/reporte_gasolina_camiones_screen.dart';
 import 'widgets/notificaciones_drawer.dart';
 import 'widgets/reportes_equipo_screen.dart';
 import 'widgets/reporte_toneladas_camiones_screen.dart';
+import '../services/update_service.dart';
 
 import 'gestion_camiones_screen.dart';
 import 'ReportesCamionesAdminScreen.dart';
@@ -702,6 +703,20 @@ class _AdminScreenState extends State<AdminScreen>
                 ],
               ),
             ),
+          ),
+
+          const Divider(height: 1),
+
+          ListTile(
+            leading: Icon(Icons.system_update, color: accentColor),
+            title: const Text(
+              'Buscar actualización',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            onTap: () async {
+              Navigator.pop(context);
+              await UpdateService.checkAndShowUpdateDialog(context);
+            },
           ),
 
           const Divider(height: 1),

@@ -8,6 +8,7 @@ import 'jornada_screen.dart';
 import 'confirmar_camion_screen.dart';
 import 'login_screen.dart';
 import 'widgets/notificaciones_drawer.dart';
+import '../services/update_service.dart';
  
 
 // ConnectionWrapper ya NO se importa aquí — se aplica globalmente desde main.dart
@@ -428,6 +429,18 @@ class _OperadorScreenState extends State<OperadorScreen> {
                 ),
               ),
             ),
+            ListTile(
+              leading: const Icon(Icons.system_update, color: _primary2),
+              title: const Text(
+                'Buscar actualización',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              onTap: () async {
+                Navigator.of(context).pop();
+                await UpdateService.checkAndShowUpdateDialog(context);
+              },
+            ),
+            const Divider(height: 1),
             ListTile(
               leading: const Icon(Icons.logout_rounded, color: _primary),
               title: const Text(

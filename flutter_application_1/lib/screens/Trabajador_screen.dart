@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/services.dart';
 import '../config/session_manager.dart';
+import '../services/update_service.dart';
 
 import 'login_screen.dart';
 import 'widgets/notificaciones_drawer.dart';
@@ -85,6 +86,102 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
       default:
         return const Color(0xFF64748B);
     }
+  }
+
+  Color _colorForStatusBg(String estado) {
+    switch (estado) {
+      case 'En proceso de llenado':
+        return const Color(0xFFFFF7ED);
+      case 'Lleno':
+        return const Color(0xFFECFDF5);
+      case 'Fuera de servicio':
+        return const Color(0xFFFEF2F2);
+      default:
+        return const Color(0xFFF8FAFC);
+    }
+  }
+
+  Color _colorForStatusText(String estado) {
+    switch (estado) {
+      case 'En proceso de llenado':
+        return const Color(0xFFEA580C);
+      case 'Lleno':
+        return const Color(0xFF059669);
+      case 'Fuera de servicio':
+        return const Color(0xFFDC2626);
+      default:
+        return const Color(0xFF475569);
+    }
+  }
+
+  Widget _buildMetricCard({
+    required String title,
+    required String value,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            color.withValues(alpha: 0.16),
+            color.withValues(alpha: 0.06),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.14)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.14),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF64748B),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF64748B),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   IconData _iconFor(String estado) {
@@ -709,6 +806,19 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
             ),
             onTap: () => Navigator.of(context).pop(),
           ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.system_update, color: Color(0xFF059669)),
+            title: const Text(
+              'Buscar actualización',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            onTap: () async {
+              Navigator.of(context).pop();
+              await UpdateService.checkAndShowUpdateDialog(context);
+            },
+          ),
+          const Divider(height: 1),
           const Spacer(),
           ListTile(
             leading: const Icon(Icons.logout_rounded, color: Color(0xFFEF4444)),
@@ -757,25 +867,8 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
         final esLleno = estado == 'Lleno';
         final hayOperador = esLleno && estadoRecogida == 'comprometido';
 
-        Color statusBgColor;
-        Color statusTextColor;
-        switch (estado) {
-          case 'En proceso de llenado':
-            statusBgColor = const Color(0xFFFFF7ED);
-            statusTextColor = const Color(0xFFEA580C);
-            break;
-          case 'Lleno':
-            statusBgColor = const Color(0xFFECFDF5);
-            statusTextColor = const Color(0xFF059669);
-            break;
-          case 'Fuera de servicio':
-            statusBgColor = const Color(0xFFFEF2F2);
-            statusTextColor = const Color(0xFFDC2626);
-            break;
-          default:
-            statusBgColor = const Color(0xFFF8FAFC);
-            statusTextColor = const Color(0xFF475569);
-        }
+        final statusBgColor = _colorForStatusBg(estado);
+        final statusTextColor = _colorForStatusText(estado);
 
         // Card base
         final cardInner = ClipRRect(
@@ -1238,22 +1331,123 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
           contenedores[doc.id] = doc.data();
         }
 
+        final activos = contenedores.values.where((item) {
+          final estado = item['estado']?.toString() ?? '';
+          return estado != 'Fuera de servicio';
+        }).length;
+        final llenos = contenedores.values.where((item) {
+          return item['estado']?.toString() == 'Lleno';
+        }).length;
+        final enProceso = contenedores.values.where((item) {
+          return item['estado']?.toString() == 'En proceso de llenado';
+        }).length;
+        final fuera = contenedores.values.where((item) {
+          return item['estado']?.toString() == 'Fuera de servicio';
+        }).length;
+
         final puedeFinalizar = _todosContenedoresFueraDeServicio(contenedores);
         final contenedoresPendientes = _contenedoresPendientes(contenedores);
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              'Monitoreo de Contenedores',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF0F172A),
-                letterSpacing: -0.5,
-              ),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF059669).withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.view_kanban_rounded,
+                    color: Color(0xFF059669),
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'Monitoreo de Contenedores',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF0F172A),
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 14),
+            GridView.count(
+              crossAxisCount: 2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              childAspectRatio: 1.95,
+              children: [
+                _buildMetricCard(
+                  title: 'Activos',
+                  value: activos.toString(),
+                  subtitle: 'Contenedores monitoreados',
+                  icon: Icons.inventory_2_rounded,
+                  color: const Color(0xFF2563EB),
+                ),
+                _buildMetricCard(
+                  title: 'Llenos',
+                  value: llenos.toString(),
+                  subtitle: 'Requieren atención',
+                  icon: Icons.warning_amber_rounded,
+                  color: const Color(0xFFD97706),
+                ),
+                _buildMetricCard(
+                  title: 'En proceso',
+                  value: enProceso.toString(),
+                  subtitle: 'Crecimiento de carga',
+                  icon: Icons.hourglass_top_rounded,
+                  color: const Color(0xFF7C3AED),
+                ),
+                _buildMetricCard(
+                  title: 'Fuera de servicio',
+                  value: fuera.toString(),
+                  subtitle: 'Listos para reiniciar',
+                  icon: Icons.build_circle_rounded,
+                  color: const Color(0xFF059669),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFF8FAFC), Color(0xFFFFFFFF)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.touch_app_rounded, color: Color(0xFF2563EB)),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Toca una tarjeta para cambiar el estado del contenedor. Cuando uno esté lleno podrás confirmar la recogida.',
+                      style: TextStyle(
+                        color: Color(0xFF334155),
+                        fontSize: 12,
+                        height: 1.4,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             ..._idsContenedoresMonitoreo.map((id) => _buildContenedorCard(id)),
             const SizedBox(height: 8),
             Container(
@@ -1406,98 +1600,151 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
   Widget _buildPantallaInicioMonitoreo() {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AnimatedBuilder(
-              animation: _pulseOpacity,
-              builder: (context, child) {
-                return Opacity(opacity: _pulseOpacity.value, child: child);
-              },
-              child: Container(
-                width: 96,
-                height: 96,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        child: Container(
+          width: double.infinity,
+          constraints: const BoxConstraints(maxWidth: 560),
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFFFFFFFF), Color(0xFFF8FAFC)],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF0F172A).withValues(alpha: 0.06),
+                blurRadius: 24,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedBuilder(
+                animation: _pulseOpacity,
+                builder: (context, child) {
+                  return Transform.scale(
+                    scale: 0.94 + (_pulseOpacity.value * 0.08),
+                    child: Opacity(opacity: _pulseOpacity.value, child: child),
+                  );
+                },
+                child: Container(
+                  width: 104,
+                  height: 104,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFECFDF5), Color(0xFFD1FAE5)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF059669).withValues(alpha: 0.18),
+                        blurRadius: 26,
+                        offset: const Offset(0, 12),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.inventory_2_rounded,
+                    size: 48,
+                    color: Color(0xFF059669),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Panel de monitoreo de contenedores',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF0F172A),
+                  height: 1.15,
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Inicia tu jornada para abrir el panel operativo, monitorear estados y coordinar la recogida cuando un contenedor esté lleno.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF64748B),
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Container(
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFECFDF5),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF059669).withOpacity(0.18),
-                      blurRadius: 24,
-                      offset: const Offset(0, 12),
+                  color: const Color(0xFFF0FDF4),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFFDCFCE7)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.verified_user_rounded, color: Color(0xFF059669)),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Tu usuario quedará activo para administración mientras dure el monitoreo.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF14532D),
+                          height: 1.35,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ],
                 ),
-                child: const Icon(
-                  Icons.inventory_2_rounded,
-                  size: 44,
-                  color: Color(0xFF059669),
-                ),
               ),
-            ),
-            const SizedBox(height: 22),
-            const Text(
-              'Haz clic para empezar a monitorear el estado de los contenedores',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w900,
-                color: Color(0xFF0F172A),
-                height: 1.2,
-              ),
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              'Al iniciar, tu usuario quedará como activo para administración y se abrirá el panel de contenedores.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-                color: Color(0xFF64748B),
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              height: 54,
-              child: ElevatedButton.icon(
-                onPressed: _cargandoActivacionMonitoreo
-                    ? null
-                    : _iniciarMonitoreoContenedores,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF059669),
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton.icon(
+                  onPressed: _cargandoActivacionMonitoreo
+                      ? null
+                      : _iniciarMonitoreoContenedores,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF059669),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
                   ),
-                ),
-                icon: _cargandoActivacionMonitoreo
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.white,
+                  icon: _cargandoActivacionMonitoreo
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
                           ),
-                        ),
-                      )
-                    : const Icon(Icons.play_arrow_rounded),
-                label: Text(
-                  _cargandoActivacionMonitoreo
-                      ? 'Activando monitoreo...'
-                      : 'Empezar monitoreo',
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
+                        )
+                      : const Icon(Icons.play_arrow_rounded),
+                  label: Text(
+                    _cargandoActivacionMonitoreo
+                        ? 'Activando monitoreo...'
+                        : 'Empezar monitoreo',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1516,38 +1763,105 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF065F46), Color(0xFF047857)],
+                colors: [Color(0xFF0F766E), Color(0xFF047857)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(28),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF059669).withOpacity(0.15),
-                  blurRadius: 16,
-                  offset: const Offset(0, 8),
+                  color: const Color(0xFF059669).withValues(alpha: 0.18),
+                  blurRadius: 22,
+                  offset: const Offset(0, 10),
                 ),
               ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  isLoading ? 'Cargando...' : '¡Hola, $nombreUsuario!',
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white,
-                    letterSpacing: -0.5,
-                  ),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.account_circle_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            isLoading ? 'Cargando...' : '¡Hola, $nombreUsuario!',
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Monitoreo activo en tiempo real',
+                            style: TextStyle(
+                              color: Color(0xFFD1FAE5),
+                              fontSize: 12,
+                              height: 1.4,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.14),
+                          ),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.speed_rounded, color: Colors.white, size: 18),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Estados y seguimiento centralizados',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
                 const Text(
-                  'Monitoreo activo. Desde aquí administras el estado de los contenedores.',
+                  'Desde aquí administras el estado de cada contenedor y confirmas recogidas cuando corresponda.',
                   style: TextStyle(
                     color: Color(0xFFD1FAE5),
                     fontSize: 12,
-                    height: 1.4,
+                    height: 1.45,
                     fontWeight: FontWeight.w500,
                   ),
                 ),

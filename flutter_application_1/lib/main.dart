@@ -20,6 +20,7 @@ import 'screens/jornada_screen.dart';
 import 'screens/widgets_conexion/connection_wrapper.dart';
 import 'screens/mis_reportes_operador.dart';
 import 'screens/widgets/lista_incidentes_admin.dart';
+import 'services/update_service.dart';
 
 // ── Background handler ────────────────────────────────────────────────────────
 @pragma('vm:entry-point')
@@ -112,6 +113,37 @@ class MyApp extends StatelessWidget {
       home: const AppSplashScreen(child: SessionBootstrapScreen()),
     );
   }
+}
+
+class AuthenticatedUpdateGate extends StatefulWidget {
+  const AuthenticatedUpdateGate({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<AuthenticatedUpdateGate> createState() => _AuthenticatedUpdateGateState();
+}
+
+class _AuthenticatedUpdateGateState extends State<AuthenticatedUpdateGate> {
+  bool _checked = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _checked) return;
+      _checked = true;
+      unawaited(
+        UpdateService.checkAndShowUpdateDialog(
+          context,
+          showNoUpdateDialog: false,
+        ),
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 // ── Splash screen ─────────────────────────────────────────────────────────────
@@ -281,9 +313,10 @@ class _SessionBootstrapScreenState extends State<SessionBootstrapScreen> {
       Widget pantallaDestino;
 
       if (rol == 'admin') {
-        pantallaDestino = const AdminScreen();
+        pantallaDestino = const AuthenticatedUpdateGate(child: AdminScreen());
       } else if (rol == 'trabajador') {
-        pantallaDestino = const TrabajadorScreen();
+        pantallaDestino =
+            const AuthenticatedUpdateGate(child: TrabajadorScreen());
       } else if (rol == 'operador') {
         final jornadaDoc = await FirebaseFirestore.instance
             .collection('usuarios')
@@ -293,13 +326,17 @@ class _SessionBootstrapScreenState extends State<SessionBootstrapScreen> {
 
         final data = jornadaDoc.data();
         if (data?['jornada_activa'] == true) {
-          pantallaDestino = JornadaScreen(
-            operador: nombre!,
-            camion:   data?['camion_actual']    ?? '',
-            placas:   data?['placas_actuales']  ?? 'S/P',
+          pantallaDestino = AuthenticatedUpdateGate(
+            child: JornadaScreen(
+              operador: nombre!,
+              camion:   data?['camion_actual']    ?? '',
+              placas:   data?['placas_actuales']  ?? 'S/P',
+            ),
           );
         } else {
-          pantallaDestino = OperadorScreen(nombreUsuario: nombre!);
+          pantallaDestino = AuthenticatedUpdateGate(
+            child: OperadorScreen(nombreUsuario: nombre!),
+          );
         }
       } else {
         return const LoginScreen();
