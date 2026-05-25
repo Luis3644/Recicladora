@@ -551,7 +551,7 @@ class _OperadorScreenState extends State<OperadorScreen> {
                       ),
                       const SizedBox(height: 6),
                       const Text(
-                        "Selecciona el camión que operarás hoy. Solo se muestran camiones activos y disponibles.",
+                        "Selecciona el camión que operarás hoy. Solo se muestran los camiones activos y disponibles.",
                         style: TextStyle(color: Colors.white70, height: 1.25),
                       ),
                     ],
