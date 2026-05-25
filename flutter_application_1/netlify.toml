@@ -1,0 +1,4 @@
+[build]
+  base = "flutter_application_1"
+  command = "bash ../netlify-build.sh"
+  publish = "build/web"
