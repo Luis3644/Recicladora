@@ -257,9 +257,14 @@ class UpdateService {
     _UpdateData updateData, {
     required void Function(double progress, String status) onProgress,
   }) async {
-    final directory = await getTemporaryDirectory();
-    final fileName = 'recicladora_${updateData.version}_${updateData.buildNumber}.apk';
-    final file = File('${directory.path}/$fileName');
+    final directory = await getExternalStorageDirectory();
+    final fileName = 'recicladora_update.apk';
+    final file = File('${directory!.path}/$fileName');
+
+    if (await file.exists()) {
+      await file.delete();
+    }
+
     final ref = FirebaseStorage.instance.refFromURL(updateData.urlApk);
     final task = ref.writeToFile(file);
 
