@@ -1,7 +1,7 @@
 [build]
   base    = "flutter_application_1"
   command = "bash netlify-build.sh"
-  publish = "build/web"
+  publish = "flutter_application_1/build/web"
 
 [[redirects]]
   from   = "/*"
