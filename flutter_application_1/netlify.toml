@@ -1,4 +1,9 @@
 [build]
   base    = "flutter_application_1"
-  command = "git clone https://github.com/flutter/flutter.git --depth 1 -b stable && export PATH=$PATH:$(pwd)/flutter/bin && flutter pub get && flutter build web --release"
+  command = "bash netlify-build.sh"
   publish = "build/web"
+
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200
