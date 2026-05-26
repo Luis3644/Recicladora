@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/services.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../config/session_manager.dart';
 import '../services/update_service.dart';
 
@@ -760,6 +761,67 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
     await _cerrarSesion();
   }
 
+  Future<void> _mostrarInformacionSistema() async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      final version = packageInfo.version.trim();
+      final buildNumber = packageInfo.buildNumber.trim();
+
+      if (!mounted) return;
+
+      await showDialog<void>(
+        context: context,
+        builder: (_) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+          title: const Text(
+            'Información del sistema',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Versión instalada',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF334155),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                buildNumber.isEmpty ? version : '$version+$buildNumber',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Este dato corresponde a la versión instalada en el APK del trabajador.',
+                style: TextStyle(height: 1.35),
+              ),
+            ],
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cerrar'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo cargar la información: $e')),
+      );
+    }
+  }
+
   // ─── Drawer ────────────────────────────────────────────────────────────────
 
   Widget _buildDrawer(BuildContext context) {
@@ -816,6 +878,20 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
             onTap: () async {
               Navigator.of(context).pop();
               await UpdateService.checkAndShowUpdateDialog(context);
+            },
+          ),
+          ListTile(
+            leading: const Icon(
+              Icons.info_outline_rounded,
+              color: Color(0xFF059669),
+            ),
+            title: const Text(
+              'Información del sistema',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            onTap: () async {
+              Navigator.of(context).pop();
+              await _mostrarInformacionSistema();
             },
           ),
           const Divider(height: 1),
@@ -1799,7 +1875,9 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            isLoading ? 'Cargando...' : '¡Hola, $nombreUsuario!',
+                            isLoading
+                                ? 'Cargando...'
+                                : '¡Hola, $nombreUsuario!',
                             style: const TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.w900,
@@ -1837,7 +1915,11 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
                         ),
                         child: const Row(
                           children: [
-                            Icon(Icons.speed_rounded, color: Colors.white, size: 18),
+                            Icon(
+                              Icons.speed_rounded,
+                              color: Colors.white,
+                              size: 18,
+                            ),
                             SizedBox(width: 8),
                             Expanded(
                               child: Text(

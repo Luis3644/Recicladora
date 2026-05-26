@@ -1,8 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../config/session_manager.dart';
 import 'admin_notificaciones_screen.dart';
@@ -241,6 +243,7 @@ class _AdminScreenState extends State<AdminScreen>
   late Animation<double> _drawerRotateAnim;
   // Memoria: periodo seleccionado para métricas
   String _memoriaPeriod = '24h'; // opciones: '24h', '7d', '30d'
+  late Future<PackageInfo> _packageInfoFuture;
 
   // ── Colores ───────────────────────────────────────────────────────────────
   final Color primaryColor = const Color(0xFF0f172a);
@@ -264,6 +267,7 @@ class _AdminScreenState extends State<AdminScreen>
     _drawerRotateAnim = Tween<double>(begin: 0, end: 0.5).animate(
       CurvedAnimation(parent: _drawerAnimCtrl, curve: Curves.easeInOut),
     );
+    _packageInfoFuture = PackageInfo.fromPlatform();
 
     obtenerNombre();
     _inicializarAvisoPrecauciones();
@@ -753,7 +757,9 @@ class _AdminScreenState extends State<AdminScreen>
   int get _contentIndex => _bottomNavIndex;
 
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width < 600;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+    final isDesktop = screenWidth >= 900;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -833,18 +839,18 @@ class _AdminScreenState extends State<AdminScreen>
           : IndexedStack(
               index: _contentIndex,
               children: [
-                _buildInicioTab(isMobile),
+                _buildInicioTab(isMobile, isDesktop),
                 _buildUsuariosTab(isMobile),
-                _buildReportesTab(isMobile),
-                _buildMemoriaTab(isMobile),
-                _buildAjustesTab(isMobile),
+                _buildReportesTab(isMobile, isDesktop),
+                _buildMemoriaTab(isMobile, isDesktop),
+                _buildAjustesTab(isMobile, isDesktop),
               ],
             ),
       bottomNavigationBar: isLoading ? null : _buildBottomNavigationBar(),
     );
   }
 
-  Widget _buildInicioTab(bool isMobile) {
+  Widget _buildInicioTab(bool isMobile, bool isDesktop) {
     return RefreshIndicator(
       onRefresh: _recargarPanelAdmin,
       child: ListView(
@@ -861,12 +867,12 @@ class _AdminScreenState extends State<AdminScreen>
           _sectionHeader('Acceso Rápido'),
           const SizedBox(height: 16),
           GridView.count(
-            crossAxisCount: isMobile ? 2 : 3,
+            crossAxisCount: isMobile ? 2 : (isDesktop ? 4 : 3),
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             mainAxisSpacing: 12,
             crossAxisSpacing: 12,
-            childAspectRatio: isMobile ? 0.92 : 1.0,
+            childAspectRatio: isMobile ? 0.92 : (isDesktop ? 1.35 : 1.08),
             children: [
               _dashboardShortcutCard(
                 title: 'Panel General\nde Usuarios',
@@ -948,7 +954,7 @@ class _AdminScreenState extends State<AdminScreen>
     );
   }
 
-  Widget _buildReportesTab(bool isMobile) {
+  Widget _buildReportesTab(bool isMobile, bool isDesktop) {
     return RefreshIndicator(
       onRefresh: _recargarPanelAdmin,
       child: ListView(
@@ -963,12 +969,12 @@ class _AdminScreenState extends State<AdminScreen>
           _sectionHeader('Reportes'),
           const SizedBox(height: 16),
           GridView.count(
-            crossAxisCount: isMobile ? 2 : 2,
+            crossAxisCount: isMobile ? 2 : (isDesktop ? 3 : 2),
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             mainAxisSpacing: 12,
             crossAxisSpacing: 12,
-            childAspectRatio: isMobile ? 0.85 : 1.8,
+            childAspectRatio: isMobile ? 0.85 : (isDesktop ? 2.0 : 1.8),
             children: [
               _dashboardShortcutCard(
                 title: 'Reporte de\nGasolina',
@@ -1007,12 +1013,12 @@ class _AdminScreenState extends State<AdminScreen>
           ),
           const SizedBox(height: 12),
           GridView.count(
-            crossAxisCount: isMobile ? 2 : 3,
+            crossAxisCount: isMobile ? 2 : (isDesktop ? 4 : 3),
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             mainAxisSpacing: 12,
             crossAxisSpacing: 12,
-            childAspectRatio: isMobile ? 0.82 : 1.0,
+            childAspectRatio: isMobile ? 0.82 : (isDesktop ? 1.12 : 1.0),
             children: [
               _dashboardShortcutCard(
                 title: 'Reportes\nde Equipo',
@@ -1048,7 +1054,7 @@ class _AdminScreenState extends State<AdminScreen>
     );
   }
 
-  Widget _buildAjustesTab(bool isMobile) {
+  Widget _buildAjustesTab(bool isMobile, bool isDesktop) {
     return RefreshIndicator(
       onRefresh: _recargarPanelAdmin,
       child: ListView(
@@ -1069,6 +1075,8 @@ class _AdminScreenState extends State<AdminScreen>
   }
 
   Widget _buildBottomNavigationBar() {
+    final isDesktop = MediaQuery.of(context).size.width >= 900;
+
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -1089,7 +1097,7 @@ class _AdminScreenState extends State<AdminScreen>
         surfaceTintColor: Colors.transparent,
         indicatorColor: const Color(0xFFDBEAFE),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        height: 72,
+        height: isDesktop ? 64 : 72,
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.home_outlined),
@@ -1599,7 +1607,7 @@ class _AdminScreenState extends State<AdminScreen>
   }
 
   // ── Pestaña Memoria ───────────────────────────────────────────────────
-  Widget _buildMemoriaTab(bool isMobile) {
+  Widget _buildMemoriaTab(bool isMobile, bool isDesktop) {
     final collectionsToShow = <Map<String, dynamic>>[
       {
         'label': 'Reportes de equipo / operadores / camiones',
@@ -1831,12 +1839,12 @@ class _AdminScreenState extends State<AdminScreen>
                 );
               } else {
                 return GridView.count(
-                  crossAxisCount: 2,
+                  crossAxisCount: isDesktop ? 3 : 2,
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   mainAxisSpacing: 12,
                   crossAxisSpacing: 12,
-                  childAspectRatio: 3.2,
+                  childAspectRatio: isDesktop ? 3.5 : 3.2,
                   children: cards,
                 );
               }
@@ -1851,7 +1859,7 @@ class _AdminScreenState extends State<AdminScreen>
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFDC2626),
                 foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 50),
+                minimumSize: Size(double.infinity, isDesktop ? 44 : 50),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -2274,13 +2282,29 @@ class _AdminScreenState extends State<AdminScreen>
     bool compact = false,
     bool showWatermark = true,
   }) {
+    final width = MediaQuery.of(context).size.width;
+    final isDesktop = width >= 900;
+    final titleFontSize = compact
+        ? (isDesktop ? 13.0 : 10.8)
+        : (isDesktop ? 15.8 : 15.0);
+    final subtitleFontSize = compact
+        ? (isDesktop ? 11.0 : 9.2)
+        : (isDesktop ? 12.6 : 12.0);
+    final cardPadding = compact ? (isDesktop ? 10.0 : 14.0) : 18.0;
+    final iconSize = compact
+        ? (isDesktop ? 16.0 : 17.0)
+        : (isDesktop ? 28.0 : 26.0);
+    final watermarkSize = compact
+        ? (isDesktop ? 56.0 : 62.0)
+        : (isDesktop ? 128.0 : 120.0);
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(24),
         child: Container(
-          padding: EdgeInsets.all(compact ? 14 : 18),
+          padding: EdgeInsets.all(cardPadding),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: colors,
@@ -2304,7 +2328,7 @@ class _AdminScreenState extends State<AdminScreen>
                   top: -8,
                   child: Icon(
                     icon,
-                    size: compact ? 62 : 120,
+                    size: watermarkSize,
                     color: Colors.white.withValues(alpha: 0.08),
                   ),
                 ),
@@ -2318,18 +2342,14 @@ class _AdminScreenState extends State<AdminScreen>
                       color: Colors.white.withValues(alpha: 0.12),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(
-                      icon,
-                      color: Colors.white,
-                      size: compact ? 18 : 26,
-                    ),
+                    child: Icon(icon, color: Colors.white, size: iconSize),
                   ),
-                  SizedBox(height: compact ? 8 : 18),
+                  SizedBox(height: compact ? (isDesktop ? 4 : 8) : 18),
                   Text(
                     title,
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: compact ? 10.8 : 15,
+                      fontSize: titleFontSize,
                       fontWeight: FontWeight.w800,
                       height: 1.15,
                     ),
@@ -2341,7 +2361,7 @@ class _AdminScreenState extends State<AdminScreen>
                     subtitle,
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.82),
-                      fontSize: compact ? 9.2 : 12,
+                      fontSize: subtitleFontSize,
                       height: 1.2,
                     ),
                     maxLines: 2,
@@ -2365,7 +2385,7 @@ class _AdminScreenState extends State<AdminScreen>
                       ),
                       child: Icon(
                         Icons.arrow_forward_rounded,
-                        size: compact ? 13 : 18,
+                        size: compact ? (isDesktop ? 14 : 13) : 18,
                         color: accent,
                       ),
                     ),
@@ -3265,15 +3285,30 @@ class _AdminScreenState extends State<AdminScreen>
             ],
           ),
           const SizedBox(height: 20),
-          _buildInfoRow('Versión', 'v1.0.0'),
-          const SizedBox(height: 12),
-          _buildInfoRow('Plataforma', 'Flutter'),
-          const SizedBox(height: 12),
-          _buildInfoRow('Estado', 'En línea', valueColor: Colors.green),
-          const SizedBox(height: 12),
-          _buildInfoRow(
-            'Última Actualización',
-            'Hoy a las ${TimeOfDay.now().format(context)}',
+          FutureBuilder<PackageInfo>(
+            future: _packageInfoFuture,
+            builder: (context, snapshot) {
+              final version = snapshot.data?.version ?? '—';
+              final buildNumber = snapshot.data?.buildNumber ?? '—';
+              final versionLabel = kIsWeb
+                  ? 'Versión web actual'
+                  : 'Versión instalada';
+
+              return Column(
+                children: [
+                  _buildInfoRow(versionLabel, '$version+$buildNumber'),
+                  const SizedBox(height: 12),
+                  _buildInfoRow('Plataforma', 'Flutter'),
+                  const SizedBox(height: 12),
+                  _buildInfoRow('Estado', 'En línea', valueColor: Colors.green),
+                  const SizedBox(height: 12),
+                  _buildInfoRow(
+                    'Última Actualización',
+                    'Hoy a las ${TimeOfDay.now().format(context)}',
+                  ),
+                ],
+              );
+            },
           ),
         ],
       ),

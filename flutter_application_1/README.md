@@ -2,6 +2,14 @@
 
 A new Flutter project.
 
+## Despliegue web en Netlify
+
+1. Asegúrate de tener Flutter instalado en la máquina o CI que hará el build.
+2. Desde la carpeta `flutter_application_1`, ejecuta el despliegue con la configuración ya incluida en `netlify.toml`.
+3. Netlify usará `flutter build web --release --base-href /` y publicará `build/web`.
+4. Si usas Firebase Auth con Google Sign-In, agrega el dominio de Netlify en Authorized domains dentro de Firebase Authentication.
+5. Si la app usa rutas internas y entras directo por una URL profunda, el redirect de `netlify.toml` evita errores 404.
+
 ## Getting Started
 
 This project is a starting point for a Flutter application.

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../config/session_manager.dart';
 import 'checklist_screen.dart';
 import 'jornada_screen.dart';
@@ -9,14 +10,11 @@ import 'confirmar_camion_screen.dart';
 import 'login_screen.dart';
 import 'widgets/notificaciones_drawer.dart';
 import '../services/update_service.dart';
- 
 
 // ConnectionWrapper ya NO se importa aquí — se aplica globalmente desde main.dart
 
 class OperadorScreen extends StatefulWidget {
   final String nombreUsuario;
- 
-  
 
   const OperadorScreen({super.key, required this.nombreUsuario});
 
@@ -25,9 +23,9 @@ class OperadorScreen extends StatefulWidget {
 }
 
 class _OperadorScreenState extends State<OperadorScreen> {
-  static const _primary  = Color(0xFF1E3A8A);
+  static const _primary = Color(0xFF1E3A8A);
   static const _primary2 = Color(0xFF2563EB);
-  static const _bg       = Color(0xFFF5F7FF);
+  static const _bg = Color(0xFFF5F7FF);
 
   final FlutterLocalNotificationsPlugin _notificaciones =
       FlutterLocalNotificationsPlugin();
@@ -52,13 +50,15 @@ class _OperadorScreenState extends State<OperadorScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text("Error al cerrar sesión: $e")));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error al cerrar sesión: $e")));
     }
   }
 
   Future<void> _confirmarYCerrarSesion() async {
-    final confirmar = await showDialog<bool>(
+    final confirmar =
+        await showDialog<bool>(
           context: context,
           builder: (_) => AlertDialog(
             title: const Text('Cerrar sesión'),
@@ -78,6 +78,67 @@ class _OperadorScreenState extends State<OperadorScreen> {
         false;
     if (!confirmar) return;
     await _cerrarSesion();
+  }
+
+  Future<void> _mostrarInformacionSistema() async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      final version = packageInfo.version.trim();
+      final buildNumber = packageInfo.buildNumber.trim();
+
+      if (!mounted) return;
+
+      await showDialog<void>(
+        context: context,
+        builder: (_) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+          title: const Text(
+            'Información del sistema',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Versión instalada',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF334155),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                buildNumber.isEmpty ? version : '$version+$buildNumber',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Este dato corresponde a la versión instalada en el APK del operador.',
+                style: TextStyle(height: 1.35),
+              ),
+            ],
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cerrar'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo cargar la información: $e')),
+      );
+    }
   }
 
   // ── initState ─────────────────────────────────────────────────────────────
@@ -113,17 +174,21 @@ class _OperadorScreenState extends State<OperadorScreen> {
           .collection("usuarios")
           .doc(_usuarioDocIdPreferido())
           .set({"modo_descanso": valor}, SetOptions(merge: true));
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(valor 
-              ? "Modo Descanso activado. Notificaciones silenciadas." 
-              : "Modo Descanso desactivado."),
+            content: Text(
+              valor
+                  ? "Modo Descanso activado. Notificaciones silenciadas."
+                  : "Modo Descanso desactivado.",
+            ),
             backgroundColor: valor ? const Color(0xFF1E293B) : _primary,
             duration: const Duration(seconds: 2),
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
         );
       }
@@ -147,22 +212,30 @@ class _OperadorScreenState extends State<OperadorScreen> {
 
   // ── Limpiar camiones si no hay jornada ────────────────────────────────────
   Future<void> _sanearCamionesDelOperadorSiNoHayJornada() async {
-      final currentUser = FirebaseAuth.instance.currentUser;
-      final refs = <DocumentReference<Map<String, dynamic>>>[];
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final refs = <DocumentReference<Map<String, dynamic>>>[];
 
-      if (currentUser != null) {
-        refs.add(FirebaseFirestore.instance.collection("usuarios").doc(currentUser.uid));
-      }
-      refs.add(FirebaseFirestore.instance.collection("usuarios").doc(widget.nombreUsuario));
+    if (currentUser != null) {
+      refs.add(
+        FirebaseFirestore.instance.collection("usuarios").doc(currentUser.uid),
+      );
+    }
+    refs.add(
+      FirebaseFirestore.instance
+          .collection("usuarios")
+          .doc(widget.nombreUsuario),
+    );
 
-      final docs = <DocumentSnapshot<Map<String, dynamic>>>[];
-      for (final ref in refs) {
-        final doc = await ref.get();
-        if (doc.exists) docs.add(doc);
-      }
+    final docs = <DocumentSnapshot<Map<String, dynamic>>>[];
+    for (final ref in refs) {
+      final doc = await ref.get();
+      if (doc.exists) docs.add(doc);
+    }
 
-      final tieneJornadaActiva = docs.any((doc) => doc.data()?['jornada_activa'] == true);
-      if (tieneJornadaActiva) return;
+    final tieneJornadaActiva = docs.any(
+      (doc) => doc.data()?['jornada_activa'] == true,
+    );
+    if (tieneJornadaActiva) return;
 
     final camionesOcupados = await FirebaseFirestore.instance
         .collection("camiones")
@@ -226,7 +299,8 @@ class _OperadorScreenState extends State<OperadorScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      Navigator.pushAndRemoveUntil(         // limpia TODO el historial
+      Navigator.pushAndRemoveUntil(
+        // limpia TODO el historial
         context,
         MaterialPageRoute(
           builder: (_) => JornadaScreen(
@@ -251,15 +325,18 @@ class _OperadorScreenState extends State<OperadorScreen> {
         requestSoundPermission: false,
       );
       await _notificaciones.initialize(
-          const InitializationSettings(android: androidInit, iOS: iosInit));
+        const InitializationSettings(android: androidInit, iOS: iosInit),
+      );
 
       await _notificaciones
           .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>()
+            AndroidFlutterLocalNotificationsPlugin
+          >()
           ?.requestNotificationsPermission();
       await _notificaciones
           .resolvePlatformSpecificImplementation<
-              IOSFlutterLocalNotificationsPlugin>()
+            IOSFlutterLocalNotificationsPlugin
+          >()
           ?.requestPermissions(alert: true, badge: true, sound: true);
 
       await _notificaciones.show(
@@ -373,8 +450,9 @@ class _OperadorScreenState extends State<OperadorScreen> {
         ),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text("Error: $e")));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error: $e")));
     }
   }
 
@@ -440,6 +518,17 @@ class _OperadorScreenState extends State<OperadorScreen> {
                 await UpdateService.checkAndShowUpdateDialog(context);
               },
             ),
+            ListTile(
+              leading: const Icon(Icons.info_outline_rounded, color: _primary2),
+              title: const Text(
+                'Información del sistema',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              onTap: () async {
+                Navigator.of(context).pop();
+                await _mostrarInformacionSistema();
+              },
+            ),
             const Divider(height: 1),
             ListTile(
               leading: const Icon(Icons.logout_rounded, color: _primary),
@@ -455,7 +544,6 @@ class _OperadorScreenState extends State<OperadorScreen> {
             ),
 
             // Sesiones UI removed per UX request; session logic unchanged.
-
             const Spacer(),
             const Padding(
               padding: EdgeInsets.all(16),
@@ -564,10 +652,14 @@ class _OperadorScreenState extends State<OperadorScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: _modoDescanso ? const Color(0xFFF1F5F9) : Colors.white,
+                      color: _modoDescanso
+                          ? const Color(0xFFF1F5F9)
+                          : Colors.white,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: _modoDescanso ? const Color(0xFFCBD5E1) : const Color(0xFFE2E8F0),
+                        color: _modoDescanso
+                            ? const Color(0xFFCBD5E1)
+                            : const Color(0xFFE2E8F0),
                         width: 1.5,
                       ),
                       boxShadow: [
@@ -586,12 +678,18 @@ class _OperadorScreenState extends State<OperadorScreen> {
                             Container(
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
-                                color: (_modoDescanso ? Colors.blueGrey : _primary).withOpacity(0.1),
+                                color:
+                                    (_modoDescanso ? Colors.blueGrey : _primary)
+                                        .withOpacity(0.1),
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
-                                _modoDescanso ? Icons.nightlight_round : Icons.notifications_active_rounded,
-                                color: _modoDescanso ? Colors.blueGrey : _primary,
+                                _modoDescanso
+                                    ? Icons.nightlight_round
+                                    : Icons.notifications_active_rounded,
+                                color: _modoDescanso
+                                    ? Colors.blueGrey
+                                    : _primary,
                                 size: 22,
                               ),
                             ),
@@ -605,15 +703,21 @@ class _OperadorScreenState extends State<OperadorScreen> {
                                     style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w800,
-                                      color: _modoDescanso ? Colors.blueGrey[700] : _primary,
+                                      color: _modoDescanso
+                                          ? Colors.blueGrey[700]
+                                          : _primary,
                                     ),
                                   ),
                                   Text(
-                                    _modoDescanso ? "Activado · No molestar" : "Desactivado",
+                                    _modoDescanso
+                                        ? "Activado · No molestar"
+                                        : "Desactivado",
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
-                                      color: _modoDescanso ? Colors.blueGrey[400] : Colors.grey[500],
+                                      color: _modoDescanso
+                                          ? Colors.blueGrey[400]
+                                          : Colors.grey[500],
                                     ),
                                   ),
                                 ],
@@ -623,7 +727,9 @@ class _OperadorScreenState extends State<OperadorScreen> {
                                 ? const SizedBox(
                                     width: 24,
                                     height: 24,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
                                   )
                                 : Switch.adaptive(
                                     value: _modoDescanso,
@@ -638,7 +744,11 @@ class _OperadorScreenState extends State<OperadorScreen> {
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.info_outline_rounded, size: 14, color: Colors.grey[500]),
+                            Icon(
+                              Icons.info_outline_rounded,
+                              size: 14,
+                              color: Colors.grey[500],
+                            ),
                             const SizedBox(width: 6),
                             const Expanded(
                               child: Text(
@@ -679,8 +789,11 @@ class _OperadorScreenState extends State<OperadorScreen> {
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.local_shipping_outlined,
-                                  size: 56, color: Color(0xFF1E3A8A)),
+                              Icon(
+                                Icons.local_shipping_outlined,
+                                size: 56,
+                                color: Color(0xFF1E3A8A),
+                              ),
                               SizedBox(height: 12),
                               Text(
                                 "No hay camiones disponibles",
@@ -762,8 +875,9 @@ class _OperadorScreenState extends State<OperadorScreen> {
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black
-                                      .withOpacity(disponible ? 0.06 : 0.03),
+                                  color: Colors.black.withOpacity(
+                                    disponible ? 0.06 : 0.03,
+                                  ),
                                   blurRadius: 18,
                                   offset: const Offset(0, 10),
                                 ),
@@ -783,10 +897,7 @@ class _OperadorScreenState extends State<OperadorScreen> {
                                             end: Alignment.bottomRight,
                                           )
                                         : const LinearGradient(
-                                            colors: [
-                                              Colors.grey,
-                                              Colors.grey
-                                            ],
+                                            colors: [Colors.grey, Colors.grey],
                                           ),
                                     borderRadius: BorderRadius.circular(16),
                                   ),
@@ -837,14 +948,18 @@ class _OperadorScreenState extends State<OperadorScreen> {
                                 const SizedBox(width: 8),
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 10, vertical: 6),
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: _getEstadoColor(estado)
-                                        .withOpacity(0.15),
+                                    color: _getEstadoColor(
+                                      estado,
+                                    ).withOpacity(0.15),
                                     borderRadius: BorderRadius.circular(999),
                                     border: Border.all(
-                                      color: _getEstadoColor(estado)
-                                          .withOpacity(0.3),
+                                      color: _getEstadoColor(
+                                        estado,
+                                      ).withOpacity(0.3),
                                     ),
                                   ),
                                   child: Text(
@@ -903,9 +1018,13 @@ class _RecomendacionItem extends StatelessWidget {
 
 Color _getEstadoColor(String estado) {
   switch (estado) {
-    case 'Disponible':      return const Color(0xFF10B981);
-    case 'En Mantenimiento': return const Color(0xFFF59E0B);
-    case 'Fuera de Servicio': return const Color(0xFFDC2626);
-    default:                return const Color(0xFF1D4ED8);
+    case 'Disponible':
+      return const Color(0xFF10B981);
+    case 'En Mantenimiento':
+      return const Color(0xFFF59E0B);
+    case 'Fuera de Servicio':
+      return const Color(0xFFDC2626);
+    default:
+      return const Color(0xFF1D4ED8);
   }
 }
