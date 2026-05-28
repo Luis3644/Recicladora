@@ -1106,10 +1106,22 @@ void _mostrarSeleccionEntradaMaterial() {
       "alerta_ubicacion_desactivada_mostrada": false,
     };
 
-    /// cerrar jornada del operador en ambos identificadores posibles
-    await userRef.set(cierreJornada, SetOptions(merge: true));
-    if (uidDocId.isNotEmpty && uidDocId != widget.operador) {
+    /// Cerrar jornada del operador priorizando el UID para evitar duplicados.
+    if (uidDocId.isNotEmpty) {
       await usuariosRef.doc(uidDocId).set(cierreJornada, SetOptions(merge: true));
+      
+      // Si el operador (nombre) es distinto al UID, intentamos actualizarlo 
+      // pero sin crearlo si no existe (usando update en lugar de set).
+      if (widget.operador != uidDocId) {
+        try {
+          await usuariosRef.doc(widget.operador).update(cierreJornada);
+        } catch (_) {
+          // Si el documento por nombre no existe, ignoramos.
+        }
+      }
+    } else {
+      // Fallback si no hay UID (por seguridad)
+      await userRef.set(cierreJornada, SetOptions(merge: true));
     }
 
     ScaffoldMessenger.of(

@@ -180,18 +180,33 @@ class UbicacionService {
       });
     }
 
-    // Actualiza por el identificador del operador
-    await FirebaseFirestore.instance
-        .collection('usuarios')
-        .doc(_operador!)
-        .set(data, SetOptions(merge: true));
-
-    // Si el UID es diferente, también actualiza por UID para consistencia
+    // Usar el UID del usuario autenticado como identificador principal.
     final uidDocId = FirebaseAuth.instance.currentUser?.uid ?? '';
-    if (uidDocId.isNotEmpty && uidDocId != _operador) {
+    
+    if (uidDocId.isNotEmpty) {
+      // Actualizamos el documento maestro (UID)
       await FirebaseFirestore.instance
           .collection('usuarios')
           .doc(uidDocId)
+          .set(data, SetOptions(merge: true));
+      
+      // Si el operador (nombre) es distinto al UID, intentamos actualizarlo 
+      // para mantener consistencia, pero sin crearlo si no existe (usando update).
+      if (_operador != null && _operador != uidDocId) {
+        try {
+          await FirebaseFirestore.instance
+              .collection('usuarios')
+              .doc(_operador!)
+              .update(data);
+        } catch (_) {
+          // Si no existe el documento por nombre, no lo creamos.
+        }
+      }
+    } else if (_operador != null) {
+      // Fallback si no hay UID (por seguridad)
+      await FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(_operador!)
           .set(data, SetOptions(merge: true));
     }
   }
@@ -207,16 +222,25 @@ class UbicacionService {
     };
 
     try {
-      await FirebaseFirestore.instance
-          .collection('usuarios')
-          .doc(_operador!)
-          .set(alertaData, SetOptions(merge: true));
-
       final uidDocId = FirebaseAuth.instance.currentUser?.uid ?? '';
-      if (uidDocId.isNotEmpty && uidDocId != _operador) {
+      if (uidDocId.isNotEmpty) {
         await FirebaseFirestore.instance
             .collection('usuarios')
             .doc(uidDocId)
+            .set(alertaData, SetOptions(merge: true));
+            
+        if (_operador != null && _operador != uidDocId) {
+          try {
+            await FirebaseFirestore.instance
+                .collection('usuarios')
+                .doc(_operador!)
+                .update(alertaData);
+          } catch (_) {}
+        }
+      } else if (_operador != null) {
+        await FirebaseFirestore.instance
+            .collection('usuarios')
+            .doc(_operador!)
             .set(alertaData, SetOptions(merge: true));
       }
     } catch (_) {}
@@ -250,16 +274,24 @@ class UbicacionService {
       'alerta_ubicacion_desactivada_mostrada': false,
     };
 
-    FirebaseFirestore.instance
-        .collection('usuarios')
-        .doc(_operador!)
-        .set(limpiaData, SetOptions(merge: true));
-
     final uidDocId = FirebaseAuth.instance.currentUser?.uid ?? '';
-    if (uidDocId.isNotEmpty && uidDocId != _operador) {
+    if (uidDocId.isNotEmpty) {
       FirebaseFirestore.instance
           .collection('usuarios')
           .doc(uidDocId)
+          .set(limpiaData, SetOptions(merge: true));
+          
+      if (_operador != null && _operador != uidDocId) {
+        FirebaseFirestore.instance
+            .collection('usuarios')
+            .doc(_operador!)
+            .update(limpiaData)
+            .catchError((_) => null);
+      }
+    } else if (_operador != null) {
+      FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(_operador!)
           .set(limpiaData, SetOptions(merge: true));
     }
   }
