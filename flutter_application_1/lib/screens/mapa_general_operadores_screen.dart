@@ -340,23 +340,6 @@ class _MapaGeneralOperadoresScreenState
               })
               .toList(growable: false);
 
-          // Trails
-          final trails = ops
-              .map((op) {
-                final a = _animaciones[op.id];
-                final pts = <LatLng>[...?a?.trail];
-                final cur = a?.pos ?? op.posicion;
-                if (pts.isEmpty || !_samePt(pts.last, cur)) pts.add(cur);
-                if (pts.length < 2) return null;
-                return Polyline(
-                  points: pts,
-                  strokeWidth: 4.5,
-                  color: op.color.withOpacity(0.45),
-                );
-              })
-              .whereType<Polyline>()
-              .toList(growable: false);
-
           // Centro
           LatLng center = _fallbackCenter;
           if (ops.isNotEmpty) {
@@ -438,7 +421,6 @@ class _MapaGeneralOperadoresScreenState
                                     duration: Duration(milliseconds: 200),
                                   ),
                                 ),
-                                PolylineLayer(polylines: trails),
                                 MarkerLayer(markers: markers),
                                 RichAttributionWidget(
                                   attributions: [

@@ -32,6 +32,14 @@
 	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Necesitamos tu ubicación para compartirla con administración durante la jornada activa.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Necesitamos tu ubicación en tiempo real para el seguimiento del camión en el mapa por parte de la administración.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Necesitamos acceso continuo a tu ubicación en tiempo real para mostrar tu avance en el mapa a la administración.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

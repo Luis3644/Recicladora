@@ -24,6 +24,7 @@ import 'registro_toneladas_screen.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:geolocator_android/geolocator_android.dart';
 import 'package:geolocator_apple/geolocator_apple.dart';
+import '../services/ubicacion_service.dart';
 
 Widget _buildReportAppBarAction(VoidCallback onPressed) {
   return Padding(
@@ -85,12 +86,6 @@ class _JornadaScreenState extends State<JornadaScreen> {
   final TextEditingController cantidadToneladaController =
       TextEditingController();
 
-  final FlutterLocalNotificationsPlugin _notificaciones =
-      FlutterLocalNotificationsPlugin();
-
-  StreamSubscription<Position>? _posicionSub;
-  StreamSubscription<ServiceStatus>? _servicioSub;
-
   bool _contentVisible = false;
   bool _compartirUbicacion = true;
   bool _compartiendoUbicacionActiva = false;
@@ -111,19 +106,55 @@ class _JornadaScreenState extends State<JornadaScreen> {
   @override
   void initState() {
     super.initState();
-    _inicializarNotificacionesUbicacion();
-    _inicializarMonitoreoUbicacion();
-    _escucharCambiosServicioUbicacion();
+    
+    // Inicializar y arrancar el servicio de ubicación persistente global
+    UbicacionService().inicializar(widget.operador).then((_) {
+      if (mounted && _compartirUbicacion) {
+        UbicacionService().iniciarMonitoreo();
+      }
+    });
+
+    // Escuchar notificaciones para redibujar cambios en tiempo real
+    UbicacionService().compartiendoUbicacionActiva.addListener(_onUbicacionStateChanged);
+    UbicacionService().estadoUbicacion.addListener(_onUbicacionStateChanged);
+    UbicacionService().permisoUbicacionOtorgado.addListener(_onUbicacionStateChanged);
+    UbicacionService().servicioUbicacionActivo.addListener(_onUbicacionStateChanged);
+
+    _sincronizarVariablesUbicacion();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       setState(() => _contentVisible = true);
     });
   }
 
+  void _onUbicacionStateChanged() {
+    if (mounted) {
+      setState(() {
+        _sincronizarVariablesUbicacion();
+      });
+    }
+  }
+
+  void _sincronizarVariablesUbicacion() {
+    final service = UbicacionService();
+    _compartiendoUbicacionActiva = service.compartiendoUbicacionActiva.value;
+    _estadoUbicacion = service.estadoUbicacion.value;
+    _permisoUbicacionOtorgado = service.permisoUbicacionOtorgado.value;
+    _servicioUbicacionActivo = service.servicioUbicacionActivo.value;
+    _alertaUbicacionMostrada = service.alertaUbicacionMostrada.value;
+  }
+
   @override
   void dispose() {
-    _posicionSub?.cancel();
-    _servicioSub?.cancel();
+    // IMPORTANTE: NO detenemos el servicio aquí, ya que queremos que siga transmitiendo
+    // en segundo plano o cuando el operador navegue a otras pantallas.
+    // Solo removemos los escuchas del ciclo de vida del Widget.
+    UbicacionService().compartiendoUbicacionActiva.removeListener(_onUbicacionStateChanged);
+    UbicacionService().estadoUbicacion.removeListener(_onUbicacionStateChanged);
+    UbicacionService().permisoUbicacionOtorgado.removeListener(_onUbicacionStateChanged);
+    UbicacionService().servicioUbicacionActivo.removeListener(_onUbicacionStateChanged);
+
     toneladasController.dispose();
     gasolinaController.dispose();
     folioGasolinaController.dispose();
@@ -639,248 +670,31 @@ void _mostrarSeleccionEntradaMaterial() {
     ).showSnackBar(const SnackBar(content: Text('Registro cancelado')));
   }
 
-  Future<void> _inicializarNotificacionesUbicacion() async {
-    try {
-      const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
-      const iosInit = DarwinInitializationSettings(
-        requestAlertPermission: false,
-        requestBadgePermission: false,
-        requestSoundPermission: false,
-      );
-
-      const settings = InitializationSettings(
-        android: androidInit,
-        iOS: iosInit,
-      );
-      await _notificaciones.initialize(settings);
-
-      final androidImpl = _notificaciones
-          .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin
-          >();
-      await androidImpl?.requestNotificationsPermission();
-    } catch (_) {}
-  }
-
+  Future<void> _inicializarNotificacionesUbicacion() async {}
+  
   Future<void> _actualizarGpsEnFirestore({
     required bool gpsActivo,
     Position? posicion,
     String? estado,
-  }) async {
-    final data = <String, dynamic>{
-      'gps_activo': gpsActivo,
-      'ultima_actualizacion_gps': FieldValue.serverTimestamp(),
-      if (estado != null) 'estado_gps': estado,
-    };
+  }) async {}
 
-    if (posicion != null) {
-      data.addAll({
-        'latitud': posicion.latitude,
-        'longitud': posicion.longitude,
-        'ubicacion_actual': GeoPoint(posicion.latitude, posicion.longitude),
-      });
-    }
+  Future<void> _mostrarAlertaUbicacionApagada(String motivo) async {}
 
-    await FirebaseFirestore.instance
-        .collection('usuarios')
-        .doc(widget.operador)
-        .set(data, SetOptions(merge: true));
-  }
+  void _limpiarAlertaUbicacion() {}
 
-  Future<void> _mostrarAlertaUbicacionApagada(String motivo) async {
-    if (_alertaUbicacionMostrada) return;
-    _alertaUbicacionMostrada = true;
+  Future<void> _cargarEstadoAlertaUbicacion() async {}
 
-    try {
-      await FirebaseFirestore.instance
-          .collection('usuarios')
-          .doc(widget.operador)
-          .set({
-        'alerta_ubicacion_desactivada_mostrada': true,
-        'alerta_ubicacion_desactivada_en': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-    } catch (_) {}
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: _danger,
-          content: Text('Alerta de ubicación: $motivo'),
-        ),
-      );
-    }
-
-    try {
-      const details = NotificationDetails(
-        android: AndroidNotificationDetails(
-          'ubicacion_alertas',
-          'Alertas de ubicación',
-          channelDescription: 'Alertas cuando la ubicación está desactivada',
-          importance: Importance.high,
-          priority: Priority.high,
-        ),
-        iOS: DarwinNotificationDetails(),
-      );
-
-      await _notificaciones.show(
-        3001,
-        'Ubicación desactivada',
-        motivo,
-        details,
-      );
-    } catch (_) {}
-  }
-
-  void _limpiarAlertaUbicacion() {
-    _alertaUbicacionMostrada = false;
-
-    FirebaseFirestore.instance
-        .collection('usuarios')
-        .doc(widget.operador)
-        .set({
-      'alerta_ubicacion_desactivada_mostrada': false,
-    }, SetOptions(merge: true));
-  }
-
-  Future<void> _cargarEstadoAlertaUbicacion() async {
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('usuarios')
-          .doc(widget.operador)
-          .get();
-      final data = doc.data();
-      _alertaUbicacionMostrada =
-          data?['alerta_ubicacion_desactivada_mostrada'] == true;
-    } catch (_) {
-      _alertaUbicacionMostrada = false;
-    }
-  }
-
-  Future<void> _inicializarMonitoreoUbicacion() async {
-    await _cargarEstadoAlertaUbicacion();
-    await _iniciarMonitoreoUbicacion();
-  }
+  Future<void> _inicializarMonitoreoUbicacion() async {}
 
   Future<void> _detenerMonitoreoUbicacion({String? motivo}) async {
-    await _posicionSub?.cancel();
-    _posicionSub = null;
-
-    setState(() {
-      _compartiendoUbicacionActiva = false;
-      _estadoUbicacion = motivo ?? 'Compartición detenida';
-    });
-
-    await _actualizarGpsEnFirestore(gpsActivo: false, estado: _estadoUbicacion);
+    await UbicacionService().detenerMonitoreo(motivo: motivo);
   }
 
   Future<void> _iniciarMonitoreoUbicacion() async {
-    if (!_compartirUbicacion) {
-      await _detenerMonitoreoUbicacion(
-        motivo: 'Compartición manualmente desactivada',
-      );
-      return;
-    }
-
-    final servicioActivo = await Geolocator.isLocationServiceEnabled();
-    _servicioUbicacionActivo = servicioActivo;
-
-    if (!servicioActivo) {
-      await _detenerMonitoreoUbicacion(motivo: 'GPS del dispositivo apagado');
-      await _mostrarAlertaUbicacionApagada(
-        'Activa la ubicación del celular para compartir tu posición con administración.',
-      );
-      return;
-    }
-
-    var permiso = await Geolocator.checkPermission();
-    if (permiso == LocationPermission.denied) {
-      permiso = await Geolocator.requestPermission();
-    }
-
-    if (permiso == LocationPermission.denied ||
-        permiso == LocationPermission.deniedForever) {
-      _permisoUbicacionOtorgado = false;
-      await _detenerMonitoreoUbicacion(motivo: 'Sin permiso de ubicación');
-      await _mostrarAlertaUbicacionApagada(
-        'Permiso de ubicación denegado. Habilítalo para monitoreo en tiempo real.',
-      );
-      return;
-    }
-
-    _permisoUbicacionOtorgado = true;
-    _limpiarAlertaUbicacion();
-
-    await _posicionSub?.cancel();
-
-  final locationSettings = defaultTargetPlatform == TargetPlatform.android
-    ? AndroidSettings(
-        accuracy: LocationAccuracy.bestForNavigation, // ← mejor para vehículos
-        distanceFilter: 10,        // ← 10m en moto es razonable
-        intervalDuration: const Duration(seconds: 3), // ← más frecuente
-        foregroundNotificationConfig: const ForegroundNotificationConfig(
-          notificationTitle: 'GPS Activo',
-          notificationText: 'Compartiendo ubicación con administración',
-          enableWakeLock: true,
-          notificationIcon: AndroidResource(
-            name: '@mipmap/ic_launcher',
-            defType: 'mipmap',
-          ),
-        ),
-      )
-    : AppleSettings(
-        accuracy: LocationAccuracy.bestForNavigation, // ← mejor para vehículos
-        distanceFilter: 10,
-        pauseLocationUpdatesAutomatically: false,
-        showBackgroundLocationIndicator: true,
-        activityType: ActivityType.automotiveNavigation, // ← iOS optimiza para vehículo
-      );
-
-    _posicionSub = Geolocator.getPositionStream(
-      locationSettings: locationSettings,
-    ).listen(
-      (position) async {
-        if (!mounted) return;
-        setState(() {
-          _compartiendoUbicacionActiva = true;
-          _estadoUbicacion = 'Compartiendo ubicación activa';
-        });
-        await _actualizarGpsEnFirestore(
-          gpsActivo: true,
-          posicion: position,
-          estado: _estadoUbicacion,
-        );
-      },
-      onError: (_) async {
-        await _detenerMonitoreoUbicacion(motivo: 'Error leyendo ubicación');
-      },
-    );
+    await UbicacionService().iniciarMonitoreo();
   }
 
-  void _escucharCambiosServicioUbicacion() {
-    if (kIsWeb) {
-      // En web geolocator no soporta getServiceStatusStream.
-      return;
-    }
-
-    _servicioSub = Geolocator.getServiceStatusStream().listen((status) async {
-      final activo = status == ServiceStatus.enabled;
-      if (!mounted) return;
-
-      setState(() {
-        _servicioUbicacionActivo = activo;
-      });
-
-      if (!activo) {
-        await _detenerMonitoreoUbicacion(motivo: 'GPS del dispositivo apagado');
-        await _mostrarAlertaUbicacionApagada(
-          'La ubicación del celular se desactivó. Actívala para continuar el monitoreo.',
-        );
-      } else if (_compartirUbicacion) {
-        _limpiarAlertaUbicacion();
-        await _iniciarMonitoreoUbicacion();
-      }
-    });
-  }
+  void _escucharCambiosServicioUbicacion() {}
 
   // CONSTRUCTORES PARA FORMULARIOS
   Widget _construirSecccionRegistroGasolina() {
