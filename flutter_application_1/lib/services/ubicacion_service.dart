@@ -4,6 +4,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'foreground_location_task.dart';
 
 class UbicacionService {
   static final UbicacionService _instance = UbicacionService._internal();
@@ -14,14 +17,24 @@ class UbicacionService {
   
   StreamSubscription<Position>? _posicionSub;
   StreamSubscription<ServiceStatus>? _servicioSub;
+  Timer? _reintentoTimer;
+  bool _reintentoEnCurso = false;
 
   final ValueNotifier<bool> compartiendoUbicacionActiva = ValueNotifier<bool>(false);
+  final ValueNotifier<bool> compartirUbicacionSolicitada = ValueNotifier<bool>(true);
   final ValueNotifier<String> estadoUbicacion = ValueNotifier<String>('Iniciando ubicación...');
   final ValueNotifier<bool> permisoUbicacionOtorgado = ValueNotifier<bool>(false);
   final ValueNotifier<bool> servicioUbicacionActivo = ValueNotifier<bool>(false);
   final ValueNotifier<bool> alertaUbicacionMostrada = ValueNotifier<bool>(false);
 
   String? _operador;
+  bool _ajustesUbicacionSolicitados = false;
+  static const String _keyNotiPermisoSolicitado =
+      'notificaciones_permiso_solicitado';
+
+  void marcarAjustesUbicacionSolicitados() {
+    _ajustesUbicacionSolicitados = true;
+  }
 
   bool get isRunning => _posicionSub != null;
 
@@ -47,11 +60,22 @@ class UbicacionService {
       );
       await _notificaciones.initialize(settings);
 
-      final androidImpl = _notificaciones
-          .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin
-          >();
-      await androidImpl?.requestNotificationsPermission();
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        final androidImpl = _notificaciones
+            .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin
+            >();
+        final prefs = await SharedPreferences.getInstance();
+        final yaSolicitado =
+            prefs.getBool(_keyNotiPermisoSolicitado) ?? false;
+
+        final granted =
+            await androidImpl?.requestNotificationsPermission() ?? true;
+        if (!granted && !yaSolicitado) {
+          await prefs.setBool(_keyNotiPermisoSolicitado, true);
+          await Geolocator.openAppSettings();
+        }
+      }
     } catch (_) {}
   }
 
@@ -88,18 +112,34 @@ class UbicacionService {
       permiso = await Geolocator.requestPermission();
     }
 
+    var redirigioAjustes = false;
+
     if (permiso == LocationPermission.denied ||
         permiso == LocationPermission.deniedForever) {
       permisoUbicacionOtorgado.value = false;
       await detenerMonitoreo(motivo: 'Sin permiso de ubicación');
-      await _mostrarAlertaUbicacionApagada(
-        'Permiso de ubicación denegado. Habilítalo para monitoreo en tiempo real.',
-      );
+      if (defaultTargetPlatform == TargetPlatform.android &&
+          permiso == LocationPermission.deniedForever &&
+          !_ajustesUbicacionSolicitados) {
+        _ajustesUbicacionSolicitados = true;
+        await Geolocator.openAppSettings();
+        redirigioAjustes = true;
+      }
+      if (!redirigioAjustes) {
+        await _mostrarAlertaUbicacionApagada(
+          'Permiso de ubicacion denegado. Habilitalo para monitoreo en tiempo real.',
+        );
+      }
       return;
     }
 
+    _ajustesUbicacionSolicitados = false;
+
     permisoUbicacionOtorgado.value = true;
     _limpiarAlertaUbicacion();
+
+    compartirUbicacionSolicitada.value = true;
+    await _iniciarServicioForeground();
 
     await _posicionSub?.cancel();
 
@@ -108,15 +148,6 @@ class UbicacionService {
           accuracy: LocationAccuracy.bestForNavigation,
           distanceFilter: 10,
           intervalDuration: const Duration(seconds: 3),
-          foregroundNotificationConfig: const ForegroundNotificationConfig(
-            notificationTitle: 'GPS Activo',
-            notificationText: 'Compartiendo ubicación con administración',
-            enableWakeLock: true,
-            notificationIcon: AndroidResource(
-              name: '@mipmap/ic_launcher',
-              defType: 'mipmap',
-            ),
-          ),
         )
       : AppleSettings(
           accuracy: LocationAccuracy.bestForNavigation,
@@ -139,12 +170,24 @@ class UbicacionService {
         );
       },
       onError: (_) async {
-        await detenerMonitoreo(motivo: 'Error leyendo ubicación');
+        await _posicionSub?.cancel();
+        _posicionSub = null;
+        compartiendoUbicacionActiva.value = false;
+        estadoUbicacion.value = 'Error leyendo ubicación. Reintentando...';
+        await _actualizarGpsEnFirestore(
+          gpsActivo: false,
+          estado: estadoUbicacion.value,
+        );
+        _programarReintentoMonitoreo();
       },
     );
   }
 
   Future<void> detenerMonitoreo({String? motivo}) async {
+    _reintentoTimer?.cancel();
+    _reintentoEnCurso = false;
+    compartirUbicacionSolicitada.value = false;
+    await _detenerServicioForeground();
     await _posicionSub?.cancel();
     _posicionSub = null;
 
@@ -155,8 +198,68 @@ class UbicacionService {
   }
 
   void dispose() {
+    _reintentoTimer?.cancel();
     _posicionSub?.cancel();
     _servicioSub?.cancel();
+    _removerForegroundCallback();
+  }
+
+  Future<void> _iniciarServicioForeground() async {
+    if (defaultTargetPlatform != TargetPlatform.android) return;
+    final isRunning = await FlutterForegroundTask.isRunningService;
+    if (!isRunning) {
+      await FlutterForegroundTask.startService(
+        notificationTitle: 'Ubicacion en tiempo real',
+        notificationText: 'Compartiendo ubicacion con administrador',
+        notificationButtons: const [
+          NotificationButton(id: kStopLocationAction, text: 'Detener ubicacion'),
+        ],
+        callback: startLocationCallback,
+      );
+    }
+
+    _registrarForegroundCallback();
+  }
+
+  Future<void> _detenerServicioForeground() async {
+    if (defaultTargetPlatform != TargetPlatform.android) return;
+    final isRunning = await FlutterForegroundTask.isRunningService;
+    if (isRunning) {
+      await FlutterForegroundTask.stopService();
+    }
+  }
+
+  void _registrarForegroundCallback() {
+    FlutterForegroundTask.addTaskDataCallback(_onForegroundData);
+  }
+
+  void _removerForegroundCallback() {
+    FlutterForegroundTask.removeTaskDataCallback(_onForegroundData);
+  }
+
+  void _onForegroundData(Object data) {
+    if (data is Map && data['action'] == kStopLocationAction) {
+      detenerMonitoreo(motivo: 'Comparticion detenida desde notificacion');
+    }
+  }
+
+  void _programarReintentoMonitoreo() {
+    if (_reintentoEnCurso) return;
+    _reintentoEnCurso = true;
+    _reintentoTimer?.cancel();
+    _reintentoTimer = Timer(const Duration(seconds: 3), () async {
+      _reintentoEnCurso = false;
+      final servicioActivo = await Geolocator.isLocationServiceEnabled();
+      if (!servicioActivo) return;
+
+      final permiso = await Geolocator.checkPermission();
+      if (permiso == LocationPermission.denied ||
+          permiso == LocationPermission.deniedForever) {
+        return;
+      }
+
+      await iniciarMonitoreo();
+    });
   }
 
   Future<void> _actualizarGpsEnFirestore({

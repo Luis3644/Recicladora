@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'jornada_screen.dart';
 import 'operador_screen.dart';
 
@@ -26,6 +27,8 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
   bool? cubrebocas, gafas, guantes, uniforme;
   final TextEditingController reporteController = TextEditingController();
   bool _guardando = false;
+
+  static const String _keyRecosBase = 'ubicacion_recos_jornada_mostradas_';
 
   static const Color _primary = Color(0xFF1E3A8A);
   static const Color _success = Color(0xFF10B981);
@@ -110,6 +113,10 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
         'fecha':          ahora,
         'equipo_completo': !faltaAlgo,
       });
+
+      final prefs = await SharedPreferences.getInstance();
+      final uid = currentUser?.uid ?? widget.nombreUsuario;
+      await prefs.setBool('$_keyRecosBase$uid', false);
 
       String msjNotif = '${widget.nombreUsuario} ha iniciado su jornada con el camión ${widget.camion}.';
       if (faltaAlgo) {

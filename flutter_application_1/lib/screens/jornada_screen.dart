@@ -12,6 +12,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'operador_screen.dart';
 import 'reporte_screen.dart'; // Asegúrate de que esta línea esté presente
 import 'widgets_conexion/connection_wrapper.dart';
@@ -102,6 +103,7 @@ class _JornadaScreenState extends State<JornadaScreen> {
   static const Color _accent = Color(0xFF06B6D4);
   static const Color _success = Color(0xFF10B981);
   static const Color _danger = Color(0xFFDC2626);
+  static const String _keyRecosBase = 'ubicacion_recos_jornada_mostradas_';
 
   @override
   void initState() {
@@ -110,12 +112,13 @@ class _JornadaScreenState extends State<JornadaScreen> {
     // Inicializar y arrancar el servicio de ubicación persistente global
     UbicacionService().inicializar(widget.operador).then((_) {
       if (mounted && _compartirUbicacion) {
-        UbicacionService().iniciarMonitoreo();
+        _iniciarMonitoreoUbicacion();
       }
     });
 
     // Escuchar notificaciones para redibujar cambios en tiempo real
     UbicacionService().compartiendoUbicacionActiva.addListener(_onUbicacionStateChanged);
+    UbicacionService().compartirUbicacionSolicitada.addListener(_onUbicacionStateChanged);
     UbicacionService().estadoUbicacion.addListener(_onUbicacionStateChanged);
     UbicacionService().permisoUbicacionOtorgado.addListener(_onUbicacionStateChanged);
     UbicacionService().servicioUbicacionActivo.addListener(_onUbicacionStateChanged);
@@ -125,6 +128,8 @@ class _JornadaScreenState extends State<JornadaScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       setState(() => _contentVisible = true);
+      _mostrarGuiaPermisoUbicacionPrimeraVez();
+      _mostrarRecomendacionesUbicacion();
     });
   }
 
@@ -139,10 +144,125 @@ class _JornadaScreenState extends State<JornadaScreen> {
   void _sincronizarVariablesUbicacion() {
     final service = UbicacionService();
     _compartiendoUbicacionActiva = service.compartiendoUbicacionActiva.value;
+    _compartirUbicacion = service.compartirUbicacionSolicitada.value;
     _estadoUbicacion = service.estadoUbicacion.value;
     _permisoUbicacionOtorgado = service.permisoUbicacionOtorgado.value;
     _servicioUbicacionActivo = service.servicioUbicacionActivo.value;
     _alertaUbicacionMostrada = service.alertaUbicacionMostrada.value;
+  }
+
+  Future<void> _refrescarJornada() async {
+    _sincronizarVariablesUbicacion();
+    if (_compartirUbicacion) {
+      await _iniciarMonitoreoUbicacion();
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _mostrarGuiaPermisoUbicacionPrimeraVez() async {
+    if (defaultTargetPlatform != TargetPlatform.android) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final yaMostrada = prefs.getBool('ubicacion_guia_mostrada') ?? false;
+    if (yaMostrada) return;
+
+    final permiso = await Geolocator.checkPermission();
+    if (permiso == LocationPermission.always) {
+      await prefs.setBool('ubicacion_guia_mostrada', true);
+      return;
+    }
+
+    if (!mounted) return;
+    await prefs.setBool('ubicacion_guia_mostrada', true);
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Permitir ubicacion'),
+          content: const Text(
+            'Para compartir tu ubicacion:\n'
+            '1) Permite el acceso a ubicacion.\n'
+            '2) Puedes elegir "Mientras se usa" o "Solo esta vez".',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Ahora no'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                UbicacionService().marcarAjustesUbicacionSolicitados();
+                await Geolocator.openAppSettings();
+              },
+              child: const Text('Ir a Ajustes'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _mostrarRecomendacionesUbicacion() async {
+    final prefs = await SharedPreferences.getInstance();
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? widget.operador;
+    final key = '$_keyRecosBase$uid';
+    final yaMostrada = prefs.getBool(key) ?? false;
+    if (yaMostrada) return;
+    await prefs.setBool(key, true);
+
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Recomendaciones de ubicacion'),
+          content: const Text(
+            'Activa la ubicacion solo cuando salgas a ruta de recoleccion.\n'
+            'La ubicacion en tiempo real requiere acceso a internet (datos o WiFi).\n'
+            'Desactiva la ubicacion cuando no se use para ahorrar bateria.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Entendido'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<bool> _confirmarGpsApagado() async {
+    if (!mounted) return false;
+
+    final confirmar = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => AlertDialog(
+        title: const Text('GPS desactivado'),
+        content: const Text('Deseas mostrar los ajustes de ubicacion?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Ahora no'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar == true) {
+      await Geolocator.openLocationSettings();
+    }
+
+    return confirmar == true;
   }
 
   @override
@@ -151,6 +271,7 @@ class _JornadaScreenState extends State<JornadaScreen> {
     // en segundo plano o cuando el operador navegue a otras pantallas.
     // Solo removemos los escuchas del ciclo de vida del Widget.
     UbicacionService().compartiendoUbicacionActiva.removeListener(_onUbicacionStateChanged);
+    UbicacionService().compartirUbicacionSolicitada.removeListener(_onUbicacionStateChanged);
     UbicacionService().estadoUbicacion.removeListener(_onUbicacionStateChanged);
     UbicacionService().permisoUbicacionOtorgado.removeListener(_onUbicacionStateChanged);
     UbicacionService().servicioUbicacionActivo.removeListener(_onUbicacionStateChanged);
@@ -691,6 +812,11 @@ void _mostrarSeleccionEntradaMaterial() {
   }
 
   Future<void> _iniciarMonitoreoUbicacion() async {
+    final servicioActivo = await Geolocator.isLocationServiceEnabled();
+    if (!servicioActivo) {
+      await _confirmarGpsApagado();
+      return;
+    }
     await UbicacionService().iniciarMonitoreo();
   }
 
@@ -1262,24 +1388,25 @@ void _mostrarSeleccionEntradaMaterial() {
             onHistorial: _irAHistorial,
             onPerfil: _irAPerfil,
           ),
-          body: Stack(
-            children: [
-              Positioned.fill(
-                child: AnimatedOpacity(
+          body: RefreshIndicator(
+            onRefresh: _refrescarJornada,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 550),
+                opacity: _contentVisible ? 1 : 0,
+                child: AnimatedSlide(
                   duration: const Duration(milliseconds: 550),
-                  opacity: _contentVisible ? 1 : 0,
-                  child: AnimatedSlide(
-                    duration: const Duration(milliseconds: 550),
-                    offset: _contentVisible
-                        ? Offset.zero
-                        : const Offset(0, 0.05),
-                    curve: Curves.easeOutCubic,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
+                  offset: _contentVisible
+                      ? Offset.zero
+                      : const Offset(0, 0.05),
+                  curve: Curves.easeOutCubic,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
                           // ── Tarjeta Datos de Jornada (compacta) ──
                           Container(
                             padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
@@ -1608,14 +1735,13 @@ void _mostrarSeleccionEntradaMaterial() {
                               ],
                             ),
                           ),
-                        ], // Column children
-                      ), // Column
-                    ), // Padding
-                  ), // AnimatedSlide
-                ), // AnimatedOpacity
-              ), // Positioned.fill
-            ], // Stack children
-          ), // Stack (body)
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ), // Scaffold
       ), // ConnectionWrapper
     ); // return PopScope
@@ -2947,6 +3073,10 @@ class RegistrosJornadaScreen extends StatelessWidget {
     required this.historial,
   });
 
+  Future<void> _refrescar() async {
+    await Future.delayed(const Duration(milliseconds: 300));
+  }
+
   void _irAInicio(BuildContext context) {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
@@ -3234,60 +3364,64 @@ class RegistrosJornadaScreen extends StatelessWidget {
         onHistorial: () => _irAHistorial(context),
         onPerfil: () => _irAPerfil(context),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(18),
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF05316D), Color(0xFF03275A)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+      body: RefreshIndicator(
+        onRefresh: _refrescar,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF05316D), Color(0xFF03275A)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      historial
+                          ? 'Historial de la jornada'
+                          : 'Registros de la jornada',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      subtitulo,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.82),
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    historial
-                        ? 'Historial de la jornada'
-                        : 'Registros de la jornada',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    subtitulo,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.82),
-                      height: 1.35,
-                    ),
-                  ),
-                ],
+              const SizedBox(height: 12),
+              _buildRecordsSection(
+                title: 'Gasolina registrada',
+                icon: Icons.local_gas_station_rounded,
+                accent: const Color(0xFF15A56A),
+                collection: 'registros_gasolina',
               ),
-            ),
-            const SizedBox(height: 12),
-            _buildRecordsSection(
-              title: 'Gasolina registrada',
-              icon: Icons.local_gas_station_rounded,
-              accent: const Color(0xFF15A56A),
-              collection: 'registros_gasolina',
-            ),
-            const SizedBox(height: 12),
-            _buildRecordsSection(
-              title: 'Entrada de material',
-              icon: Icons.scale_outlined,
-              accent: const Color(0xFF2D68B2),
-              collection: 'registros_toneladas',
-            ),
-          ],
+              const SizedBox(height: 12),
+              _buildRecordsSection(
+                title: 'Entrada de material',
+                icon: Icons.scale_outlined,
+                accent: const Color(0xFF2D68B2),
+                collection: 'registros_toneladas',
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -3381,6 +3515,10 @@ class PerfilOperadorScreen extends StatelessWidget {
     required this.camion,
     required this.placas,
   });
+
+  Future<void> _refrescar() async {
+    await Future.delayed(const Duration(milliseconds: 300));
+  }
 
   void _irAInicio(BuildContext context) {
     Navigator.of(context).pushReplacement(
@@ -3556,123 +3694,127 @@ class PerfilOperadorScreen extends StatelessWidget {
             fallback: 'Sin estado GPS',
           );
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(18),
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF05316D), Color(0xFF03275A)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
+          return RefreshIndicator(
+            onRefresh: _refrescar,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(18),
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF05316D), Color(0xFF03275A)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Datos del usuario',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Información visible del operador durante la jornada.',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.82),
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Datos del usuario',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Información visible del operador durante la jornada.',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.82),
-                          height: 1.35,
-                        ),
-                      ),
-                    ],
+                  const SizedBox(height: 12),
+                  _infoCard(
+                    label: 'Operador',
+                    value: operador,
+                    icon: Icons.person_outline_rounded,
+                    color: const Color(0xFF15A56A),
                   ),
-                ),
-                const SizedBox(height: 12),
-                _infoCard(
-                  label: 'Operador',
-                  value: operador,
-                  icon: Icons.person_outline_rounded,
-                  color: const Color(0xFF15A56A),
-                ),
-                const SizedBox(height: 10),
-                _infoCard(
-                  label: 'Camión',
-                  value: camion,
-                  icon: Icons.local_shipping_outlined,
-                  color: const Color(0xFF2D68B2),
-                ),
-                const SizedBox(height: 10),
-                _infoCard(
-                  label: 'Placas',
-                  value: placas,
-                  icon: Icons.credit_card_rounded,
-                  color: const Color(0xFF7C3AED),
-                ),
-                const SizedBox(height: 10),
-                _infoCard(
-                  label: 'Jornada',
-                  value: jornadaActiva ? 'Activa' : 'Inactiva',
-                  icon: Icons.route_rounded,
-                  color: jornadaActiva
-                      ? const Color(0xFF10B981)
-                      : const Color(0xFFDC2626),
-                ),
-                const SizedBox(height: 10),
-                _infoCard(
-                  label: 'GPS',
-                  value: gpsActivo ? estadoGps : 'GPS apagado',
-                  icon: gpsActivo
-                      ? Icons.gps_fixed_rounded
-                      : Icons.gps_off_rounded,
-                  color: gpsActivo
-                      ? const Color(0xFF10B981)
-                      : const Color(0xFFDC2626),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
+                  const SizedBox(height: 10),
+                  _infoCard(
+                    label: 'Camión',
+                    value: camion,
+                    icon: Icons.local_shipping_outlined,
+                    color: const Color(0xFF2D68B2),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Resumen',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF1F2937),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        data == null
-                            ? 'No se encontró información adicional del usuario en Firestore.'
-                            : 'Aquí puedes ampliar los datos del perfil si el documento de usuario contiene más campos.',
-                        style: const TextStyle(
-                          color: Color(0xFF64748B),
-                          height: 1.35,
-                        ),
-                      ),
-                    ],
+                  const SizedBox(height: 10),
+                  _infoCard(
+                    label: 'Placas',
+                    value: placas,
+                    icon: Icons.credit_card_rounded,
+                    color: const Color(0xFF7C3AED),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 10),
+                  _infoCard(
+                    label: 'Jornada',
+                    value: jornadaActiva ? 'Activa' : 'Inactiva',
+                    icon: Icons.route_rounded,
+                    color: jornadaActiva
+                        ? const Color(0xFF10B981)
+                        : const Color(0xFFDC2626),
+                  ),
+                  const SizedBox(height: 10),
+                  _infoCard(
+                    label: 'GPS',
+                    value: gpsActivo ? estadoGps : 'GPS apagado',
+                    icon: gpsActivo
+                        ? Icons.gps_fixed_rounded
+                        : Icons.gps_off_rounded,
+                    color: gpsActivo
+                        ? const Color(0xFF10B981)
+                        : const Color(0xFFDC2626),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Resumen',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1F2937),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          data == null
+                              ? 'No se encontró información adicional del usuario en Firestore.'
+                              : 'Aquí puedes ampliar los datos del perfil si el documento de usuario contiene más campos.',
+                          style: const TextStyle(
+                            color: Color(0xFF64748B),
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         },
