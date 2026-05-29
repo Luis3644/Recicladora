@@ -1,11 +1,11 @@
 {
-    "name": "flutter_application_1",
-    "short_name": "flutter_application_1",
+    "name": "Recicladora Guadalajara",
+    "short_name": "Recicladora",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0F2754",
+    "theme_color": "#0F2754",
+    "description": "App de gestión para Recicladora Guadalajara.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
