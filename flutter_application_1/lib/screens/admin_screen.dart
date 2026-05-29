@@ -779,7 +779,7 @@ class _AdminScreenState extends State<AdminScreen>
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: Image.asset(
-                'assets/logo circular.jpeg',
+                'assets/logo icono.jpeg',
                 height: 38,
                 width: 38,
                 fit: BoxFit.cover,
