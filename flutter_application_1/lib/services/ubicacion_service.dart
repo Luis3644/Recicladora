@@ -285,6 +285,13 @@ class UbicacionService {
 
     // Usar el UID del usuario autenticado como identificador principal.
     final uidDocId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final operadorTrim = _operador?.trim() ?? '';
+    if (uidDocId.isNotEmpty) {
+      data['uid'] = uidDocId;
+    }
+    if (operadorTrim.isNotEmpty) {
+      data['nombre'] = operadorTrim;
+    }
     
     if (uidDocId.isNotEmpty) {
       // Actualizamos el documento maestro (UID)
@@ -292,24 +299,23 @@ class UbicacionService {
           .collection('usuarios')
           .doc(uidDocId)
           .set(data, SetOptions(merge: true));
-      
-      // Si el operador (nombre) es distinto al UID, intentamos actualizarlo 
-      // para mantener consistencia, pero sin crearlo si no existe (usando update).
-      if (_operador != null && _operador != uidDocId) {
+
+      // Si existe un documento legacy por nombre, desactivar su GPS para evitar duplicados.
+      if (operadorTrim.isNotEmpty && operadorTrim != uidDocId) {
         try {
           await FirebaseFirestore.instance
               .collection('usuarios')
-              .doc(_operador!)
-              .update(data);
+              .doc(operadorTrim)
+              .update({'gps_activo': false});
         } catch (_) {
           // Si no existe el documento por nombre, no lo creamos.
         }
       }
-    } else if (_operador != null) {
+    } else if (operadorTrim.isNotEmpty) {
       // Fallback si no hay UID (por seguridad)
       await FirebaseFirestore.instance
           .collection('usuarios')
-          .doc(_operador!)
+          .doc(operadorTrim)
           .set(data, SetOptions(merge: true));
     }
   }

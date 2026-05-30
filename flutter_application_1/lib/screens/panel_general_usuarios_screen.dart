@@ -303,7 +303,15 @@ class _PanelGeneralUsuariosScreenState extends State<PanelGeneralUsuariosScreen>
                       );
                     }
 
-                    final docs = [...snapshot.data!.docs];
+                    final docs = snapshot.data!.docs.where((doc) {
+                      final data = doc.data();
+                      final uid = data['uid']?.toString().trim() ?? '';
+                      if (uid.isNotEmpty && doc.id != uid) {
+                        // Evitar duplicados por documentos legacy (nombre).
+                        return false;
+                      }
+                      return true;
+                    }).toList();
                     docs.sort((a, b) {
                       final an = (a.data()['nombre']?.toString().trim() ?? '')
                           .toLowerCase();

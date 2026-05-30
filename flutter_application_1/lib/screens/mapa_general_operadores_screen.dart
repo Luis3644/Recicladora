@@ -290,6 +290,12 @@ class _MapaGeneralOperadoresScreenState
 
           for (final doc in docs) {
             final d = doc.data();
+            final uid = d['uid']?.toString().trim() ?? '';
+            if (uid.isNotEmpty && doc.id != uid) {
+              // Evitar duplicados: ignorar documentos legacy por nombre
+              // cuando ya existe el documento maestro por UID.
+              continue;
+            }
             final pos = _parsePos(d);
             if (pos == null) continue;
 

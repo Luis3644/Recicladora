@@ -593,6 +593,30 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                               password: contrasenaNueva.text.trim(),
                             );
 
+                            final nombreDoc = nombre.text.trim();
+                            if (nombreDoc.isNotEmpty && nombreDoc != uidNuevo) {
+                              try {
+                                final legacyRef = FirebaseFirestore.instance
+                                    .collection('usuarios')
+                                    .doc(nombreDoc);
+                                final legacySnap = await legacyRef.get();
+                                if (legacySnap.exists) {
+                                  final legacyEmail =
+                                      legacySnap.data()?['email']
+                                          ?.toString()
+                                          .trim()
+                                          .toLowerCase() ??
+                                      '';
+                                  if (legacyEmail == emailNormalizado) {
+                                    await legacyRef.set({
+                                      'uid': uidNuevo,
+                                      'gps_activo': false,
+                                    }, SetOptions(merge: true));
+                                  }
+                                }
+                              } catch (_) {}
+                            }
+
                             datos.addAll({
                               "uid": uidNuevo,
                               "fecha_registro": FieldValue.serverTimestamp(),
@@ -922,6 +946,11 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
 
                 final usuarios = snapshot.data!.docs.where((doc) {
                   final data = doc.data() as Map<String, dynamic>;
+                  final uid = data['uid']?.toString().trim() ?? '';
+                  if (uid.isNotEmpty && doc.id != uid) {
+                    // Evitar duplicados por documentos legacy (nombre).
+                    return false;
+                  }
                   return data['activo'] != false;
                 }).toList();
 
