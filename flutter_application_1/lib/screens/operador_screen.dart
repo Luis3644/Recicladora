@@ -10,6 +10,7 @@ import 'confirmar_camion_screen.dart';
 import 'login_screen.dart';
 import 'widgets/notificaciones_drawer.dart';
 import '../services/update_service.dart';
+import '../utils/manual_pdf.dart';
 
 // ConnectionWrapper ya NO se importa aquí — se aplica globalmente desde main.dart
 
@@ -516,6 +517,17 @@ class _OperadorScreenState extends State<OperadorScreen> {
               onTap: () async {
                 Navigator.of(context).pop();
                 await UpdateService.checkAndShowUpdateDialog(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.menu_book_rounded, color: _primary2),
+              title: const Text(
+                'Manual de uso de app',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              onTap: () async {
+                Navigator.of(context).pop();
+                await openManualPdf(context);
               },
             ),
             ListTile(

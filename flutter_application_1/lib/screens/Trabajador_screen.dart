@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../config/session_manager.dart';
 import '../services/update_service.dart';
+import '../utils/manual_pdf.dart';
 
 import 'login_screen.dart';
 import 'widgets/notificaciones_drawer.dart';
@@ -878,6 +879,17 @@ class _TrabajadorScreen extends State<TrabajadorScreen>
             onTap: () async {
               Navigator.of(context).pop();
               await UpdateService.checkAndShowUpdateDialog(context);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.menu_book_rounded, color: Color(0xFF059669)),
+            title: const Text(
+              'Manual de uso de app',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            onTap: () async {
+              Navigator.of(context).pop();
+              await openManualPdf(context);
             },
           ),
           ListTile(

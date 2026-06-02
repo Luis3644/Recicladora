@@ -18,6 +18,7 @@ import 'widgets/notificaciones_drawer.dart';
 import 'widgets/reportes_equipo_screen.dart';
 import 'widgets/reporte_toneladas_camiones_screen.dart';
 import '../services/update_service.dart';
+import '../utils/manual_pdf.dart';
 
 import 'gestion_camiones_screen.dart';
 import 'ReportesCamionesAdminScreen.dart';
@@ -723,6 +724,18 @@ class _AdminScreenState extends State<AdminScreen>
             },
           ),
 
+          ListTile(
+            leading: Icon(Icons.menu_book_rounded, color: accentColor),
+            title: const Text(
+              'Manual de uso de app',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            onTap: () async {
+              Navigator.pop(context);
+              await openManualPdf(context);
+            },
+          ),
+
           const Divider(height: 1),
 
           // ── Cerrar Sesión ────────────────────────────────────────────────
@@ -779,7 +792,7 @@ class _AdminScreenState extends State<AdminScreen>
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: Image.asset(
-                'assets/logo icono.jpeg',
+                'assets/logo-icono.jpeg',
                 height: 38,
                 width: 38,
                 fit: BoxFit.cover,

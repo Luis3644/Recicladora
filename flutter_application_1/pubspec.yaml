@@ -1,7 +1,7 @@
 name: flutter_application_1
 description: "A new Flutter project."
 publish_to: 'none'
-version: 1.2.1+9
+version: 1.2.3+11
 
 environment:
   sdk: ^3.11.0
@@ -54,6 +54,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - MANUAL PROYECTO.pdf
     - assets/imagen splassh screen movil.jpeg
     - assets/splash screen pc.jpeg
     - assets/imagenes/equipo/
